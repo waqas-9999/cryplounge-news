@@ -1,3 +1,5 @@
-// Add any additional PostCSS configuration here
+const config = {
+  plugins: ["@tailwindcss/postcss"],
+};
 
-export default {}
+export default config;
