@@ -175,7 +175,7 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
               </label>
               <button
                 type="button"
-                onClick={() => onNavigate('admin/forgot-password')}
+                onClick={() => onNavigate('forgot-password')}
                 className="text-sm text-yellow-600 dark:text-yellow-400 hover:underline"
               >
                 Forgot password?
