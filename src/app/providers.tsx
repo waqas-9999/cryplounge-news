@@ -7,7 +7,6 @@ import { EcosystemsProvider } from '@/contexts/EcosystemsContext';
 import { EcosystemBannersProvider } from '@/contexts/EcosystemBannersContext';
 import { EventsProvider } from '@/contexts/EventsContext';
 import { FoundersProvider } from '@/contexts/FoundersContext';
-import { PromotionsProvider } from '@/contexts/PromotionsContext';
 
 /**
  * All application context providers, composed once.
@@ -22,9 +21,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <EcosystemsProvider>
           <EcosystemBannersProvider>
             <FoundersProvider>
-              <EventsProvider>
-                <PromotionsProvider>{children}</PromotionsProvider>
-              </EventsProvider>
+              <EventsProvider>{children}</EventsProvider>
             </FoundersProvider>
           </EcosystemBannersProvider>
         </EcosystemsProvider>
