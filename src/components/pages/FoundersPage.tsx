@@ -96,13 +96,17 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
               <span className="px-3 py-1 bg-white dark:bg-[#EFB81A]/20 text-gray-800 dark:text-[#EFB81A] rounded-lg text-xs">{featuredStoriesData[0]?.region || 'Global'}</span>
               <span className="px-3 py-1 bg-white dark:bg-[#EFB81A]/20 text-gray-800 dark:text-[#EFB81A] rounded-lg text-xs">{featuredStoriesData[0]?.ecosystem || 'Ethereum'}</span>
             </div>
-            <button 
-              onClick={() => onNavigate(`founders/${featuredStoriesData[0]?.slug || 'founder'}`)}
-              className="px-6 py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/80 transition-colors flex items-center gap-2 w-fit"
-              aria-label={`Read full story about ${featuredStoriesData[0]?.name || 'featured profile'}`}
+            {featuredStoriesData[0]?.socialLinks?.website && (
+              <a
+                href={featuredStoriesData[0].socialLinks.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/80 transition-colors flex items-center gap-2 w-fit"
+                aria-label={`Visit the website of ${featuredStoriesData[0]?.name ?? 'this founder'}`}
             >
-              Read Full Story <ArrowRight className="w-4 h-4" />
-            </button>
+              Visit Website <ArrowRight className="w-4 h-4" aria-hidden="true" />
+            </a>
+          )}
           </div>
           <div className="aspect-[4/3] lg:aspect-auto">
             <img 
@@ -124,11 +128,9 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {featuredStoriesData.slice(1).map((story) => (
-            <button
+            <article
               key={story.id}
-              onClick={() => onNavigate(`founders/${story.slug}`)}
               className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all text-left group"
-              aria-label={`Read story about ${story.name}, ${story.role}`}
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="aspect-[4/3] sm:aspect-auto overflow-hidden">
@@ -151,7 +153,7 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
                   </div>
                 </div>
               </div>
-            </button>
+            </article>
           ))}
         </div>
       </div>
@@ -172,11 +174,9 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredStories.map((story) => (
-            <button
+            <article
               key={story.id}
-              onClick={() => onNavigate(`founders/${story.slug}`)}
               className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all text-left group"
-              aria-label={`Read story about ${story.name}, ${story.role} in ${story.category}`}
             >
               <div className="aspect-[16/10] overflow-hidden">
                 <img 
@@ -200,7 +200,7 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
                   </span>
                 </div>
               </div>
-            </button>
+            </article>
           ))}
         </div>
       </div>
@@ -237,7 +237,7 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
           Share your story with our community and inspire the next generation of builders
         </p>
         <button 
-          onClick={() => onNavigate('founders/submit')}
+          onClick={() => onNavigate('submit-story')}
           className="px-8 py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] dark:hover:bg-white dark:hover:text-black transition-colors"
           aria-label="Submit your story to Yellow Page"
         >

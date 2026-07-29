@@ -3,7 +3,8 @@ import { EventsView } from '@/views';
 
 export const metadata: Metadata = {
   title: 'Events',
-  description: 'Conferences, hackathons, AMAs and token launches across the crypto calendar.',
+  description:
+    'Conferences, hackathons, workshops and meetups across the crypto and blockchain calendar.',
   alternates: { canonical: '/events' },
 };
 

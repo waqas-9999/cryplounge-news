@@ -188,10 +188,10 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => onNavigate('signup')}
+              onClick={() => onNavigate('newsletter')}
               className="px-8 py-4 bg-white text-gray-900 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              Create Free Account
+              Subscribe to Newsletter
             </button>
             <button
               onClick={() => onNavigate('contact')}

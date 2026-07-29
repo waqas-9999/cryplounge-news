@@ -17,10 +17,7 @@ import { AdminLoginPage } from '@/components/pages/admin/AdminLoginPage';
 import { AdminDashboardPage } from '@/components/pages/admin/AdminDashboardPage';
 import { AdminProfilePage } from '@/components/pages/admin/AdminProfilePage';
 import { AILogsPage } from '@/components/pages/admin/AILogsPage';
-import { BehaviorTrackingPage } from '@/components/pages/admin/BehaviorTrackingPage';
-import { UserAnalyticsPage } from '@/components/pages/admin/UserAnalyticsPage';
 import { UsersListPage } from '@/components/pages/admin/UsersListPage';
-import { ReportsExportPage } from '@/components/pages/admin/ReportsExportPage';
 import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsPage';
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
 
@@ -86,20 +83,8 @@ export function AdminAILogsView() {
   return <AILogsPage {...useAdminChrome()} />;
 }
 
-export function AdminTrackingView() {
-  return <BehaviorTrackingPage {...useAdminChrome()} />;
-}
-
 export function AdminUsersView() {
   return <UsersListPage {...useAdminChrome()} />;
-}
-
-export function AdminUserAnalyticsView() {
-  return <UserAnalyticsPage {...useAdminChrome()} />;
-}
-
-export function AdminReportsExportView() {
-  return <ReportsExportPage {...useAdminChrome()} />;
 }
 
 export function AdminRolesPermissionsView() {

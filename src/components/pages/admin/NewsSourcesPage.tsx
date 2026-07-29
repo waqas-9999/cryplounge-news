@@ -51,7 +51,7 @@ export function NewsSourcesPage({ currentPage, onNavigate, onLogout }: NewsSourc
       enabled: true,
       lastFetch: '2025-11-13T10:30:00',
       articlesCount: 247,
-      category: 'Finance',
+      category: 'Market',
       autoPublish: false,
       requiresApproval: true
     },
@@ -63,7 +63,7 @@ export function NewsSourcesPage({ currentPage, onNavigate, onLogout }: NewsSourc
       enabled: true,
       lastFetch: '2025-11-13T09:45:00',
       articlesCount: 156,
-      category: 'Finance',
+      category: 'Market',
       autoPublish: false,
       requiresApproval: true
     },

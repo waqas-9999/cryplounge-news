@@ -81,15 +81,15 @@ export function MarketsPage({ images, onNavigate }: MarketsPageProps) {
               <h3 className="text-gray-800 dark:text-[#F3F3F5] text-lg md:text-xl">Latest in {displayTitle}</h3>
             </div>
             <div className="space-y-3 md:space-y-4 bg-white dark:bg-[#1A1A1A] rounded-xl md:rounded-2xl p-4 md:p-6 border border-gray-200 dark:border-gray-800 transition-colors">
-              <LatestNewsCard category="Bitcoin" categorySlug={category} time="2 hours ago" title="Bitcoin Dominance Rises to 58% as Altcoins Consolidate" image={vrImage} articleSlug="bitcoin-dominance-rises" onNavigate={onNavigate} />
+              <LatestNewsCard category="Market" categorySlug={category} time="2 hours ago" title="Bitcoin Dominance Rises to 58% as Altcoins Consolidate" image={vrImage} articleSlug="bitcoin-dominance-rises" onNavigate={onNavigate} />
               <div className="h-px bg-gray-100 dark:bg-white/[0.08]"></div>
-              <LatestNewsCard category="Ethereum" categorySlug={category} time="4 hours ago" title="Ethereum Gas Fees Hit Six-Month Low as Blob Transactions Scale" image={solanaImage} articleSlug="ethereum-gas-fees-low" onNavigate={onNavigate} />
+              <LatestNewsCard category="Market" categorySlug={category} time="4 hours ago" title="Ethereum Gas Fees Hit Six-Month Low as Blob Transactions Scale" image={solanaImage} articleSlug="ethereum-gas-fees-low" onNavigate={onNavigate} />
               <div className="h-px bg-gray-100 dark:bg-white/[0.08]"></div>
               <LatestNewsCard category="ETF" categorySlug={category} time="5 hours ago" title="Spot Bitcoin ETFs Record $800M in Single-Day Inflows" image={speakerImage} articleSlug="spot-btc-etf-inflows" onNavigate={onNavigate} />
               <div className="h-px bg-gray-100 dark:bg-white/[0.08]"></div>
               <LatestNewsCard category="Technical Analysis" categorySlug={category} time="7 hours ago" title="BTC Chart Forms Classic Bull Flag Pattern, Analysts Target $120K" image={documentImage} articleSlug="btc-bull-flag-pattern" onNavigate={onNavigate} />
               <div className="h-px bg-gray-100 dark:bg-white/[0.08]"></div>
-              <LatestNewsCard category="Altcoins" categorySlug={category} time="9 hours ago" title="Solana, Avalanche Lead Altcoin Rally With Double-Digit Gains" image={asianBusinessmanImage} articleSlug="sol-avax-altcoin-rally" onNavigate={onNavigate} />
+              <LatestNewsCard category="Market" categorySlug={category} time="9 hours ago" title="Solana, Avalanche Lead Altcoin Rally With Double-Digit Gains" image={asianBusinessmanImage} articleSlug="sol-avax-altcoin-rally" onNavigate={onNavigate} />
             </div>
           </div>
         </div>
@@ -156,14 +156,14 @@ export function MarketsPage({ images, onNavigate }: MarketsPageProps) {
           <h3 className="text-gray-800 dark:text-[#F3F3F5] text-lg md:text-xl">More in {displayTitle}</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <TrendingCard category="Bitcoin" categorySlug={category} time="10 hours ago" title="Bitcoin Halving Countdown: 30 Days and Price Implications" tags={['Bitcoin', 'Halving']} image={vrImage} articleSlug="bitcoin-halving-countdown" onNavigate={onNavigate} />
-          <TrendingCard category="Ethereum" categorySlug={category} time="11 hours ago" title="Ethereum Staking Yield Rises to 6.2% After Network Upgrade" tags={['Ethereum', 'Staking']} image={phoneImage} articleSlug="ethereum-staking-yield" onNavigate={onNavigate} />
+          <TrendingCard category="Market" categorySlug={category} time="10 hours ago" title="Bitcoin Halving Countdown: 30 Days and Price Implications" tags={['Bitcoin', 'Halving']} image={vrImage} articleSlug="bitcoin-halving-countdown" onNavigate={onNavigate} />
+          <TrendingCard category="Market" categorySlug={category} time="11 hours ago" title="Ethereum Staking Yield Rises to 6.2% After Network Upgrade" tags={['Ethereum', 'Staking']} image={phoneImage} articleSlug="ethereum-staking-yield" onNavigate={onNavigate} />
           <TrendingCard category="Investment" categorySlug={category} time="12 hours ago" title="Crypto Hedge Funds Outperform S&P 500 by 3x in Q1 2026" tags={['Investment', 'Hedge Funds']} image={businessmanImage} articleSlug="crypto-hedge-fund-performance" onNavigate={onNavigate} />
           <TrendingCard category="Technical Analysis" categorySlug={category} time="13 hours ago" title="Ethereum Breaks Key Resistance, Bulls Target $5,000 Next" tags={['ETH', 'Technical']} image={solanaImage} articleSlug="eth-technical-resistance" onNavigate={onNavigate} />
           <TrendingCard category="Stablecoins" categorySlug={category} time="14 hours ago" title="USDT Supply Hits $120B as Demand for Dollar-Pegged Assets Grows" tags={['USDT', 'Stablecoins']} image={speakerImage} articleSlug="usdt-supply-record" onNavigate={onNavigate} />
           <TrendingCard category="ETF" categorySlug={category} time="16 hours ago" title="Ethereum ETF Applications Stack Up as Approval Window Opens" tags={['ETH ETF', 'SEC']} image={documentImage} articleSlug="ethereum-etf-applications" onNavigate={onNavigate} />
-          <TrendingCard category="Altcoins" categorySlug={category} time="18 hours ago" title="Cardano ADA Rallies 35% on Smart Contract Upgrade Announcement" tags={['Cardano', 'ADA']} image={asianBusinessmanImage} articleSlug="cardano-ada-rally" onNavigate={onNavigate} />
-          <TrendingCard category="Markets" categorySlug={category} time="20 hours ago" title="Crypto Fear & Greed Index Enters Extreme Greed Territory" tags={['Sentiment', 'Markets']} image={vrImage} articleSlug="fear-greed-extreme-greed" onNavigate={onNavigate} />
+          <TrendingCard category="Market" categorySlug={category} time="18 hours ago" title="Cardano ADA Rallies 35% on Smart Contract Upgrade Announcement" tags={['Cardano', 'ADA']} image={asianBusinessmanImage} articleSlug="cardano-ada-rally" onNavigate={onNavigate} />
+          <TrendingCard category="Market" categorySlug={category} time="20 hours ago" title="Crypto Fear & Greed Index Enters Extreme Greed Territory" tags={['Sentiment', 'Markets']} image={vrImage} articleSlug="fear-greed-extreme-greed" onNavigate={onNavigate} />
         </div>
         <div className="flex items-center justify-center gap-2 mt-8">
           <button onClick={() => setCurrentArticlePage(p => Math.max(1, p - 1))} disabled={currentArticlePage === 1} className="p-2 rounded-lg bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-gray-800 text-gray-800 dark:text-[#F3F3F5] hover:border-[#EFB81A] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft className="w-5 h-5" /></button>

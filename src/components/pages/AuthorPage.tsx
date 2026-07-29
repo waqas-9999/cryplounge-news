@@ -23,14 +23,14 @@ const MOCK_AUTHOR = {
 };
 
 const MOCK_ARTICLES = [
-  { title: 'Bitcoin Dominance Rises to 58% as Altcoins Consolidate Gains', category: 'Markets', time: '2 hours ago', slug: 'btc-dominance-rises' },
+  { title: 'Bitcoin Dominance Rises to 58% as Altcoins Consolidate Gains', category: 'Market', time: '2 hours ago', slug: 'btc-dominance-rises' },
   { title: 'Ethereum Layer 2 Networks Hit Combined $50B in Total Value Locked', category: 'Ecosystem', time: '1 day ago', slug: 'eth-l2-tvl-record' },
-  { title: 'SEC Approves New Crypto ETF Applications from Major Asset Managers', category: 'Regulation', time: '3 days ago', slug: 'sec-crypto-etf-approvals' },
-  { title: 'DeFi Protocol Aave Launches V4 with Cross-Chain Liquidity Features', category: 'DeFi', time: '5 days ago', slug: 'aave-v4-launch' },
-  { title: 'BlackRock Bitcoin ETF Surpasses $20B in Assets Under Management', category: 'Markets', time: '1 week ago', slug: 'blackrock-btc-etf-aua' },
-  { title: 'MiCA Full Implementation Brings Legal Clarity to 450M EU Citizens', category: 'Regulation', time: '1 week ago', slug: 'mica-full-implementation' },
-  { title: 'Solana DeFi Volume Overtakes Ethereum for First Time in 2026', category: 'DeFi', time: '2 weeks ago', slug: 'solana-defi-overtakes-eth' },
-  { title: 'Stablecoin Payment Volume Exceeds $1 Trillion Annually, Rivals Visa', category: 'Markets', time: '2 weeks ago', slug: 'stablecoin-payment-volume' },
+  { title: 'SEC Approves New Crypto ETF Applications from Major Asset Managers', category: 'Policy', time: '3 days ago', slug: 'sec-crypto-etf-approvals' },
+  { title: 'DeFi Protocol Aave Launches V4 with Cross-Chain Liquidity Features', category: 'Industry', time: '5 days ago', slug: 'aave-v4-launch' },
+  { title: 'BlackRock Bitcoin ETF Surpasses $20B in Assets Under Management', category: 'Market', time: '1 week ago', slug: 'blackrock-btc-etf-aua' },
+  { title: 'MiCA Full Implementation Brings Legal Clarity to 450M EU Citizens', category: 'Policy', time: '1 week ago', slug: 'mica-full-implementation' },
+  { title: 'Solana DeFi Volume Overtakes Ethereum for First Time in 2026', category: 'Industry', time: '2 weeks ago', slug: 'solana-defi-overtakes-eth' },
+  { title: 'Stablecoin Payment Volume Exceeds $1 Trillion Annually, Rivals Visa', category: 'Market', time: '2 weeks ago', slug: 'stablecoin-payment-volume' },
 ];
 
 export default function AuthorPage({ onNavigate, authorSlug }: AuthorPageProps) {

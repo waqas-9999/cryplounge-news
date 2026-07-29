@@ -50,8 +50,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
         <div className="lg:col-span-2 space-y-4 sm:space-y-5 md:space-y-6">
           <HeroArticle 
-            category="Finance"
-            categorySlug="finance"
+            category="Market"
+            categorySlug="market"
             time="4 hours ago"
             title="Bitcoin ETFs Could Surpass Entire $50 Billion Crypto ETP Market: Major Financial Institutions Embrace Crypto"
             tags={['Finance', 'Investment']}
@@ -69,8 +69,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
               onNavigate={onNavigate}
             />
             <ArticleCardSmall 
-              category="Geopolitics"
-              categorySlug="geopolitics"
+              category="Policy"
+              categorySlug="policy"
               time="6 hours ago"
               title="Global Regulations Reshape Cryptocurrency Landscape as Nations Collaborate..."
               articleSlug="global-crypto-regulations-2026"
@@ -91,7 +91,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-gray-800 dark:text-[#F3F3F5] text-base sm:text-lg md:text-xl">Recommended</h2>
             <button 
-              onClick={() => onNavigate && onNavigate('news/finance')}
+              onClick={() => onNavigate && onNavigate('news/market')}
               className="text-xs sm:text-sm text-gray-600 dark:text-[#A0A0A5] hover:text-gray-800 dark:hover:text-yellow-400 transition-colors flex items-center gap-1 min-h-[44px] items-center"
             >
               View all <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -99,8 +99,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           </div>
           
           <RecommendedCard 
-            category="Finance"
-            categorySlug="finance"
+            category="Market"
+            categorySlug="market"
             time="3 hours ago"
             title="US-Approved Spot Bitcoin ETFs Could Surpass Entire $50 Billion Crypto ETP Market: BitMEX"
             image={businessmanImage}
@@ -120,8 +120,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
               onNavigate={onNavigate}
             />
             <RecommendedCard 
-              category="Geopolitics"
-              categorySlug="geopolitics"
+              category="Policy"
+              categorySlug="policy"
               time="5 hours ago"
               title="G20 Nations Reach Consensus on Global Cryptocurrency Regulatory Framework"
               image={solanaImage}
@@ -138,8 +138,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
               onNavigate={onNavigate}
             />
             <RecommendedCard 
-              category="Finance"
-              categorySlug="finance"
+              category="Market"
+              categorySlug="market"
               time="7 hours ago"
               title="Stablecoin Payment Volume Exceeds $1 Trillion Annually, Rivals Traditional Networks"
               image={documentImage}
@@ -158,7 +158,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
               <span className="text-black dark:text-[#EFB81A] text-xs md:text-sm">LATEST NEWS</span>
             </div>
             <button 
-              onClick={() => onNavigate && onNavigate('news/finance')}
+              onClick={() => onNavigate && onNavigate('news/market')}
               className="px-4 md:px-5 py-2 md:py-2.5 text-gray-800 dark:text-gray-200 hover:text-[#EFB81A] transition-colors flex items-center gap-2 text-sm"
             >
               View more <ArrowRight className="w-4 h-4" />
@@ -166,7 +166,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           </div>
           
           <div 
-            onClick={() => onNavigate && onNavigate('news/finance/cbdc-global-adoption-2026')}
+            onClick={() => onNavigate && onNavigate('news/market/cbdc-global-adoption-2026')}
             className="bg-white dark:bg-[#1A1A1C] rounded-2xl md:rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-gray-100 dark:border-gray-800 transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
           >
             <div className="mb-3 md:mb-4">
@@ -197,8 +197,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             <TrendingCard 
-              category="Finance"
-              categorySlug="finance"
+              category="Market"
+              categorySlug="market"
               time="3 hours ago"
               title="Crypto Market Cap Surpasses $2 Trillion as Institutional Money Flows In..."
               tags={['Finance', 'Markets']}
@@ -235,8 +235,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <TrendingCard 
-            category="Finance"
-            categorySlug="finance"
+            category="Market"
+            categorySlug="market"
             time="6 hours ago"
             title="Major Exchange Announces Support for New Layer 2 Solutions..."
             tags={['Finance', 'Trading']}
@@ -265,8 +265,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             onNavigate={onNavigate}
           />
           <TrendingCard 
-            category="Geopolitics"
-            categorySlug="geopolitics"
+            category="Policy"
+            categorySlug="policy"
             time="9 hours ago"
             title="New Security Protocol Prevents $500M in Potential Hacks This Year..."
             tags={['Geopolitics', 'Security']}
@@ -275,8 +275,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             onNavigate={onNavigate}
           />
           <TrendingCard 
-            category="Geopolitics"
-            categorySlug="geopolitics"
+            category="Policy"
+            categorySlug="policy"
             time="10 hours ago"
             title="EU Announces New Crypto Regulation Framework for 2026..."
             tags={['Geopolitics', 'Regulation']}
@@ -315,8 +315,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
       {/* Featured News Section */}
       <FeaturedNewsSection 
         mainImage={asianBusinessmanImage}
-        mainCategory="Finance"
-        mainCategorySlug="finance"
+        mainCategory="Market"
+        mainCategorySlug="market"
         mainArticleSlug="bitcoin-institutional-investment-surge"
         mainTitle="Over 65% of Crypto-Related Tweets and 84% of Conversations on Reddit Were Positive in 2023"
         mainTags={['Bitcoin', 'Institutional']}
@@ -330,8 +330,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             articleSlug: "ethereum-price-catalyst-analysis"
           },
           {
-            category: "Finance",
-            categorySlug: "finance",
+            category: "Market",
+            categorySlug: "market",
             time: "3 hours ago",
             title: "Over 65% of Crypto-Related Tweets and 84% of Conversations on Reddit Were Positive in 2023",
             articleSlug: "defi-adoption-metrics-2024"
@@ -395,8 +395,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             <TrendingCard 
-              category="Finance"
-              categorySlug="finance"
+              category="Market"
+              categorySlug="market"
               time="1 day ago"
               title="Bitcoin ETF Approval Impact on Market Dynamics..."
               tags={['Finance', 'ETF']}
@@ -405,8 +405,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
               onNavigate={onNavigate}
             />
             <TrendingCard 
-              category="Geopolitics"
-              categorySlug="geopolitics"
+              category="Policy"
+              categorySlug="policy"
               time="1 day ago"
               title="US Congress Passes Comprehensive Crypto Regulation Framework..."
               tags={['Regulation', 'Policy']}
@@ -443,8 +443,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             onNavigate={onNavigate}
           />
           <TrendingCard 
-            category="Finance"
-            categorySlug="finance"
+            category="Market"
+            categorySlug="market"
             time="3 days ago"
             title="Stablecoin Adoption Reaches New Heights in 2026..."
             tags={['Finance', 'Stablecoins']}
@@ -463,8 +463,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             onNavigate={onNavigate}
           />
           <TrendingCard 
-            category="Geopolitics"
-            categorySlug="geopolitics"
+            category="Policy"
+            categorySlug="policy"
             time="4 days ago"
             title="G7 Nations Announce Joint CBDC Initiative..."
             tags={['Geopolitics', 'CBDC']}
@@ -497,7 +497,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             <span className="text-green-900 dark:text-green-200 text-xs md:text-sm">MARKET</span>
           </div>
           <button 
-            onClick={() => onNavigate && onNavigate('news/finance')}
+            onClick={() => onNavigate && onNavigate('news/market')}
             className="text-xs md:text-sm text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1"
           >
             View more <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
@@ -510,11 +510,11 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {[
-            { image: asianBusinessmanImage, category: 'Finance', slug: 'bitcoin-price-surge-2026', title: 'Bitcoin Price Surges to New All-Time High Above $75K...' },
-            { image: vrImage, category: 'Finance', slug: 'ethereum-defi-dominance', title: 'Ethereum DeFi TVL Reaches $200 Billion Milestone...' },
-            { image: phoneImage, category: 'Finance', slug: 'altcoin-market-rally', title: 'Altcoin Market Sees 300% Growth in Q1 2026...' },
-            { image: businessmanImage, category: 'Finance', slug: 'institutional-crypto-investments', title: 'Institutional Investors Allocate $50B to Crypto...' },
-            { image: speakerImage, category: 'Finance', slug: 'stablecoin-market-expansion', title: 'Stablecoin Market Cap Exceeds $300 Billion...' }
+            { image: asianBusinessmanImage, category: 'Market', slug: 'bitcoin-price-surge-2026', title: 'Bitcoin Price Surges to New All-Time High Above $75K...' },
+            { image: vrImage, category: 'Market', slug: 'ethereum-defi-dominance', title: 'Ethereum DeFi TVL Reaches $200 Billion Milestone...' },
+            { image: phoneImage, category: 'Market', slug: 'altcoin-market-rally', title: 'Altcoin Market Sees 300% Growth in Q1 2026...' },
+            { image: businessmanImage, category: 'Market', slug: 'institutional-crypto-investments', title: 'Institutional Investors Allocate $50B to Crypto...' },
+            { image: speakerImage, category: 'Market', slug: 'stablecoin-market-expansion', title: 'Stablecoin Market Cap Exceeds $300 Billion...' }
           ].map((item, idx) => (
             <div key={idx} className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start">
               <TrendingCard 
@@ -554,7 +554,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             <span className="text-purple-900 dark:text-purple-200 text-xs md:text-sm">GEOPOLITICS</span>
           </div>
           <button 
-            onClick={() => onNavigate && onNavigate('news/geopolitics')}
+            onClick={() => onNavigate && onNavigate('news/policy')}
             className="text-xs md:text-sm text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1"
           >
             View more <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
@@ -567,11 +567,11 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {[
-            { image: speakerImage, category: 'Geopolitics', slug: 'us-crypto-regulation-2026', title: 'US Congress Passes Comprehensive Crypto Regulation Bill...' },
-            { image: businessmanImage, category: 'Geopolitics', slug: 'eu-mica-implementation', title: 'EU MiCA Regulation Goes Into Effect Across Member States...' },
-            { image: asianBusinessmanImage, category: 'Geopolitics', slug: 'asia-crypto-adoption', title: 'Asian Nations Lead Global Crypto Adoption in 2026...' },
-            { image: phoneImage, category: 'Geopolitics', slug: 'g20-crypto-framework', title: 'G20 Summit Unveils Unified Crypto Regulatory Framework...' },
-            { image: vrImage, category: 'Geopolitics', slug: 'cbdc-global-expansion', title: 'Over 100 Countries Now Exploring or Piloting CBDCs...' }
+            { image: speakerImage, category: 'Policy', slug: 'us-crypto-regulation-2026', title: 'US Congress Passes Comprehensive Crypto Regulation Bill...' },
+            { image: businessmanImage, category: 'Policy', slug: 'eu-mica-implementation', title: 'EU MiCA Regulation Goes Into Effect Across Member States...' },
+            { image: asianBusinessmanImage, category: 'Policy', slug: 'asia-crypto-adoption', title: 'Asian Nations Lead Global Crypto Adoption in 2026...' },
+            { image: phoneImage, category: 'Policy', slug: 'g20-crypto-framework', title: 'G20 Summit Unveils Unified Crypto Regulatory Framework...' },
+            { image: vrImage, category: 'Policy', slug: 'cbdc-global-expansion', title: 'Over 100 Countries Now Exploring or Piloting CBDCs...' }
           ].map((item, idx) => (
             <div key={idx} className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start">
               <TrendingCard 
@@ -608,8 +608,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
       <BestOfMonthSection 
         title="POLICY"
         featuredArticle={{
-          category: "Geopolitics",
-          categorySlug: "geopolitics",
+          category: "Policy",
+          categorySlug: "policy",
           time: "1 day ago",
           title: "Global Monetary Policy Shift: Central Banks Embrace Digital Currency Infrastructure",
           image: speakerImage,
@@ -617,24 +617,24 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
         }}
         sideArticles={[
           {
-            category: "Geopolitics",
-            categorySlug: "geopolitics",
+            category: "Policy",
+            categorySlug: "policy",
             time: "2 days ago",
             title: "International Regulatory Bodies Release Joint Cryptocurrency Guidelines",
             image: solanaImage,
             articleSlug: "international-crypto-guidelines"
           },
           {
-            category: "Geopolitics",
-            categorySlug: "geopolitics",
+            category: "Policy",
+            categorySlug: "policy",
             time: "3 days ago",
             title: "G20 Summit: Nations Agree on Unified Cryptocurrency Regulatory Framework",
             image: phoneImage,
             articleSlug: "g20-unified-crypto-regulation"
           },
           {
-            category: "Geopolitics",
-            categorySlug: "geopolitics",
+            category: "Policy",
+            categorySlug: "policy",
             time: "4 days ago",
             title: "Financial Action Task Force Updates Travel Rule for Crypto Transactions",
             image: businessmanImage,

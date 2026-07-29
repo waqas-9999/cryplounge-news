@@ -199,7 +199,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 </div>
                 
                 <button
-                  onClick={() => onNavigate?.(`events/${featuredEvent.slug}`)}
+                  onClick={() => window.open(featuredEvent.registerLink, '_blank', 'noopener,noreferrer')}
                   className="inline-flex items-center gap-2 bg-[#EFB81A] hover:bg-[#F9D96A] text-black px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-sm md:text-base transition-colors font-medium"
                 >
                   View Details
@@ -226,7 +226,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 <div
                   key={event.id}
                   className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all duration-300 group cursor-pointer"
-                  onClick={() => onNavigate?.(`events/${event.slug}`)}
+                  onClick={() => window.open(event.registerLink, '_blank', 'noopener,noreferrer')}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img
@@ -300,7 +300,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 <div
                   key={event.id}
                   className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all duration-300 group cursor-pointer"
-                  onClick={() => onNavigate?.(`events/${event.slug}`)}
+                  onClick={() => window.open(event.registerLink, '_blank', 'noopener,noreferrer')}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img
@@ -371,7 +371,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 <div
                   key={event.id}
                   className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100"
-                  onClick={() => onNavigate?.(`events/${event.slug}`)}
+                  onClick={() => window.open(event.registerLink, '_blank', 'noopener,noreferrer')}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img
@@ -438,7 +438,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
             List your blockchain or crypto event on CrypLounge and reach thousands of potential attendees from around the world
           </p>
           <button 
-            onClick={() => onNavigate?.('events/submit')}
+            onClick={() => onNavigate?.('submit-story')}
             className="px-6 sm:px-8 py-2.5 sm:py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] dark:hover:bg-white dark:hover:text-black transition-colors text-sm sm:text-base font-medium"
             aria-label="Submit your event to CrypLounge"
           >

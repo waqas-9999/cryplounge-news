@@ -90,7 +90,7 @@ export function EcosystemPage({ images, onNavigate }: EcosystemPageProps) {
               <h3 className="text-gray-800 dark:text-[#F3F3F5] text-lg md:text-xl">Latest in {displayTitle}</h3>
             </div>
             <div className="space-y-3 md:space-y-4 bg-white dark:bg-[#1A1A1A] rounded-xl md:rounded-2xl p-4 md:p-6 border border-gray-200 dark:border-gray-800 transition-colors">
-              <LatestNewsCard category="DeFi" categorySlug={category} time="3 hours ago" title="Uniswap V4 Launches With Custom Hook Architecture, TVL Hits $15B on Day One" image={vrImage} articleSlug="uniswap-v4-launch-tvl" onNavigate={onNavigate} />
+              <LatestNewsCard category="Industry" categorySlug={category} time="3 hours ago" title="Uniswap V4 Launches With Custom Hook Architecture, TVL Hits $15B on Day One" image={vrImage} articleSlug="uniswap-v4-launch-tvl" onNavigate={onNavigate} />
               <div className="h-px bg-gray-100 dark:bg-white/[0.08]"></div>
               <LatestNewsCard category="Layer 2" categorySlug={category} time="5 hours ago" title="Arbitrum and Optimism Process 10x More Transactions Than Ethereum Mainnet" image={solanaImage} articleSlug="l2-transaction-volume" onNavigate={onNavigate} />
               <div className="h-px bg-gray-100 dark:bg-white/[0.08]"></div>
@@ -157,7 +157,7 @@ export function EcosystemPage({ images, onNavigate }: EcosystemPageProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <TrendingCard category="Blockchain" categorySlug={category} time="12 hours ago" title="Solana Validators Reach 3,000 as Decentralization Improves" tags={['Solana', 'Validators']} image={vrImage} articleSlug="solana-validators-growth" onNavigate={onNavigate} />
           <TrendingCard category="Web3" categorySlug={category} time="13 hours ago" title="Web3 Gaming Attracts 10M Monthly Active Users in 2026" tags={['Gaming', 'Web3']} image={phoneImage} articleSlug="web3-gaming-users" onNavigate={onNavigate} />
-          <TrendingCard category="DeFi" categorySlug={category} time="14 hours ago" title="DeFi Total Value Locked Surpasses $200B Milestone" tags={['DeFi', 'TVL']} image={businessmanImage} articleSlug="defi-tvl-200b" onNavigate={onNavigate} />
+          <TrendingCard category="Industry" categorySlug={category} time="14 hours ago" title="DeFi Total Value Locked Surpasses $200B Milestone" tags={['DeFi', 'TVL']} image={businessmanImage} articleSlug="defi-tvl-200b" onNavigate={onNavigate} />
           <TrendingCard category="NFT" categorySlug={category} time="15 hours ago" title="NFT Royalties Reform: New Standard Gives Creators More Control" tags={['NFT', 'Royalties']} image={solanaImage} articleSlug="nft-royalties-reform" onNavigate={onNavigate} />
           <TrendingCard category="Mining" categorySlug={category} time="16 hours ago" title="Bitcoin Mining Difficulty Hits All-Time High After Hash Rate Surge" tags={['Mining', 'Bitcoin']} image={speakerImage} articleSlug="bitcoin-mining-difficulty" onNavigate={onNavigate} />
           <TrendingCard category="Staking" categorySlug={category} time="17 hours ago" title="Liquid Staking Protocols Manage $80B as Staking Democratizes" tags={['Staking', 'LSD']} image={documentImage} articleSlug="liquid-staking-growth" onNavigate={onNavigate} />

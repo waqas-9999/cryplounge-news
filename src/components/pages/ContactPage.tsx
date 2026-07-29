@@ -259,7 +259,7 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
                 </li>
                 <li>
                   <button 
-                    onClick={() => onNavigate('founders/submit')}
+                    onClick={() => onNavigate('submit-story')}
                     className="text-gray-600 dark:text-gray-400 hover:text-[#EFB81A] transition-colors text-left"
                   >
                     → Submit founder story
@@ -267,7 +267,7 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
                 </li>
                 <li>
                   <button 
-                    onClick={() => onNavigate('events/submit')}
+                    onClick={() => onNavigate('submit-story')}
                     className="text-gray-600 dark:text-gray-400 hover:text-[#EFB81A] transition-colors text-left"
                   >
                     → Submit an event

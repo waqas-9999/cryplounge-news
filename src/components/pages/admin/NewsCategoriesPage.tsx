@@ -30,8 +30,8 @@ export function NewsCategoriesPage({ currentPage, onNavigate, onLogout }: NewsCa
   const mainCategories = [
     { 
       id: '1', 
-      name: 'Finance', 
-      slug: 'finance', 
+      name: 'Market', 
+      slug: 'market', 
       description: 'Financial news, markets, trading, DeFi, and institutional crypto', 
       icon: TrendingUp, 
       color: '#10B981', 
@@ -50,8 +50,8 @@ export function NewsCategoriesPage({ currentPage, onNavigate, onLogout }: NewsCa
     },
     { 
       id: '3', 
-      name: 'Geopolitics', 
-      slug: 'geopolitics', 
+      name: 'Policy', 
+      slug: 'policy', 
       description: 'Global regulation, CBDC, government policies, and international adoption', 
       icon: Globe, 
       color: '#8B5CF6', 

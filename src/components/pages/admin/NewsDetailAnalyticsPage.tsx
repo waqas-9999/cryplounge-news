@@ -63,7 +63,7 @@ export function NewsDetailAnalyticsPage({ currentPage, onNavigate, onLogout, art
   const article = {
     title: 'Bitcoin ETF Approval Impact on Market Dynamics',
     slug: 'bitcoin-etf-approval-impact',
-    category: 'Bitcoin',
+    category: 'Market',
     author: 'AI',
     publishedDate: '2024-11-13',
     publishedTime: '14:30',

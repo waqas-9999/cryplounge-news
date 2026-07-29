@@ -2,9 +2,7 @@
 // Pulls data from all contexts and mock data files for comprehensive admin dashboard
 
 import { mockArticles } from '../data/mockArticles';
-import { mockTutorials } from '../data/mockTutorials';
 import { mockEvents } from '../data/mockEvents';
-import { mockReferralRecords, mockReferralStats } from '../data/mockReferrals';
 
 // Calculate date ranges
 export const getDateRangeData = (filter: string, customStart?: Date, customEnd?: Date) => {
@@ -42,13 +40,13 @@ export const getOverviewStats = (dateFilter: string, customStart?: Date, customE
   const previousPeriodViews = Math.floor(totalViews * 0.88); // Mock previous period
   const viewsChange = ((totalViews - previousPeriodViews) / previousPeriodViews * 100).toFixed(1);
   
-  // Calculate total users (active + total from referrals)
-  const totalUsers = mockReferralRecords.length + 2500;
+  // Audience size comes from analytics, not per-reader records.
+  const totalUsers = 2500;
   const previousUsers = Math.floor(totalUsers * 0.92);
   const usersChange = ((totalUsers - previousUsers) / previousUsers * 100).toFixed(1);
   
   // Calculate total content
-  const totalContent = mockArticles.length + mockTutorials.length + mockEvents.length;
+  const totalContent = mockArticles.length + mockEvents.length;
   const previousContent = totalContent - 12;
   const contentChange = ((totalContent - previousContent) / previousContent * 100).toFixed(1);
   
@@ -164,42 +162,6 @@ export const getTrafficSources = () => {
   ];
 };
 
-// Get Learn section metrics
-export const getLearnMetrics = () => {
-  const totalTutorials = mockTutorials.length;
-  const totalCompletions = mockTutorials.reduce((sum, t) => sum + (t.completions || 0), 0);
-  // Completion rate is derived: a tutorial has views and completions, not a
-  // stored rate.
-  const avgProgress =
-    totalTutorials === 0
-      ? 0
-      : mockTutorials.reduce(
-          (sum, t) => sum + (t.views > 0 ? (t.completions / t.views) * 100 : 0),
-          0
-        ) / totalTutorials;
-
-  const categoryStats = mockTutorials.reduce((acc: any, tutorial) => {
-    const cat = tutorial.category || 'General';
-    if (!acc[cat]) {
-      acc[cat] = { count: 0, enrollments: 0 };
-    }
-    acc[cat].count += 1;
-    acc[cat].enrollments += tutorial.completions || 0;
-    return acc;
-  }, {});
-
-  return {
-    totalTutorials,
-    totalCompletions,
-    avgProgress: avgProgress.toFixed(1),
-    categories: Object.entries(categoryStats).map(([name, data]: [string, any]) => ({
-      name,
-      count: data.count,
-      enrollments: data.enrollments,
-    })),
-  };
-};
-
 // Get Events metrics
 export const getEventsMetrics = () => {
   const now = new Date();
@@ -213,49 +175,6 @@ export const getEventsMetrics = () => {
     totalRegistrations,
     avgAttendance,
     topEvent: mockEvents.sort((a, b) => (b.registeredCount || 0) - (a.registeredCount || 0))[0],
-  };
-};
-
-// Get XP system overview
-export const getXPOverview = () => {
-  // Calculate from referral system (includes XP data)
-  const totalXP = mockReferralStats.totalXPEarned + 15000;
-  const todayXP = Math.floor(totalXP * 0.05);
-  
-  return {
-    totalXP,
-    todayXP,
-    topEarners: [
-      { name: 'Alex Chen', xp: 2340, avatar: 'AC' },
-      { name: 'Sarah Miller', xp: 1895, avatar: 'SM' },
-      { name: 'Mike Johnson', xp: 1654, avatar: 'MJ' },
-    ],
-  };
-};
-
-// Get Referral system stats
-export const getReferralStats = () => {
-  const totalReferrals = mockReferralStats.totalReferrals;
-  const successfulReferrals = mockReferralStats.completedReferrals;
-  const conversionRate = totalReferrals > 0 ? ((successfulReferrals / totalReferrals) * 100).toFixed(1) : '0';
-  const pendingRewards = mockReferralRecords.filter(r => !r.xpClaimed && r.xpEarned > 0).length;
-
-  return {
-    totalReferrals,
-    successfulReferrals,
-    conversionRate: parseFloat(conversionRate),
-    pendingRewards,
-    topReferrers: mockReferralRecords
-      .filter(r => r.status === 'completed')
-      .sort((a, b) => b.xpEarned - a.xpEarned)
-      .slice(0, 5)
-      .map(r => ({
-        id: r.id,
-        referrerName: r.referredUserName,
-        totalReferrals: 1,
-        successfulReferrals: r.status === 'completed' ? 1 : 0,
-        xpEarned: r.xpEarned,
-      })),
   };
 };
 
@@ -287,7 +206,6 @@ export interface SystemAlert {
 
 export const getSystemAlerts = () => {
   const contentPipeline = getContentPipeline();
-  const referralStats = getReferralStats();
 
   const alerts: SystemAlert[] = [];
 
@@ -297,15 +215,6 @@ export const getSystemAlerts = () => {
       message: `${contentPipeline.pending} articles pending moderation`,
       action: 'moderation-queue',
       priority: 'high',
-    });
-  }
-
-  if (referralStats.pendingRewards > 10) {
-    alerts.push({
-      type: 'info',
-      message: `${referralStats.pendingRewards} referral rewards pending`,
-      action: 'referral-system',
-      priority: 'medium',
     });
   }
 
@@ -337,7 +246,6 @@ export const getRecentActivity = () => {
   // Mix of different activity types
   const recentArticles = mockArticles.slice(0, 3);
   const recentEvents = mockEvents.slice(0, 2);
-  const recentTutorials = mockTutorials.slice(0, 2);
 
   recentArticles.forEach(article => {
     activities.push({
@@ -358,17 +266,6 @@ export const getRecentActivity = () => {
       user: 'Admin',
       icon: 'Calendar',
       action: 'events-list',
-    });
-  });
-
-  recentTutorials.forEach(tutorial => {
-    activities.push({
-      type: 'tutorial',
-      title: `Tutorial published: ${tutorial.title}`,
-      time: '1 day ago',
-      user: 'Learn Team',
-      icon: 'GraduationCap',
-      action: 'learn-list',
     });
   });
 

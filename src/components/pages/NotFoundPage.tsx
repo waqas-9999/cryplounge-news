@@ -8,10 +8,10 @@ interface NotFoundPageProps {
 
 export default function NotFoundPage({ onNavigate }: NotFoundPageProps) {
   const suggestions = [
-    { label: 'Latest News', page: 'news/latest' },
-    { label: 'Markets', page: 'news/markets' },
-    { label: 'Ecosystem', page: 'news/ecosystem' },
-    { label: 'Research', page: 'news/research' },
+    { label: 'Latest News', page: 'news' },
+    { label: 'Markets', page: 'news/market' },
+    { label: 'Ecosystem', page: 'ecosystem' },
+    { label: 'Research', page: 'research' },
     { label: 'Learn', page: 'learn' },
   ];
 

@@ -33,7 +33,7 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
       id: 1,
       title: 'Central Banks Accelerate Digital Currency Development',
       source: 'Reuters',
-      category: 'Finance',
+      category: 'Market',
       status: 'published',
       aiScore: 95,
       views: 12453,
@@ -55,7 +55,7 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
       id: 3,
       title: 'G20 Summit Addresses Crypto Regulation Framework',
       source: 'Bloomberg',
-      category: 'Geopolitics',
+      category: 'Policy',
       status: 'review',
       aiScore: 78,
       views: 0,
@@ -77,7 +77,7 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
       id: 5,
       title: 'Institutional Investment in Digital Assets Reaches New High',
       source: 'Financial Times',
-      category: 'Finance',
+      category: 'Market',
       status: 'published',
       aiScore: 90,
       views: 8976,
@@ -88,7 +88,7 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
       id: 6,
       title: 'China Updates CBDC Implementation Timeline',
       source: 'Reuters',
-      category: 'Geopolitics',
+      category: 'Policy',
       status: 'review',
       aiScore: 88,
       views: 0,
@@ -166,9 +166,9 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
                 className="px-4 py-2.5 bg-white dark:bg-[#1A1A1C] border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:focus:ring-yellow-500"
               >
                 <option value="all">All Categories</option>
-                <option value="finance">Finance</option>
+                <option value="market">Market</option>
                 <option value="technology">Technology</option>
-                <option value="geopolitics">Geopolitics</option>
+                <option value="policy">Policy</option>
                 <option value="business">Business</option>
               </select>
 

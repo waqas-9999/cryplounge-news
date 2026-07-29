@@ -60,7 +60,7 @@ Early research suggests CBDCs could enhance payment efficiency, reduce costs, an
 The CBDC development represents a strategic response to the digitalization of the global economy. As implementation progresses, the intersection of monetary policy, financial stability, and technological innovation will define the future of money.
 
 Central banks emphasize that CBDCs will complement rather than replace physical currency, ensuring continued access to sovereign money in an increasingly digital world.`,
-    category: 'Finance',
+    category: 'Market',
     tags: ['CBDC', 'Central Banks', 'Digital Currency', 'Monetary Policy'],
     ecosystemTags: [],
     tokenTags: [],

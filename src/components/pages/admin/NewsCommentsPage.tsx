@@ -52,7 +52,7 @@ export function NewsCommentsPage({ currentPage, onNavigate, onLogout }: NewsComm
       content: 'This is great news for crypto investors! The momentum seems unstoppable.',
       timestamp: new Date().toISOString(),
       status: 'approved',
-      category: 'Finance'
+      category: 'Market'
     },
     {
       id: '2',
@@ -74,7 +74,7 @@ export function NewsCommentsPage({ currentPage, onNavigate, onLogout }: NewsComm
       content: 'Regulatory clarity is what the market needed. Bullish!',
       timestamp: new Date(Date.now() - 7200000).toISOString(),
       status: 'pending',
-      category: 'Geopolitics'
+      category: 'Policy'
     },
     {
       id: '4',

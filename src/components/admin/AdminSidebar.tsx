@@ -1,23 +1,14 @@
 'use client';
 
-import { 
-  LayoutDashboard, 
-  Newspaper, 
-  GraduationCap, 
-  Users, 
-  Calendar, 
-  User,
-  Bot,
+import {
+  LayoutDashboard,
+  Newspaper,
+  Users,
   Settings,
-  Shield,
   UserCircle,
   ChevronDown,
   LogOut,
-  Award,
-  Gift,
-  FileDown,
-  Star,
-  Image,
+  ScrollText,
   X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -83,10 +74,19 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       ]
     },
     {
-      id: 'reports',
-      label: 'Reports & Export',
-      icon: FileDown,
-      page: 'admin/reports-export'
+      id: 'staff',
+      label: 'Staff & Access',
+      icon: Users,
+      submenu: [
+        { label: 'Users', page: 'admin/users' },
+        { label: 'Roles & Permissions', page: 'admin/roles-permissions' }
+      ]
+    },
+    {
+      id: 'logs',
+      label: 'Logs',
+      icon: ScrollText,
+      page: 'admin/ai-logs'
     },
     {
       id: 'settings',
@@ -97,9 +97,11 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'SEO', page: 'admin/settings/seo' },
         { label: 'Email', page: 'admin/settings/email' },
         { label: 'API Settings', page: 'admin/settings/api' },
+        { label: 'API Integrations', page: 'admin/settings/api-integrations' },
         { label: 'Security', page: 'admin/settings/security' },
         { label: 'Appearance', page: 'admin/settings/appearance' },
-        { label: 'Backup', page: 'admin/settings/backup' }
+        { label: 'Backup', page: 'admin/settings/backup' },
+        { label: 'System', page: 'admin/system-settings' }
       ]
     }
   ];

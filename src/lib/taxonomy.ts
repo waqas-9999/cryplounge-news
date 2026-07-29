@@ -1,40 +1,20 @@
 /**
  * Canonical site taxonomy.
  *
- * The original `utils/routes.ts` NEWS_CATEGORIES list omitted the five
- * categories the header actually linked to (latest, markets, ecosystem,
- * regulation, research), so every top-level nav item fell through to the 404
- * page. Both the section categories and the topical ones live here now.
+ * CrypLounge is an editorial platform. `Market` here means *market news* only —
+ * there are deliberately no coin rankings, prices, charts or dashboards.
  */
 
-/** Top-level news sections, each backed by a bespoke page component. */
-export const NEWS_SECTIONS = [
-  'latest',
-  'markets',
-  'ecosystem',
-  'regulation',
-  'research',
-] as const;
-
-/** Topical categories rendered by the generic CategoryPage. */
-export const NEWS_TOPICS = [
+/** News desks, in navigation order. Each is a real URL under /news. */
+export const NEWS_CATEGORIES = [
+  'industry',
   'business',
-  'finance',
-  'geopolitics',
   'technology',
+  'security',
   'policy',
-  'investment',
-  'blockchain',
-  'defi',
-  'nfts',
-  'gaming',
-  'exchanges',
-  'startups',
-  'web3-ai',
-  'security-hacks',
+  'adoption',
+  'market',
 ] as const;
-
-export const NEWS_CATEGORIES = [...NEWS_SECTIONS, ...NEWS_TOPICS] as const;
 
 export type NewsCategory = (typeof NEWS_CATEGORIES)[number];
 
@@ -42,13 +22,43 @@ export function isNewsCategory(value: string): value is NewsCategory {
   return (NEWS_CATEGORIES as readonly string[]).includes(value);
 }
 
-/** Ecosystems that have dedicated learn hubs. */
+/** Research desks. */
+export const RESEARCH_CATEGORIES = [
+  'market-analysis',
+  'project-analysis',
+  'ecosystem-analysis',
+  'industry-reports',
+  'educational-guides',
+] as const;
+
+export type ResearchCategory = (typeof RESEARCH_CATEGORIES)[number];
+
+export function isResearchCategory(value: string): value is ResearchCategory {
+  return (RESEARCH_CATEGORIES as readonly string[]).includes(value);
+}
+
+/** Regulation desks. */
+export const REGULATION_CATEGORIES = [
+  'laws',
+  'taxation',
+  'compliance',
+  'licensing',
+  'enforcement',
+] as const;
+
+export type RegulationCategory = (typeof REGULATION_CATEGORIES)[number];
+
+export function isRegulationCategory(value: string): value is RegulationCategory {
+  return (REGULATION_CATEGORIES as readonly string[]).includes(value);
+}
+
+/** Blockchain ecosystems used for project discovery. */
 export const ECOSYSTEMS = [
   'ethereum',
-  'polygon',
-  'solana',
-  'bnb-chain',
   'bitcoin',
+  'solana',
+  'polygon',
+  'bnb-chain',
   'avalanche',
 ] as const;
 
@@ -58,8 +68,20 @@ export function isEcosystem(value: string): value is Ecosystem {
   return (ECOSYSTEMS as readonly string[]).includes(value);
 }
 
-/** Human-readable label for a slug: "security-hacks" -> "Security Hacks". */
+/** Labels where the slug alone reads poorly or has specific casing. */
+const LABEL_OVERRIDES: Record<string, string> = {
+  defi: 'DeFi',
+  nft: 'NFT',
+  dao: 'DAO',
+  rwa: 'RWA',
+  depin: 'DePIN',
+  seo: 'SEO',
+  'bnb-chain': 'BNB Chain',
+};
+
+/** Human-readable label for a slug: "market-analysis" -> "Market Analysis". */
 export function labelForSlug(slug: string): string {
+  if (LABEL_OVERRIDES[slug]) return LABEL_OVERRIDES[slug];
   return slug
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))

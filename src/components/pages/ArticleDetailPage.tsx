@@ -522,9 +522,9 @@ export function ArticleDetailPage({
                 {moreNewsCategories.map((cat, idx) => {
                   // Proper category name to slug mapping
                   const categorySlugMap: Record<string, string> = {
-                    'Finance': 'finance',
+                    'Market': 'market',
                     'Technology': 'technology',
-                    'Geopolitics': 'geopolitics',
+                    'Policy': 'policy',
                     'Business': 'business'
                   };
                   

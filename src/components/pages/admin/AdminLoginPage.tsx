@@ -173,13 +173,11 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Enable 2FA</span>
               </label>
-              <button
-                type="button"
-                onClick={() => onNavigate('forgot-password')}
-                className="text-sm text-yellow-600 dark:text-yellow-400 hover:underline"
-              >
-                Forgot password?
-              </button>
+              {/* Staff password resets are handled by an administrator; there
+                  is no self-service reset flow. */}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Lost access? Contact your administrator.
+              </span>
             </div>
 
             {/* OTP Input (shown if 2FA enabled and first login attempt) */}

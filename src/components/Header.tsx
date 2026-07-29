@@ -1,10 +1,9 @@
 'use client';
 
-import { Search, Menu, ChevronDown, Sun, Moon, X, TrendingUp, Rss, User } from 'lucide-react';
+import { Search, Menu, ChevronDown, Sun, Moon, X, TrendingUp, Rss } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCategories } from '../contexts/CategoriesContext';
-import { useAuth } from '../contexts/AuthContext';
 import { Badge } from './ui/badge';
 
 interface HeaderProps {
@@ -20,100 +19,35 @@ interface HeaderProps {
  * `/news/markets/bitcoin` would be parsed as an *article* slug and 404.
  * When topic landing pages are built, swap these for real paths.
  */
+/**
+ * Primary navigation — the six sections the platform is built around.
+ *
+ * Markets is intentionally absent: market coverage is editorial and lives at
+ * /news/market. There are no prices, rankings, charts or dashboards.
+ *
+ * Only News carries a dropdown, and it lists desk-level categories only.
+ * Niche topics (Bitcoin, DeFi, NFTs, ...) are reached through tags, filters
+ * and search rather than the main nav.
+ */
 const NAV_ITEMS = [
-  { name: 'Home', slug: 'home', page: 'home' },
-  { name: 'Latest', slug: 'latest', page: 'news/latest' },
   {
-    name: 'Markets', slug: 'markets', page: 'news/markets',
+    name: 'News', slug: 'news', page: 'news',
     children: [
-      { label: 'Market Overview', page: 'news/markets' },
-      { label: 'Bitcoin', page: 'news/markets?topic=bitcoin' },
-      { label: 'Ethereum', page: 'news/markets?topic=ethereum' },
-      { label: 'Altcoins', page: 'news/markets?topic=altcoins' },
-      { label: 'Stablecoins', page: 'news/markets?topic=stablecoins' },
-      { label: 'ETF', page: 'news/markets?topic=etf' },
-      { label: 'Technical Analysis', page: 'news/markets?topic=technical-analysis' },
-      { label: 'Investment', page: 'news/markets?topic=investment' },
+      { label: 'All News', page: 'news' },
+      { label: 'Industry', page: 'news/industry' },
+      { label: 'Business', page: 'news/business' },
+      { label: 'Technology', page: 'news/technology' },
+      { label: 'Security', page: 'news/security' },
+      { label: 'Policy', page: 'news/policy' },
+      { label: 'Adoption', page: 'news/adoption' },
+      { label: 'Market', page: 'news/market' },
     ],
   },
-  {
-    name: 'Ecosystem', slug: 'ecosystem', page: 'news/ecosystem',
-    children: [
-      { label: 'Blockchain', page: 'news/ecosystem?topic=blockchain' },
-      { label: 'Web3', page: 'news/ecosystem?topic=web3' },
-      { label: 'DeFi', page: 'news/ecosystem?topic=defi' },
-      { label: 'Exchanges', page: 'news/ecosystem?topic=exchanges' },
-      { label: 'Layer 1', page: 'news/ecosystem?topic=layer-1' },
-      { label: 'Layer 2', page: 'news/ecosystem?topic=layer-2' },
-      { label: 'NFT', page: 'news/ecosystem?topic=nft' },
-      { label: 'DAO', page: 'news/ecosystem?topic=dao' },
-      { label: 'RWA', page: 'news/ecosystem?topic=rwa' },
-      { label: 'DePIN', page: 'news/ecosystem?topic=depin' },
-      { label: 'Security', page: 'news/ecosystem?topic=security' },
-      { label: 'Infrastructure', page: 'news/ecosystem?topic=infrastructure' },
-    ],
-  },
-  {
-    name: 'Regulation', slug: 'regulation', page: 'news/regulation',
-    children: [
-      { label: 'Global', page: 'news/regulation?topic=global' },
-      { label: 'United States', page: 'news/regulation?topic=united-states' },
-      { label: 'Europe', page: 'news/regulation?topic=europe' },
-      { label: 'Asia-Pacific', page: 'news/regulation?topic=asia-pacific' },
-      { label: 'Middle East', page: 'news/regulation?topic=middle-east' },
-      { label: 'India', page: 'news/regulation?topic=india' },
-      { label: 'Tax', page: 'news/regulation?topic=tax' },
-      { label: 'AML / KYC', page: 'news/regulation?topic=aml-kyc' },
-      { label: 'Compliance', page: 'news/regulation?topic=compliance' },
-    ],
-  },
-  {
-    name: 'Research', slug: 'research', page: 'news/research',
-    children: [
-      { label: 'Industry Reports', page: 'news/research?topic=industry-reports' },
-      { label: 'Market Reports', page: 'news/research?topic=market-reports' },
-      { label: 'Deep Dive', page: 'news/research?topic=deep-dive' },
-      { label: 'Company Research', page: 'news/research?topic=company-research' },
-      { label: 'Opinion', page: 'news/research?topic=opinion' },
-      { label: 'Interviews', page: 'news/research?topic=interviews' },
-    ],
-  },
-  {
-    name: 'Learn', slug: 'learn', page: 'learn',
-    children: [
-      { label: 'All Courses', page: 'learn' },
-      { label: 'Crypto Fundamentals', page: 'learn/crypto' },
-      { label: 'Ecosystem Hub', page: 'learn/ecosystem' },
-      { label: 'Bitcoin', page: 'learn/bitcoin' },
-      { label: 'Ethereum', page: 'learn/ethereum' },
-      { label: 'Solana', page: 'learn/solana' },
-      { label: 'Polygon', page: 'learn/polygon' },
-      { label: 'BNB Chain', page: 'learn/bnb-chain' },
-      { label: 'Avalanche', page: 'learn/avalanche' },
-    ],
-  },
-  {
-    name: 'Founders', slug: 'founders', page: 'founders',
-    children: [
-      { label: 'All Founders', page: 'founders' },
-      { label: 'Infrastructure', page: 'founders/category/infrastructure' },
-      { label: 'DeFi', page: 'founders/category/defi' },
-      { label: 'Gaming', page: 'founders/category/gaming' },
-      { label: 'Payments', page: 'founders/category/payments' },
-    ],
-  },
-  {
-    name: 'Events', slug: 'events', page: 'events',
-    children: [
-      { label: 'All Events', page: 'events' },
-      { label: 'Conferences', page: 'events/type/conference' },
-      { label: 'Hackathons', page: 'events/type/hackathon' },
-      { label: 'Webinars', page: 'events/type/webinar' },
-      { label: 'Meetups', page: 'events/type/meetup' },
-      { label: 'Workshops', page: 'events/type/workshop' },
-      { label: 'Submit an Event', page: 'events/submit' },
-    ],
-  },
+  { name: 'Ecosystem', slug: 'ecosystem', page: 'ecosystem' },
+  { name: 'Research', slug: 'research', page: 'research' },
+  { name: 'Regulation', slug: 'regulation', page: 'regulation' },
+  { name: 'Events', slug: 'events', page: 'events' },
+  { name: 'Founders', slug: 'founders', page: 'founders' },
 ];
 
 const LANGUAGES = [
@@ -127,7 +61,6 @@ const LANGUAGES = [
 export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const { getArticlesByCategory } = useCategories();
-  const { isAuthenticated } = useAuth();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
@@ -181,15 +114,9 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
     : [];
 
   const isActive = (slug: string) => {
-    if (slug === 'home') return currentPage === 'home';
-    // Matches both the section's own tree (learn, learn/solana, events/submit)
-    // and its news section (news/markets, news/markets/some-article).
-    return (
-      currentPage === slug ||
-      currentPage.startsWith(`${slug}/`) ||
-      currentPage === `news/${slug}` ||
-      currentPage.startsWith(`news/${slug}/`)
-    );
+    // News is the parent of every /news/* URL, so it stays lit across the desk.
+    if (slug === 'news') return currentPage === 'news' || currentPage.startsWith('news/');
+    return currentPage === slug || currentPage.startsWith(`${slug}/`);
   };
 
   const handleNavHover = (slug: string) => {
@@ -217,7 +144,7 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
           {/* Logo + Desktop Nav */}
           <div className="flex items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8">
             <button
-              onClick={() => onNavigate?.('home')}
+              onClick={() => onNavigate?.('')}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity min-h-[44px]"
               aria-label="Go to home page"
             >
@@ -341,24 +268,6 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
             >
               {theme === 'dark' ? <Sun className="w-5 h-5 sm:w-6 sm:h-6" /> : <Moon className="w-5 h-5 sm:w-6 sm:h-6" />}
             </button>
-
-            {/* Account */}
-            {isAuthenticated ? (
-              <button
-                onClick={() => onNavigate?.('profile')}
-                className="text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
-                aria-label="Your profile"
-              >
-                <User className="w-5 h-5 sm:w-6 sm:h-6" />
-              </button>
-            ) : (
-              <button
-                onClick={() => onNavigate?.('login')}
-                className="hidden sm:inline-flex items-center px-4 py-2 min-h-[44px] rounded-lg bg-[#FFD200] text-black text-sm font-medium hover:bg-[#F9D96A] transition-colors"
-              >
-                Sign In
-              </button>
-            )}
           </div>
         </div>
 
@@ -453,7 +362,7 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
         <div className={`absolute left-0 top-0 bottom-0 w-[85vw] max-w-[340px] bg-white dark:bg-[#0F0F10] flex flex-col transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           {/* Drawer header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-800">
-            <button onClick={() => { onNavigate?.('home'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2">
+            <button onClick={() => { onNavigate?.(''); setIsMobileMenuOpen(false); }} className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-full border-2 border-gray-800 dark:border-gray-200 flex items-center justify-center">
                 <div className="w-2 h-2 bg-gray-800 dark:bg-gray-200 rounded-full" />
               </div>
@@ -549,14 +458,6 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
 
           {/* Bottom controls */}
           <div className="border-t border-gray-200 dark:border-gray-800 px-5 py-4 space-y-3">
-            {/* Account */}
-            <button
-              onClick={() => { onNavigate?.(isAuthenticated ? 'profile' : 'login'); setIsMobileMenuOpen(false); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#FFD200] text-black text-sm font-medium"
-            >
-              <User className="w-4 h-4" />
-              {isAuthenticated ? 'Your Profile' : 'Sign In'}
-            </button>
 
             {/* Theme toggle */}
             <button

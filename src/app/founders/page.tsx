@@ -3,7 +3,8 @@ import { FoundersView } from '@/views';
 
 export const metadata: Metadata = {
   title: 'Founders',
-  description: 'Profiles of the people building crypto protocols, companies and communities.',
+  description:
+    'The people building crypto — founder profiles, interviews and the stories behind the projects.',
   alternates: { canonical: '/founders' },
 };
 

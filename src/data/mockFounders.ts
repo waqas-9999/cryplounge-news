@@ -284,7 +284,7 @@ Solana's roadmap includes:
     slug: 'hayden-adams',
     role: 'Founder',
     project: 'Uniswap',
-    category: 'DeFi',
+    category: 'Industry',
     excerpt: 'From mechanical engineer to DeFi pioneer - the story of building the largest decentralized exchange.',
     content: `# Creating Uniswap: Democratizing Market Making
 

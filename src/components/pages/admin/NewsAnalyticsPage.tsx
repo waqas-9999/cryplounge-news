@@ -86,16 +86,16 @@ export function NewsAnalyticsPage({ currentPage, onNavigate, onLogout }: NewsAna
   ];
 
   const categoryPerformance = [
-    { category: 'Finance', views: 456789, engagement: 72, avgTime: '4.5 min', ctr: 8.9 },
+    { category: 'Market', views: 456789, engagement: 72, avgTime: '4.5 min', ctr: 8.9 },
     { category: 'Technology', views: 398234, engagement: 68, avgTime: '4.2 min', ctr: 7.8 },
-    { category: 'Geopolitics', views: 345123, engagement: 75, avgTime: '5.1 min', ctr: 9.2 },
+    { category: 'Policy', views: 345123, engagement: 75, avgTime: '5.1 min', ctr: 9.2 },
     { category: 'Business', views: 312456, engagement: 70, avgTime: '4.7 min', ctr: 8.1 }
   ];
 
   const topArticles = [
     {
       title: 'Central Banks Accelerate Digital Currency Development',
-      category: 'Finance',
+      category: 'Market',
       views: 45678,
       engagement: 89,
       avgTime: '6.2 min',
@@ -113,7 +113,7 @@ export function NewsAnalyticsPage({ currentPage, onNavigate, onLogout }: NewsAna
     },
     {
       title: 'G20 Summit Addresses Crypto Regulation Framework',
-      category: 'Geopolitics',
+      category: 'Policy',
       views: 34521,
       engagement: 91,
       avgTime: '8.4 min',
@@ -131,7 +131,7 @@ export function NewsAnalyticsPage({ currentPage, onNavigate, onLogout }: NewsAna
     },
     {
       title: 'Institutional Investment in Digital Assets Reaches New High',
-      category: 'Finance',
+      category: 'Market',
       views: 27654,
       engagement: 82,
       avgTime: '6.8 min',

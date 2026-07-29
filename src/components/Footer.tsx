@@ -98,14 +98,13 @@ export function Footer({ onNavigate }: FooterProps = {}) {
             <h3 className="text-gray-800 dark:text-[#F3F3F5] mb-4 text-base sm:text-lg font-medium">Explore</h3>
             <ul className="space-y-2 sm:space-y-3">
               {[
-                { label: 'Latest', page: 'news/latest' },
-                { label: 'Markets', page: 'news/markets' },
-                { label: 'Ecosystem', page: 'news/ecosystem' },
-                { label: 'Research', page: 'news/research' },
-                { label: 'Learn', page: 'learn' },
+                { label: 'News', page: 'news' },
+                { label: 'Ecosystem', page: 'ecosystem' },
+                { label: 'Research', page: 'research' },
+                { label: 'Regulation', page: 'regulation' },
                 { label: 'Events', page: 'events' },
+                { label: 'Founders', page: 'founders' },
                 { label: 'Newsletter', page: 'newsletter' },
-                { label: 'RSS Feed', page: 'rss' },
               ].map(({ label, page }) => (
                 <li key={label}>
                   <button

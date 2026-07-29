@@ -372,8 +372,8 @@ export const getRelatedEcosystemCourses = (currentEcosystem: string, includeOthe
     courses.push({
       id: `same-eco-defi-${currentEcosystem}`,
       title: `Master DeFi on ${formatEcosystemName(currentEcosystem)}`,
-      category: 'DeFi',
-      categorySlug: 'defi',
+      category: 'Industry',
+      categorySlug: 'industry',
       ecosystem: formatEcosystemName(currentEcosystem),
       ecosystemSlug: currentEcosystem,
       difficulty: 'Intermediate',

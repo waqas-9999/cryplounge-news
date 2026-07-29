@@ -5,6 +5,7 @@ import { LatestNewsCard } from '@/components/LatestNewsCard';
 import { ArrowRight, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
 import { getCrossPromotionArticles } from '@/data/crossPromotionData';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { labelForSlug } from '@/lib/taxonomy';
 
 interface CategoryPageProps {
   category: string;
@@ -23,28 +24,8 @@ interface CategoryPageProps {
 export function CategoryPage({ category, images, onNavigate }: CategoryPageProps) {
   const { vrImage, businessmanImage, solanaImage, phoneImage, speakerImage, documentImage, asianBusinessmanImage } = images;
 
-  const categoryTitles: Record<string, string> = {
-    'finance': 'Finance',
-    'technology': 'Technology',
-    'geopolitics': 'Geopolitics',
-    'business': 'Business',
-    'tech': 'Tech',
-    'policy': 'Policy',
-    'investment': 'Investment',
-    'blockchain': 'Blockchain',
-    'defi': 'DeFi',
-    'nfts': 'NFTs',
-    'gaming': 'Gaming',
-    'exchanges': 'Exchanges',
-    'startups': 'Startups',
-    'web3-ai': 'Web3 & AI',
-    'security-hacks': 'Security & Hacks',
-    'bitcoin': 'Bitcoin',
-    'ethereum': 'Ethereum',
-    'altcoins': 'Altcoins'
-  };
-
-  const displayTitle = categoryTitles[category] || category;
+  // Labels come from the shared taxonomy so they cannot drift per page.
+  const displayTitle = labelForSlug(category);
   
   // Get cross-promotion articles from related categories
   const crossPromotionArticles = getCrossPromotionArticles(category);
@@ -174,7 +155,7 @@ export function CategoryPage({ category, images, onNavigate }: CategoryPageProps
             <div className="space-y-3 md:space-y-4">
               {/* Main Featured Article with Image Overlay */}
               <div 
-                onClick={() => onNavigate?.('news/finance/crypto-etf-market-analysis')}
+                onClick={() => onNavigate?.('news/market/crypto-etf-market-analysis')}
                 className="relative rounded-xl md:rounded-2xl overflow-hidden cursor-pointer group h-[240px] md:h-[280px]"
               >
                 <ImageWithFallback

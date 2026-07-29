@@ -368,7 +368,7 @@ export function NewsCreatePage({ currentPage, onNavigate, onLogout }: NewsCreate
                       <option value="latest">Latest News</option>
                       <option value="most-read">Most Read</option>
                       <option value="market">Market</option>
-                      <option value="geopolitics">Geopolitics</option>
+                      <option value="policy">Policy</option>
                       <option value="policy">Policy</option>
                     </select>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
