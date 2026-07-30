@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import { FoundersView } from '@/views';
+import { getFeaturedProjects } from '@/services/projects';
+import { getLatestArticles } from '@/services/news';
+import { getUpcomingEventSummaries } from '@/services/events';
 
 export const metadata: Metadata = {
   title: 'Founders',
@@ -8,6 +11,19 @@ export const metadata: Metadata = {
   alternates: { canonical: '/founders' },
 };
 
-export default function Page() {
-  return <FoundersView />;
+export default async function Page() {
+  // Fetched here so the page component never touches the data layer.
+  const [relatedProjects, relatedArticles, relatedEvents] = await Promise.all([
+    getFeaturedProjects(4),
+    getLatestArticles(4),
+    getUpcomingEventSummaries(3),
+  ]);
+
+  return (
+    <FoundersView
+      relatedProjects={relatedProjects}
+      relatedArticles={relatedArticles}
+      relatedEvents={relatedEvents}
+    />
+  );
 }

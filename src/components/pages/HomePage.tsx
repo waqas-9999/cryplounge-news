@@ -1,5 +1,7 @@
 'use client';
 
+import type { Project } from '@/types/project';
+import { EcosystemSpotlight } from '@/components/ecosystem/EcosystemSpotlight';
 import { useRef } from 'react';
 import { HeroArticle } from '@/components/HeroArticle';
 import { ArticleCardSmall } from '@/components/ArticleCardSmall';
@@ -11,6 +13,8 @@ import { BestOfMonthSection } from '@/components/BestOfMonthSection';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HomePageProps {
+  /** Fetched on the server in app/page.tsx and passed down. */
+  spotlightProjects: Project[];
   images: {
     vrImage: string;
     businessmanImage: string;
@@ -23,14 +27,13 @@ interface HomePageProps {
   onNavigate?: (page: string) => void;
 }
 
-export function HomePage({ images, onNavigate }: HomePageProps) {
+export function HomePage({ images, onNavigate, spotlightProjects }: HomePageProps) {
   const { vrImage, businessmanImage, solanaImage, phoneImage, speakerImage, documentImage, asianBusinessmanImage } = images;
   
   // Refs for scrollable containers
   const latestScrollRef = useRef<HTMLDivElement>(null);
   const mostReadScrollRef = useRef<HTMLDivElement>(null);
   const marketScrollRef = useRef<HTMLDivElement>(null);
-  const geopoliticsScrollRef = useRef<HTMLDivElement>(null);
 
   // Scroll handlers
   // React 19 types `useRef<T>(null)` as RefObject<T | null>, so accept that here.
@@ -269,7 +272,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             categorySlug="policy"
             time="9 hours ago"
             title="New Security Protocol Prevents $500M in Potential Hacks This Year..."
-            tags={['Geopolitics', 'Security']}
+            tags={['Policy', 'Security']}
             image={speakerImage}
             articleSlug="security-protocol-prevents-hacks"
             onNavigate={onNavigate}
@@ -279,7 +282,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             categorySlug="policy"
             time="10 hours ago"
             title="EU Announces New Crypto Regulation Framework for 2026..."
-            tags={['Geopolitics', 'Regulation']}
+            tags={['Policy', 'Regulation']}
             image={businessmanImage}
             articleSlug="eu-crypto-regulation-2024"
             onNavigate={onNavigate}
@@ -467,7 +470,7 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
             categorySlug="policy"
             time="4 days ago"
             title="G7 Nations Announce Joint CBDC Initiative..."
-            tags={['Geopolitics', 'CBDC']}
+            tags={['Policy', 'CBDC']}
             image={speakerImage}
             articleSlug="g7-cbdc-initiative"
             onNavigate={onNavigate}
@@ -547,62 +550,8 @@ export function HomePage({ images, onNavigate }: HomePageProps) {
         </div>
       </div>
 
-      {/* Geopolitics Section (Previously Popular News) */}
-      <div>
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <div className="inline-block px-3 md:px-4 py-1.5 md:py-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-            <span className="text-purple-900 dark:text-purple-200 text-xs md:text-sm">GEOPOLITICS</span>
-          </div>
-          <button 
-            onClick={() => onNavigate && onNavigate('news/policy')}
-            className="text-xs md:text-sm text-gray-800 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1"
-          >
-            View more <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
-          </button>
-        </div>
-        
-        <div 
-          ref={geopoliticsScrollRef}
-          className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {[
-            { image: speakerImage, category: 'Policy', slug: 'us-crypto-regulation-2026', title: 'US Congress Passes Comprehensive Crypto Regulation Bill...' },
-            { image: businessmanImage, category: 'Policy', slug: 'eu-mica-implementation', title: 'EU MiCA Regulation Goes Into Effect Across Member States...' },
-            { image: asianBusinessmanImage, category: 'Policy', slug: 'asia-crypto-adoption', title: 'Asian Nations Lead Global Crypto Adoption in 2026...' },
-            { image: phoneImage, category: 'Policy', slug: 'g20-crypto-framework', title: 'G20 Summit Unveils Unified Crypto Regulatory Framework...' },
-            { image: vrImage, category: 'Policy', slug: 'cbdc-global-expansion', title: 'Over 100 Countries Now Exploring or Piloting CBDCs...' }
-          ].map((item, idx) => (
-            <div key={idx} className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start">
-              <TrendingCard 
-                category={item.category}
-                categorySlug={item.category.toLowerCase()}
-                time={`${idx + 1} day ago`}
-                title={item.title}
-                tags={['Regulation', 'Policy']}
-                image={item.image}
-                articleSlug={item.slug}
-                onNavigate={onNavigate}
-              />
-            </div>
-          ))}
-        </div>
-        
-        <div className="flex justify-end gap-2 mt-4 md:mt-6">
-          <button 
-            onClick={() => handleScroll(geopoliticsScrollRef, 'left')}
-            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-gray-600 dark:text-gray-300" />
-          </button>
-          <button 
-            onClick={() => handleScroll(geopoliticsScrollRef, 'right')}
-            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gray-800 dark:bg-gray-200 flex items-center justify-center hover:bg-gray-700 dark:hover:bg-gray-300 transition-colors"
-          >
-            <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-white dark:text-gray-800" />
-          </button>
-        </div>
-      </div>
+      {/* Points readers from the newsroom into the project directory. */}
+      <EcosystemSpotlight projects={spotlightProjects} />
 
       {/* Policy Section (Previously Best of the Month) */}
       <BestOfMonthSection 

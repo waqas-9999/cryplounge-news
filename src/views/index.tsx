@@ -13,11 +13,13 @@
 
 import { useAppNavigate } from '@/lib/navigation';
 import { images } from '@/lib/images';
+import type { Project } from '@/types/project';
+import type { Article } from '@/data/mockArticles';
+import type { EventSummary } from '@/services/events';
 
 import { HomePage } from '@/components/pages/HomePage';
 import { LatestPage } from '@/components/pages/LatestPage';
 import { MarketsPage } from '@/components/pages/MarketsPage';
-import { EcosystemPage } from '@/components/pages/EcosystemPage';
 import { RegulationPage } from '@/components/pages/RegulationPage';
 import { ResearchPage } from '@/components/pages/ResearchPage';
 import { BusinessPage } from '@/components/pages/BusinessPage';
@@ -45,8 +47,14 @@ import NotFoundPage from '@/components/pages/NotFoundPage';
 
 /* ---------------------------------------------------------------- news --- */
 
-export function HomeView() {
-  return <HomePage images={images} onNavigate={useAppNavigate()} />;
+export function HomeView({ spotlightProjects }: { spotlightProjects: Project[] }) {
+  return (
+    <HomePage
+      images={images}
+      onNavigate={useAppNavigate()}
+      spotlightProjects={spotlightProjects}
+    />
+  );
 }
 
 /** "All News" — the landing page of the News section. */
@@ -85,10 +93,6 @@ export function ArticleView({ category, slug }: { category: string; slug: string
 
 /* ---------------------------------------------- top-level sections ------ */
 
-export function EcosystemView() {
-  return <EcosystemPage images={images} onNavigate={useAppNavigate()} />;
-}
-
 export function ResearchView() {
   return <ResearchPage images={images} onNavigate={useAppNavigate()} />;
 }
@@ -101,8 +105,24 @@ export function EventsView() {
   return <EventsPage onNavigate={useAppNavigate()} />;
 }
 
-export function FoundersView() {
-  return <FoundersPage images={images} onNavigate={useAppNavigate()} />;
+export function FoundersView({
+  relatedProjects,
+  relatedArticles,
+  relatedEvents,
+}: {
+  relatedProjects: Project[];
+  relatedArticles: Article[];
+  relatedEvents: EventSummary[];
+}) {
+  return (
+    <FoundersPage
+      images={images}
+      onNavigate={useAppNavigate()}
+      relatedProjects={relatedProjects}
+      relatedArticles={relatedArticles}
+      relatedEvents={relatedEvents}
+    />
+  );
 }
 
 /* ------------------------------------------------- company & utilities --- */

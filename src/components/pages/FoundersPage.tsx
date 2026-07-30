@@ -6,14 +6,29 @@ import { FilterBar, FilterState } from '@/components/FilterBar';
 import { useState } from 'react';
 import { useFounders } from '@/contexts/FoundersContext';
 import { founderCategories } from '@/data/mockFounders';
+import type { Project } from '@/types/project';
+import type { Article } from '@/data/mockArticles';
+import type { EventSummary } from '@/services/events';
+import { FounderRelatedContent } from '@/components/founders/FounderRelatedContent';
 
 interface FoundersPageProps {
+  /** All fetched on the server in app/founders/page.tsx. */
+  relatedProjects: Project[];
+  relatedArticles: Article[];
+  relatedEvents: EventSummary[];
   images: any;
   onNavigate: (page: string) => void;
   initialCategory?: string;
 }
 
-export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPageProps) {
+export function FoundersPage({
+  images,
+  onNavigate,
+  initialCategory,
+  relatedProjects,
+  relatedArticles,
+  relatedEvents,
+}: FoundersPageProps) {
   const { businessmanImage, asianBusinessmanImage, solanaImage, phoneImage } = images;
   const { getPublishedStories, getFeaturedStories } = useFounders();
   
@@ -229,21 +244,13 @@ export function FoundersPage({ images, onNavigate, initialCategory }: FoundersPa
         </div>
       </div>
 
-      {/* CTA */}
-      <div className="bg-[#F9D96A] dark:bg-[#1A1A1A] border-2 border-[#EFB81A] dark:border-[#EFB81A]/40 rounded-xl md:rounded-2xl p-6 md:p-12 text-center">
-        <Users className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-4 text-[#EFB81A]" aria-hidden="true" />
-        <h2 className="mb-3 md:mb-4 text-black dark:text-white">Are You Building Something?</h2>
-        <p className="mb-6 md:mb-8 max-w-2xl mx-auto text-gray-800 dark:text-gray-300">
-          Share your story with our community and inspire the next generation of builders
-        </p>
-        <button 
-          onClick={() => onNavigate('submit-story')}
-          className="px-8 py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] dark:hover:bg-white dark:hover:text-black transition-colors"
-          aria-label="Submit your story to Yellow Page"
-        >
-          Submit Your Story
-        </button>
-      </div>
+      {/* Onward content instead of a decorative call to action. */}
+      <FounderRelatedContent
+        projects={relatedProjects}
+        articles={relatedArticles}
+        events={relatedEvents}
+      />
+
     </main>
   );
 }
