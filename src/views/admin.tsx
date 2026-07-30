@@ -16,7 +16,6 @@ import { AdminAuthService } from '@/utils/adminAuth';
 import { AdminLoginPage } from '@/components/pages/admin/AdminLoginPage';
 import { AdminDashboardPage } from '@/components/pages/admin/AdminDashboardPage';
 import { AdminProfilePage } from '@/components/pages/admin/AdminProfilePage';
-import { AILogsPage } from '@/components/pages/admin/AILogsPage';
 import { UsersListPage } from '@/components/pages/admin/UsersListPage';
 import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsPage';
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
@@ -27,11 +26,6 @@ import { NewsEditPage } from '@/components/pages/admin/NewsEditPage';
 import { NewsAnalyticsPage } from '@/components/pages/admin/NewsAnalyticsPage';
 import { NewsDetailAnalyticsPage } from '@/components/pages/admin/NewsDetailAnalyticsPage';
 import { NewsCategoriesPage } from '@/components/pages/admin/NewsCategoriesPage';
-import { NewsSourcesPage } from '@/components/pages/admin/NewsSourcesPage';
-import { NewsModerationQueuePage } from '@/components/pages/admin/NewsModerationQueuePage';
-import { NewsAISettingsPage } from '@/components/pages/admin/NewsAISettingsPage';
-import { NewsAutoFetchPage } from '@/components/pages/admin/NewsAutoFetchPage';
-import { NewsCommentsPage } from '@/components/pages/admin/NewsCommentsPage';
 
 import { GeneralSettingsPage } from '@/components/pages/admin/settings/GeneralSettingsPage';
 import { AppearanceSettingsPage } from '@/components/pages/admin/settings/AppearanceSettingsPage';
@@ -39,7 +33,6 @@ import { EmailSettingsPage } from '@/components/pages/admin/settings/EmailSettin
 import { SecuritySettingsPage } from '@/components/pages/admin/settings/SecuritySettingsPage';
 import { SEOSettingsPage } from '@/components/pages/admin/settings/SEOSettingsPage';
 import { APISettingsPage } from '@/components/pages/admin/settings/APISettingsPage';
-import { APIIntegrationsPage } from '@/components/pages/admin/settings/APIIntegrationsPage';
 import { BackupSettingsPage } from '@/components/pages/admin/settings/BackupSettingsPage';
 
 /** Shared wiring for every authenticated admin screen. */
@@ -77,10 +70,6 @@ export function AdminDashboardView() {
 
 export function AdminProfileView() {
   return <AdminProfilePage {...useAdminChrome()} />;
-}
-
-export function AdminAILogsView() {
-  return <AILogsPage {...useAdminChrome()} />;
 }
 
 export function AdminUsersView() {
@@ -121,26 +110,6 @@ export function AdminNewsCategoriesView() {
   return <NewsCategoriesPage {...useAdminChrome()} />;
 }
 
-export function AdminNewsSourcesView() {
-  return <NewsSourcesPage {...useAdminChrome()} />;
-}
-
-export function AdminNewsModerationView() {
-  return <NewsModerationQueuePage {...useAdminChrome()} />;
-}
-
-export function AdminNewsAISettingsView() {
-  return <NewsAISettingsPage {...useAdminChrome()} />;
-}
-
-export function AdminNewsAutoFetchView() {
-  return <NewsAutoFetchPage {...useAdminChrome()} />;
-}
-
-export function AdminNewsCommentsView() {
-  return <NewsCommentsPage {...useAdminChrome()} />;
-}
-
 /* ------------------------------------------------------------ settings --- */
 
 export function AdminSettingsGeneralView() {
@@ -165,10 +134,6 @@ export function AdminSettingsSEOView() {
 
 export function AdminSettingsAPIView() {
   return <APISettingsPage {...useAdminChrome()} />;
-}
-
-export function AdminSettingsAPIIntegrationsView() {
-  return <APIIntegrationsPage {...useAdminChrome()} />;
 }
 
 export function AdminSettingsBackupView() {

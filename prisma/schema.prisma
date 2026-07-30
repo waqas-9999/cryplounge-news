@@ -1,0 +1,638 @@
+// CrypLounge — data model.
+//
+// Design notes:
+//  * Every publishable content type carries the same editorial workflow fields
+//    (status, publishedAt, seo*, slug) so the CMS can treat them uniformly.
+//  * Relations are explicit and bidirectional. The product requirement is that
+//    no page is a dead end, so cross-content links are first-class rows rather
+//    than string matching at render time.
+//  * Slugs are unique per type and indexed — they are the public URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- people ---
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  AUTHOR
+  MODERATOR
+  VIEWER
+}
+
+/// Staff accounts. There are no reader accounts — the public site is anonymous.
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  /// bcrypt hash. Never a plaintext password, never returned by the API.
+  passwordHash String
+  role         Role      @default(VIEWER)
+  isActive     Boolean   @default(true)
+  avatarUrl    String?
+  lastLoginAt  DateTime?
+
+  /// Set when an admin invites a user; cleared once they set a password.
+  inviteToken        String?   @unique
+  inviteExpiresAt    DateTime?
+  passwordResetToken String?   @unique
+  passwordResetAt    DateTime?
+
+  sessions  Session[]
+  auditLogs AuditLog[]
+  articles  Article[]  @relation("ArticleCreatedBy")
+  uploads   Media[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+/// Server-side sessions. The cookie holds only the opaque token.
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Bylines. Separate from User: not every author has a login, and a byline
+/// outlives the staff account behind it.
+model Author {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  name      String
+  bio       String?
+  avatarUrl String?
+  email     String?
+  x         String?
+  linkedin  String?
+  website   String?
+
+  articles Article[]
+  research Research[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ------------------------------------------------------------ taxonomies ---
+
+enum CategoryKind {
+  NEWS
+  RESEARCH
+  REGULATION
+  PROJECT
+  EVENT
+  FOUNDER
+}
+
+/// One category table for every content type, discriminated by `kind`, so the
+/// CMS manages categories once and reuses them everywhere.
+model Category {
+  id          String       @id @default(cuid())
+  kind        CategoryKind
+  slug        String
+  name        String
+  description String?
+  /// Manual ordering in navigation and pickers.
+  position    Int          @default(0)
+
+  articles    Article[]
+  research    Research[]
+  regulations Regulation[]
+  projects    Project[]
+  events      Event[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([kind, slug])
+  @@index([kind])
+}
+
+/// Global, reusable across every content type.
+model Tag {
+  id    String @id @default(cuid())
+  slug  String @unique
+  name  String
+
+  articles    Article[]
+  projects    Project[]
+  research    Research[]
+  regulations Regulation[]
+  events      Event[]
+  founders    Founder[]
+
+  createdAt DateTime @default(now())
+}
+
+// -------------------------------------------------------------- workflow ---
+
+enum ContentStatus {
+  DRAFT
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+// --------------------------------------------------------------- content ---
+
+model Article {
+  id      String @id @default(cuid())
+  slug    String @unique
+  title   String
+  summary String @db.Text
+  content String @db.Text
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  /// Set when status is SCHEDULED; a job publishes at this time.
+  scheduledFor DateTime?
+
+  featured Boolean @default(false)
+  pinned   Boolean @default(false)
+  /// Manual ordering within a listing; higher sorts first.
+  priority Int     @default(0)
+
+  readMinutes Int @default(3)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  authorId String?
+  author   Author? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("ArticleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  featuredImageId String?
+  featuredImage   Media?  @relation(fields: [featuredImageId], references: [id], onDelete: SetNull)
+
+  tags Tag[]
+
+  // Cross-content relations
+  projects    Project[]
+  research    Research[]
+  regulations Regulation[]
+  events      Event[]
+  founders    Founder[]
+
+  versions ArticleVersion[]
+
+  seoTitle       String?
+  seoDescription String?
+  canonicalUrl   String?
+  noindex        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([featured])
+}
+
+/// Immutable snapshot taken on each save, powering version history.
+model ArticleVersion {
+  id        String   @id @default(cuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  title     String
+  summary   String   @db.Text
+  content   String   @db.Text
+  /// User id captured at write time; kept even if the account is deleted.
+  editedById String?
+  createdAt DateTime @default(now())
+
+  @@index([articleId, createdAt])
+}
+
+enum ProjectStatus {
+  LIVE
+  BETA
+  TESTNET
+  DEPRECATED
+}
+
+model Project {
+  id               String  @id @default(cuid())
+  slug             String  @unique
+  name             String
+  tagline          String
+  about            String  @db.Text
+  keyFeatures      String[]
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  blockchain        String
+  supportedNetworks String[]
+  nativeToken       String?
+  launchYear        Int?
+
+  status     ProjectStatus @default(LIVE)
+  verified   Boolean       @default(false)
+  openSource Boolean       @default(false)
+  featured   Boolean       @default(false)
+  editorsPick Boolean      @default(false)
+
+  /// Emoji mark and brand colour, used until real logo assets exist.
+  logo   String
+  accent String @default("#EFB81A")
+
+  logoImageId  String?
+  logoImage    Media?  @relation("ProjectLogo", fields: [logoImageId], references: [id], onDelete: SetNull)
+  coverImageId String?
+  coverImage   Media?  @relation("ProjectCover", fields: [coverImageId], references: [id], onDelete: SetNull)
+
+  // Official links
+  website    String?
+  x          String?
+  github     String?
+  discord    String?
+  telegram   String?
+  linkedin   String?
+  youtube    String?
+  medium     String?
+  blog       String?
+  docs       String?
+  whitepaper String?
+  explorer   String?
+  api        String?
+
+  tags Tag[]
+
+  articles    Article[]
+  research    Research[]
+  regulations Regulation[]
+  events      Event[]
+  founders    Founder[]
+
+  seoTitle       String?
+  seoDescription String?
+  noindex        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([featured])
+  @@index([blockchain])
+}
+
+model Research {
+  id      String @id @default(cuid())
+  slug    String @unique
+  title   String
+  summary String @db.Text
+  content String @db.Text
+  /// Source list rendered as the References block.
+  references String[]
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  featured    Boolean       @default(false)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  authorId String?
+  author   Author? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  coverImageId String?
+  coverImage   Media?  @relation(fields: [coverImageId], references: [id], onDelete: SetNull)
+
+  tags     Tag[]
+  projects Project[]
+  articles Article[]
+
+  seoTitle       String?
+  seoDescription String?
+  noindex        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model Regulation {
+  id      String @id @default(cuid())
+  slug    String @unique
+  title   String
+  summary String @db.Text
+  content String @db.Text
+
+  /// ISO 3166-1 alpha-2, or null for supranational (EU, G20).
+  countryCode String?
+  countryName String?
+  region      String?
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  tags     Tag[]
+  projects Project[]
+  articles Article[]
+
+  seoTitle       String?
+  seoDescription String?
+  noindex        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([countryCode])
+}
+
+enum EventMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+model Event {
+  id      String @id @default(cuid())
+  slug    String @unique
+  name    String
+  summary String @db.Text
+  content String @db.Text
+
+  startsAt DateTime
+  endsAt   DateTime?
+  /// IANA zone, e.g. "Europe/London".
+  timezone String    @default("UTC")
+
+  mode     EventMode @default(OFFLINE)
+  venue    String?
+  city     String?
+  country  String?
+  onlineUrl String?
+
+  registerUrl String?
+
+  status   ContentStatus @default(DRAFT)
+  featured Boolean       @default(false)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  bannerImageId String?
+  bannerImage   Media?  @relation(fields: [bannerImageId], references: [id], onDelete: SetNull)
+
+  speakers EventSpeaker[]
+  sponsors String[]
+
+  tags     Tag[]
+  articles Article[]
+  projects Project[]
+  founders Founder[]
+
+  seoTitle       String?
+  seoDescription String?
+  noindex        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startsAt])
+  @@index([status])
+}
+
+model EventSpeaker {
+  id       String  @id @default(cuid())
+  eventId  String
+  event    Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name     String
+  title    String?
+  bio      String?
+  photoUrl String?
+  /// Optional link to a founder profile when the speaker is one.
+  founderId String?
+  founder   Founder? @relation(fields: [founderId], references: [id], onDelete: SetNull)
+
+  @@index([eventId])
+}
+
+model Founder {
+  id       String @id @default(cuid())
+  slug     String @unique
+  name     String
+  role     String
+  company  String?
+  bio      String @db.Text
+  excerpt  String
+
+  photoId String?
+  photo   Media?  @relation(fields: [photoId], references: [id], onDelete: SetNull)
+
+  website  String?
+  x        String?
+  linkedin String?
+  github   String?
+
+  region    String?
+  status    ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  featured  Boolean       @default(false)
+
+  tags     Tag[]
+  projects Project[]
+  articles Article[]
+  events   Event[]
+  speakerAt EventSpeaker[]
+
+  seoTitle       String?
+  seoDescription String?
+  noindex        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ----------------------------------------------------------------- media ---
+
+model Media {
+  id         String  @id @default(cuid())
+  /// Path relative to the local upload root. Local storage only, per spec.
+  path       String  @unique
+  filename   String
+  mimeType   String
+  /// Bytes.
+  size       Int
+  width      Int?
+  height     Int?
+  altText    String?
+  title      String?
+  folder     String  @default("/")
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  articleFeatures Article[]
+  projectLogos    Project[]  @relation("ProjectLogo")
+  projectCovers   Project[]  @relation("ProjectCover")
+  researchCovers  Research[]
+  eventBanners    Event[]
+  founderPhotos   Founder[]
+
+  createdAt DateTime @default(now())
+
+  @@index([folder])
+}
+
+// -------------------------------------------------- site configuration ---
+
+/// Key/value store for site settings. A row per setting keeps the admin
+/// generic and avoids a migration every time a toggle is added.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Configurable homepage bands: enable, reorder, configure.
+model HomepageSection {
+  id       String  @id @default(cuid())
+  /// Stable identifier the frontend switches on, e.g. "ecosystem_spotlight".
+  key      String  @unique
+  title    String
+  enabled  Boolean @default(true)
+  position Int     @default(0)
+  /// Section-specific options (item count, source category, ...).
+  config   Json?
+
+  @@index([position])
+}
+
+model NavigationItem {
+  id       String  @id @default(cuid())
+  /// "header" or "footer".
+  location String
+  label    String
+  href     String
+  position Int     @default(0)
+  parentId String?
+  parent   NavigationItem?  @relation("NavChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children NavigationItem[] @relation("NavChildren")
+
+  @@index([location, position])
+}
+
+model Redirect {
+  id         String   @id @default(cuid())
+  fromPath   String   @unique
+  toPath     String
+  /// 301 or 302.
+  statusCode Int      @default(301)
+  createdAt  DateTime @default(now())
+}
+
+model Language {
+  code      String  @id
+  name      String
+  isDefault Boolean @default(false)
+  enabled   Boolean @default(true)
+
+  translations Translation[]
+}
+
+model Translation {
+  id           String   @id @default(cuid())
+  languageCode String
+  language     Language @relation(fields: [languageCode], references: [code], onDelete: Cascade)
+  /// Dotted key, e.g. "nav.news".
+  key          String
+  value        String   @db.Text
+
+  @@unique([languageCode, key])
+  @@index([languageCode])
+}
+
+// ------------------------------------------------------------ ads & logs ---
+
+enum AdStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+}
+
+model AdSlot {
+  id           String   @id @default(cuid())
+  /// Placement identifier the frontend renders into, e.g. "article_sidebar".
+  placement    String
+  campaignName String
+  status       AdStatus @default(PAUSED)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  priority     Int      @default(0)
+  destinationUrl String?
+  imageId      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([placement, status])
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  PUBLISH
+  UNPUBLISH
+  ROLE_CHANGE
+  SETTINGS_CHANGE
+}
+
+/// Append-only. Rows are never updated or deleted by the application.
+model AuditLog {
+  id     String      @id @default(cuid())
+  action AuditAction
+  /// Model name, e.g. "Article".
+  entity String?
+  entityId String?
+  /// Human-readable summary shown in the log table.
+  summary String
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Denormalised so the log survives account deletion.
+  userEmail String?
+
+  ipAddress String?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([entity, entityId])
+}

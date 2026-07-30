@@ -2,7 +2,6 @@
 
 import { ArrowLeft, Heart, MessageCircle, Twitter, Facebook, Instagram, Share2, ChevronLeft, ChevronRight, Link2, Printer, Bookmark, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { CommentSection } from '@/components/CommentSection';
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
@@ -422,7 +421,6 @@ export function ArticleDetailPage({
 
             {/* Comments Section */}
             <div id="comments-section">
-              <CommentSection articleTitle={articleTitle} />
             </div>
           </article>
 
