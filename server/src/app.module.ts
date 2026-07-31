@@ -21,6 +21,8 @@ import { ResearchModule } from './modules/research/research.module';
 import { RegulationsModule } from './modules/regulations/regulations.module';
 import { EventsModule } from './modules/events/events.module';
 import { FoundersModule } from './modules/founders/founders.module';
+import { UsersModule } from './modules/users/users.module';
+import { RolesModule } from './modules/roles/roles.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 
@@ -69,6 +71,8 @@ import { DiscoveryModule } from './modules/discovery/discovery.module';
     RegulationsModule,
     EventsModule,
     FoundersModule,
+    UsersModule,
+    RolesModule,
     SearchModule,
     DiscoveryModule,
   ],
