@@ -204,12 +204,19 @@ model Article {
   canonicalUrl   String?
   noindex        Boolean @default(false)
 
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, publishedAt])
   @@index([categoryId])
   @@index([featured])
+  @@index([deletedAt])
 }
 
 /// Immutable snapshot taken on each save, powering version history.
@@ -292,12 +299,19 @@ model Project {
   seoDescription String?
   noindex        Boolean @default(false)
 
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([categoryId])
   @@index([featured])
   @@index([blockchain])
+  @@index([deletedAt])
 }
 
 model Research {
@@ -330,6 +344,12 @@ model Research {
   seoDescription String?
   noindex        Boolean @default(false)
 
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -361,6 +381,12 @@ model Regulation {
   seoTitle       String?
   seoDescription String?
   noindex        Boolean @default(false)
+
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -416,6 +442,12 @@ model Event {
   seoDescription String?
   noindex        Boolean @default(false)
 
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -470,6 +502,12 @@ model Founder {
   seoDescription String?
   noindex        Boolean @default(false)
 
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -501,6 +539,12 @@ model Media {
   researchCovers  Research[]
   eventBanners    Event[]
   founderPhotos   Founder[]
+
+  /// Soft delete. Rows are hidden from every query rather than removed,
+  /// so an accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+  deletedById String?
+  updatedById String?
 
   createdAt DateTime @default(now())
 

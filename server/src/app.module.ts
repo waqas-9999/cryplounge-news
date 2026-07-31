@@ -13,6 +13,12 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
 import { HealthModule } from './modules/health/health.module';
+import { ContentCoreModule } from './modules/content-core/content-core.module';
+import { TaxonomyModule } from './modules/taxonomy/taxonomy.module';
+import { ArticlesModule } from './modules/articles/articles.module';
+import { ProjectsModule } from './modules/projects/projects.module';
+import { SearchModule } from './modules/search/search.module';
+import { DiscoveryModule } from './modules/discovery/discovery.module';
 
 /**
  * Application root.
@@ -49,6 +55,14 @@ import { HealthModule } from './modules/health/health.module';
     PrismaModule,
     AuthModule,
     HealthModule,
+
+    // Shared editorial capability, then the content modules that reuse it.
+    ContentCoreModule,
+    TaxonomyModule,
+    ArticlesModule,
+    ProjectsModule,
+    SearchModule,
+    DiscoveryModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
