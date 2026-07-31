@@ -17,6 +17,10 @@ import { ContentCoreModule } from './modules/content-core/content-core.module';
 import { TaxonomyModule } from './modules/taxonomy/taxonomy.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { ResearchModule } from './modules/research/research.module';
+import { RegulationsModule } from './modules/regulations/regulations.module';
+import { EventsModule } from './modules/events/events.module';
+import { FoundersModule } from './modules/founders/founders.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 
@@ -61,6 +65,10 @@ import { DiscoveryModule } from './modules/discovery/discovery.module';
     TaxonomyModule,
     ArticlesModule,
     ProjectsModule,
+    ResearchModule,
+    RegulationsModule,
+    EventsModule,
+    FoundersModule,
     SearchModule,
     DiscoveryModule,
   ],

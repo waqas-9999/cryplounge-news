@@ -1,4 +1,4 @@
-import type { Project, ProjectCollection } from '@/types/project';
+import type { Project, ProjectCollection } from '../types/project';
 
 /**
  * Seed content for the Ecosystem directory.

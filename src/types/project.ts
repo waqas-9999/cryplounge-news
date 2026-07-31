@@ -6,7 +6,7 @@
  * `src/services/*` should know the difference.
  */
 
-import type { ProjectCategory } from '@/lib/taxonomy';
+import type { ProjectCategory } from '../lib/taxonomy';
 
 export type ProjectStatus = 'live' | 'beta' | 'testnet' | 'deprecated';
 

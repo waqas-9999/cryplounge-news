@@ -24,6 +24,10 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src/**/*", "prisma/**/*", "test/**/*"],
-  "exclude": ["node_modules", "dist"]
+  // Only `src` is compiled. `prisma/seed.ts` imports the frontend's seed data
+  // by relative path and is executed with tsx, so including it here would drag
+  // files from outside this project into the build and push `rootDir` up —
+  // which silently relocates dist/main.js and breaks `start:prod`.
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist", "prisma"]
 }
