@@ -29,6 +29,7 @@ import { SiteModule } from './modules/site/site.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 /**
  * Application root.
@@ -83,6 +84,7 @@ import { DiscoveryModule } from './modules/discovery/discovery.module';
     AuditModule,
     SearchModule,
     DiscoveryModule,
+    AnalyticsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
