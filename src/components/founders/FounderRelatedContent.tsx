@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { Calendar, MapPin } from 'lucide-react';
 import type { Project } from '@/types/project';
-import type { Article } from '@/data/mockArticles';
+import type { Article } from '@/types/article';
 import type { EventSummary } from '@/services/events';
 import { SectionHeader } from '@/components/section/SectionHeader';
 import { ProjectGrid } from '@/components/ecosystem/ProjectGrid';
-import { articleSlug } from '@/data/mockArticles';
+import { articleSlug } from '@/types/article';
 
 /**
  * Onward content for the Founders page.

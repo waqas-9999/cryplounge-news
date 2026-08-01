@@ -1,9 +1,8 @@
 # CrypLounge - Complete Project Overview
 
 **Platform:** Cryptocurrency News & Education Platform  
-**Version:** 2.0  
-**Status:** Production-Ready  
-**Last Updated:** November 14, 2025
+**Status:** Frontend UI complete; NestJS/Prisma backend built; frontend-backend integration in progress  
+**Last Updated:** 2026-08-01
 
 ---
 
@@ -24,23 +23,26 @@ The platform is built with React, TypeScript, and Tailwind CSS v4.0, featuring c
 
 ### **Frontend Architecture**
 
+The frontend is a Next.js 15 (App Router) application under `src/app`, not the
+single `App.tsx` router this document originally described:
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        App.tsx                               │
-│                   (Main Router & State)                      │
+│                       src/app/**                              │
+│              (File-system routing, Server Components)         │
 └─────────────────────────────────────────────────────────────┘
                              │
          ┌───────────────────┼───────────────────┐
          │                   │                   │
     ┌────▼────┐        ┌────▼────┐        ┌────▼────┐
-    │ Contexts │        │  Pages  │        │Components│
-    │ (Global  │        │(Routes) │        │(Reusable)│
-    │  State)  │        │         │        │          │
+    │ Contexts │        │  Views  │        │Components│
+    │ (Global  │        │(Route   │        │(Reusable)│
+    │  State)  │        │ screens)│        │          │
     └─────────┘        └─────────┘        └──────────┘
          │                   │                   │
     ┌────▼────────────┐ ┌───▼──────────┐  ┌────▼─────┐
     │ - Auth          │ │ - News       │  │ - Header │
-    │ - Theme         │ │ - Learn      │  │ - Footer │
+    │ - Theme         │ │ - Ecosystem  │  │ - Footer │
     │ - XP            │ │ - Founders   │  │ - Cards  │
     │ - Categories    │ │ - Events     │  │ - Forms  │
     │ - Ecosystems    │ │ - Admin      │  │ - UI Kit │
@@ -52,22 +54,50 @@ The platform is built with React, TypeScript, and Tailwind CSS v4.0, featuring c
 ```
 User Interaction
       ↓
-UI Components (Pages/Components)
+UI Components (src/app routes / src/components)
       ↓
 Context Providers (Global State)
       ↓
-Utils (Business Logic)
+Services (src/services — API client)
       ↓
-Data Layer (Mock Data / API Calls)
+NestJS API (server/) → PostgreSQL via Prisma
       ↓
 Context State Update
       ↓
 UI Re-render
 ```
 
+The backend (`server/`) is a separate NestJS 11 + Prisma + PostgreSQL API,
+documented in `server/docs/DEPLOYMENT.md`. It is not mock data — every
+content type, auth flow, and the AI agent/webhook layer described later in
+this document is a real, running API under `/api/v1`.
+
+**As of this writing, `src/services/*` (e.g. `news.ts`) still reads from
+`src/data/*` mock data, not from `server/`'s API.** The data flow diagram
+above is the target state, not the current one — wiring the services layer
+to the real backend is the main outstanding integration task.
+
+There is also a second, smaller, older backend surface living inside the
+frontend app itself: `src/app/api/*` (Next.js Route Handlers for articles
+and auth) backed by a separate `prisma/schema.prisma` at the repo root. That
+root schema is a strict subset of `server/prisma/schema.prisma` — it has no
+roles/permissions, no AI agents, no webhooks, and no analytics tables. This
+looks like an earlier, interim implementation that predates `server/` and
+should be treated as legacy: new backend work belongs in `server/`, not
+`src/app/api/` or the root `prisma/` directory.
+
 ---
 
 ## 📂 Complete File Structure & Purpose
+
+> ⚠️ **Legacy section.** The page names below (`HomePage.tsx`, `/pages/...`,
+> `App.tsx`) describe the original Figma-generated prototype. The real
+> frontend uses Next.js App Router file-system routing under `src/app`
+> instead — e.g. what's listed here as `CategoryPage.tsx` at
+> `/news/{category}` is `src/app/news/[category]/page.tsx`, and
+> `NewsListPage.tsx` is `src/app/admin/news/page.tsx`. Treat the tree below
+> as a map of *what each screen does*, not as real file paths — check
+> `src/app/` and `src/views/` for the current ones.
 
 ### **Root Level**
 
@@ -1104,34 +1134,32 @@ xl:  1280px - Large desktop
 ## 🔐 Security Implementation
 
 ### **Authentication**
-- ✅ Secure password hashing (bcrypt)
-- ✅ JWT token-based auth
-- ✅ Session management
-- ✅ Remember me functionality
-- ✅ Password reset flow
-- ✅ Email verification
+- ✅ Argon2id password hashing (`server/src/modules/auth/auth.service.ts`), not bcrypt
+- ✅ JWT access tokens + rotating, hashed refresh tokens (reuse detection revokes the full session chain)
+- ✅ Password reset via `changePassword`, which also revokes every existing session
 
 ### **Admin Security**
-- ✅ Role-based access control (RBAC)
-- ✅ Admin-only routes
-- ✅ Permission checking
-- ✅ Audit logging
-- ✅ 2FA support ready
+- ✅ Role-based access control, with permission grants stored in the database (`RoleDefinition`/`Permission`), not hardcoded
+- ✅ Every admin route closed by default (`JwtAuthGuard` is global; a route must opt into `@Public()`)
+- ✅ Per-route permission checks via `@RequirePermissions(...)` and `PermissionsGuard`
+- ✅ Append-only audit log (`AuditLog`) for every write
 
 ### **Request Security**
-- ✅ CSRF protection (csrf.ts)
-- ✅ Rate limiting (rateLimiter.ts)
-- ✅ Input validation (validation.ts)
-- ✅ XSS prevention
-- ✅ SQL injection prevention
+- ✅ Rate limiting via `@nestjs/throttler`, applied globally
+- ✅ DTO-level input validation (`class-validator`) on every endpoint
+- ✅ `helmet` security headers on the API
 
 ### **Data Security**
-- ✅ Encrypted storage (secureStorage.ts)
-- ✅ Secure file uploads
-- ✅ Content sanitization
-- ✅ API key protection
+- ✅ Local file uploads restricted to safe raster formats (SVG excluded — see `storageConfig` — to avoid stored XSS via inline `<script>`)
+- ✅ Secrets shown once at creation and stored only as hashes (user passwords, AI agent API secrets)
+- ✅ Webhook payloads signed with HMAC-SHA256 so receivers can verify origin
 
-See [SECURITY_COMPLETE.md](./SECURITY_COMPLETE.md) for full details.
+### **AI Agents**
+- ✅ Agents authenticate with an API key/secret pair (`X-Agent-Key` / `X-Agent-Secret`), never a user session
+- ✅ Per-agent permission grants, IP allowlist, and per-minute rate limit
+- ✅ Every agent call logged, successful or not (`AgentRequestLog`)
+
+See [SECURITY_COMPLETE.md](./SECURITY_COMPLETE.md) for details on the areas above that predate the backend; treat this section as the current source of truth where the two disagree.
 
 ---
 
@@ -1255,19 +1283,30 @@ See [SECURITY_COMPLETE.md](./SECURITY_COMPLETE.md) for full details.
 - CDN (for media)
 - Social auth (OAuth)
 
-### **Internal APIs** (To be built)
+### **Internal APIs** (Built — NestJS, `server/`, versioned under `/api/v1`)
 ```
-/api/auth/*           - Authentication endpoints
-/api/news/*           - News CRUD
-/api/learn/*          - Learn CRUD
-/api/events/*         - Events CRUD
-/api/founders/*       - Founders CRUD
-/api/users/*          - User management
-/api/xp/*             - XP system
-/api/referrals/*      - Referral tracking
-/api/analytics/*      - Analytics data
-/api/admin/*          - Admin operations
+/api/v1/auth/*                - Login, refresh, logout, change password
+/api/v1/articles/*             - News CRUD (public read + admin write)
+/api/v1/projects, /research,
+  /regulations, /events,
+  /founders                   - Content-type CRUD, same shape as articles
+/api/v1/taxonomy/*             - Categories, tags, labels
+/api/v1/authors/*              - Author profiles
+/api/v1/media/*                - Media library / uploads
+/api/v1/search                 - Full-text search across all content
+/api/v1/discovery/*, /home     - Homepage & section content resolution
+/api/v1/analytics/*            - View and search analytics (admin)
+/api/v1/audit/*                - Audit log (admin)
+/api/v1/admin/users, /roles    - Staff accounts and permission grants
+/api/v1/admin/site/*           - Settings, navigation, redirects, ad slots
+/api/v1/admin/agents/*         - AI agent credentials (admin)
+/api/v1/agents/*                - Content submission by AI agents (agent-key auth)
+/api/v1/admin/webhooks/*       - Webhook subscriptions (admin)
+/health, /health/ready         - Liveness / readiness probes
 ```
+XP and referrals are not implemented in the backend — they exist only as
+frontend concepts (`XPContext`, `mockReferrals.ts`) and would need their own
+Prisma models and modules if built out.
 
 ---
 
@@ -1341,10 +1380,9 @@ Desktop:   > 1024px - Multi-column, full features
 
 ## 📦 Dependencies
 
-### **Core**
-- React (latest)
-- TypeScript
-- Tailwind CSS v4.0 (no config file)
+### **Frontend (`/`)**
+- Next.js 15 (App Router), React 19, TypeScript
+- Tailwind CSS v4 (no config file)
 
 ### **UI Components**
 - shadcn/ui (30+ components)
@@ -1352,12 +1390,19 @@ Desktop:   > 1024px - Multi-column, full features
 - recharts (charts)
 
 ### **Utilities**
-- react-hook-form@7.55.0 (forms)
-- sonner@2.0.3 (toasts)
+- react-hook-form (forms)
+- sonner (toasts)
 - motion/react (animations)
 
+### **Backend (`server/`)**
+- NestJS 11, Prisma 6, PostgreSQL
+- Passport JWT, Argon2 (password/secret hashing), class-validator
+- `@nestjs/schedule` for in-process cron jobs (scheduled publishing, agent log cleanup)
+
 ### **Development**
-- No build tools needed (Figma Make handles this)
+- Standard npm scripts (`npm run dev`, `npm run build`) for the frontend;
+  `npm run start:dev`, `npm run db:migrate`, `npm run db:seed` for the
+  backend — see `server/package.json` and `server/docs/DEPLOYMENT.md`
 
 ---
 
@@ -1434,26 +1479,32 @@ See [ARTICLE_PAGE_DEPLOYMENT_CHECKLIST.md](./ARTICLE_PAGE_DEPLOYMENT_CHECKLIST.m
 
 ## 🎯 Project Status
 
-**Completion:** ✅ 100% (Frontend + Admin + Features)
+**Frontend:** UI, routing, and admin screens are largely built against the
+design system described above. **Backend:** the NestJS API (`server/`) now
+covers content (news, ecosystem, research, regulation, events, founders),
+taxonomy, users/roles/permissions, media, site configuration, audit
+logging, analytics, AI agents, and webhooks.
 
-### **Ready for:**
-- ✅ Production deployment
-- ✅ Backend integration
-- ✅ User testing
-- ✅ Content population
-- ✅ Marketing launch
+### **Not yet built:**
+- Frontend wiring to the real API — `src/services/*` (e.g. `news.ts`)
+  currently reads `src/data/*` mock data, not `server/`'s API
+- A decision on `src/app/api/*` + root `prisma/` (older, partial Next.js
+  backend) — likely to retire in favor of `server/`
+- XP and referral systems (frontend-only concepts today; no backend models)
+- Email service integration
+- Payment gateway (if the product needs one)
 
 ### **Next Steps:**
-1. Connect to backend API
-2. Set up production database
-3. Configure email service
-4. Enable payment gateway (if needed)
-5. Launch marketing campaigns
+1. Wire `src/services/*` to the NestJS API instead of mock data
+2. Decide the fate of `src/app/api/*` and root `prisma/`
+3. Decide whether XP/referrals ship as real backend modules or are dropped
+4. Configure email service for password reset / notifications
+5. Deploy via `server/docs/DEPLOYMENT.md` and run `npm run db:seed`
+6. Content population and launch
 
 ---
 
-**Last Updated:** November 14, 2025  
-**Version:** 2.0  
-**Status:** Production-Ready ✅
+**Last Updated:** 2026-08-01
+**Status:** Frontend UI complete; backend API built; integration in progress
 
 For detailed information on specific features, consult the [PROJECT_MASTER_INDEX.md](./PROJECT_MASTER_INDEX.md) and linked documentation files.

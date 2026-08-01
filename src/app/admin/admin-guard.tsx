@@ -7,13 +7,15 @@ import { AdminAuthService } from '@/utils/adminAuth';
 /**
  * Route-level protection for the admin panel.
  *
- * The session lives in (encrypted) localStorage, so the check can only run on
- * the client. Children are not rendered until the session has been verified,
- * which prevents admin markup flashing for signed-out visitors.
+ * The access token lives in memory and the session is restored from a
+ * persisted refresh token via the real backend (`POST /auth/refresh`, then
+ * `GET /auth/me`), so the check can only run on the client. Children are not
+ * rendered until the session has been verified, which prevents admin markup
+ * flashing for signed-out visitors.
  *
- * NOTE: this is a UX guard, not a security boundary. Once the API exists,
- * every admin endpoint must authorise the request server-side as well —
- * anyone can set a localStorage key.
+ * NOTE: this is a UX guard, not a security boundary. Every admin endpoint
+ * authorises the request server-side independently (`JwtAuthGuard` +
+ * `@RequirePermissions`) — this guard only controls what renders client-side.
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -27,12 +29,27 @@ export function AdminGuard({ children }: { children: ReactNode }) {
       setState('allowed');
       return;
     }
+
+    let cancelled = false;
+
     if (AdminAuthService.isAuthenticated()) {
       setState('allowed');
-    } else {
-      setState('denied');
-      router.replace('/admin/login');
+      return;
     }
+
+    AdminAuthService.restoreSession().then(session => {
+      if (cancelled) return;
+      if (session) {
+        setState('allowed');
+      } else {
+        setState('denied');
+        router.replace('/admin/login');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isLoginRoute, pathname, router]);
 
   if (state !== 'allowed') {

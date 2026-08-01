@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Shield, ArrowLeft, AlertCircle } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
-import { AdminAuthService } from '@/utils/adminAuth';
+import { AdminAuthService, ApiError } from '@/utils/adminAuth';
 import { adminLoginSchema, validateAndSanitize } from '@/utils/validation';
 import { toast } from 'sonner';
 
@@ -16,16 +16,13 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [enable2FA, setEnable2FA] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [showOTP, setShowOTP] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     // Basic client-side validation first
     if (!email || !password) {
       setError('Please enter both email and password');
@@ -40,36 +37,19 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
       return;
     }
 
-    if (enable2FA && !showOTP) {
-      // Show OTP input
-      setShowOTP(true);
-      return;
-    }
-
     setIsLoading(true);
-    
+
     try {
-      // Validate admin credentials
-      const isValid = await AdminAuthService.validateCredentials(result.data.email, result.data.password);
-      
-      if (!isValid) {
-        setError('Invalid admin credentials');
-        toast.error('Invalid email or password');
-        setIsLoading(false);
-        return;
-      }
+      await AdminAuthService.login(result.data.email, result.data.password);
 
-      // Create admin session
-      const role = AdminAuthService.getRoleFromEmail(result.data.email);
-      AdminAuthService.createSession(result.data.email, role);
-
-      // Success
       toast.success('Admin login successful! 🔒');
       onAdminLogin();
       onNavigate('admin/dashboard');
     } catch (err) {
-      setError('Login failed. Please try again.');
-      toast.error('Admin login failed');
+      const message =
+        err instanceof ApiError ? err.message : 'Login failed. Please try again.';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -162,44 +142,13 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
               </div>
             </div>
 
-            {/* 2FA Toggle */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enable2FA}
-                  onChange={(e) => setEnable2FA(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-yellow-500 focus:ring-yellow-400"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">Enable 2FA</span>
-              </label>
-              {/* Staff password resets are handled by an administrator; there
-                  is no self-service reset flow. */}
+            {/* Staff password resets are handled by an administrator; there
+                is no self-service reset flow. */}
+            <div className="flex items-center justify-end">
               <span className="text-sm text-gray-500 dark:text-gray-400">
                 Lost access? Contact your administrator.
               </span>
             </div>
-
-            {/* OTP Input (shown if 2FA enabled and first login attempt) */}
-            {showOTP && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">
-                  Verification Code
-                </label>
-                <input
-                  type="text"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  placeholder="Enter 6-digit code"
-                  maxLength={6}
-                  required
-                  className="w-full px-4 py-3 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:focus:ring-yellow-500 focus:border-transparent transition-all text-center tracking-widest"
-                />
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
-                  Check your email for the verification code
-                </p>
-              </div>
-            )}
 
             {/* Submit Button */}
             <button
@@ -213,7 +162,7 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
                   Signing in...
                 </>
               ) : (
-                showOTP ? 'Verify & Sign In' : 'Sign In'
+                'Sign In'
               )}
             </button>
           </form>

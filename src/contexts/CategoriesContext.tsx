@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { defaultCategories, Category } from '../data/mockCategories';
-import { Article, getArticlesByCategory as getArticles } from '../data/mockArticles';
 
 interface CategoriesContextType {
   categories: Category[];
@@ -12,7 +11,6 @@ interface CategoriesContextType {
   getCategoryById: (id: string) => Category | undefined;
   getCategoryBySlug: (slug: string) => Category | undefined;
   getActiveCategories: () => Category[];
-  getArticlesByCategory: (categorySlug: string) => Article[];
 }
 
 const CategoriesContext = createContext<CategoriesContextType | undefined>(undefined);
@@ -57,10 +55,6 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
     return categories.filter(cat => cat.isActive);
   };
 
-  const getArticlesByCategory = (categorySlug: string) => {
-    return getArticles(categorySlug);
-  };
-
   return (
     <CategoriesContext.Provider
       value={{
@@ -70,8 +64,7 @@ export function CategoriesProvider({ children }: { children: ReactNode }) {
         deleteCategory,
         getCategoryById,
         getCategoryBySlug,
-        getActiveCategories,
-        getArticlesByCategory
+        getActiveCategories
       }}
     >
       {children}

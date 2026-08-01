@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Settings, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { getSettings, saveSettings } from '@/services/site';
 
 interface GeneralSettingsPageProps {
   currentPage: string;
@@ -22,12 +23,36 @@ export function GeneralSettingsPage({ currentPage, onNavigate, onLogout }: Gener
   const [language, setLanguage] = useState('en');
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY');
 
-  const handleSave = () => {
+  useEffect(() => {
+    getSettings()
+      .then(settings => {
+        if (typeof settings['general.siteName'] === 'string') setSiteName(settings['general.siteName']);
+        if (typeof settings['general.siteTagline'] === 'string') setSiteTagline(settings['general.siteTagline']);
+        if (typeof settings['general.siteUrl'] === 'string') setSiteUrl(settings['general.siteUrl']);
+        if (typeof settings['general.timezone'] === 'string') setTimezone(settings['general.timezone']);
+        if (typeof settings['general.language'] === 'string') setLanguage(settings['general.language']);
+        if (typeof settings['general.dateFormat'] === 'string') setDateFormat(settings['general.dateFormat']);
+      })
+      .catch(() => toast.error('Failed to load settings'));
+  }, []);
+
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await saveSettings([
+        { key: 'general.siteName', value: siteName },
+        { key: 'general.siteTagline', value: siteTagline },
+        { key: 'general.siteUrl', value: siteUrl },
+        { key: 'general.timezone', value: timezone },
+        { key: 'general.language', value: language },
+        { key: 'general.dateFormat', value: dateFormat },
+      ]);
       toast.success('General settings saved successfully!');
-    }, 1000);
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/EmptyState';
 import { GridSkeleton } from '@/components/LoadingSkeletons';
-import { useCategories } from '@/contexts/CategoriesContext';
 import { useFounders } from '@/contexts/FoundersContext';
 import { useEvents } from '@/contexts/EventsContext';
+import { searchArticles } from '@/services/news';
+import type { Article } from '@/types/article';
 
 interface SearchPageProps {
   onNavigate: (path: string) => void;
@@ -27,22 +28,34 @@ export default function SearchPage({ onNavigate, initialQuery = '' }: SearchPage
   const [activeTab, setActiveTab] = useState<SearchTab>('all');
   const [isSearching, setIsSearching] = useState(false);
 
-  const { getArticlesByCategory } = useCategories();
   const { getPublishedStories } = useFounders();
   const { getUpcomingEvents } = useEvents();
+
+  const [newsResults, setNewsResults] = useState<Article[]>([]);
 
   const needle = query.trim().toLowerCase();
   const matches = (value?: string) => !!value && value.toLowerCase().includes(needle);
 
+  useEffect(() => {
+    if (!needle) {
+      setNewsResults([]);
+      return;
+    }
+    let cancelled = false;
+    searchArticles(query, 12)
+      .then(results => {
+        if (!cancelled) setNewsResults(results);
+      })
+      .catch(() => {
+        if (!cancelled) setNewsResults([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needle, query]);
+
   const searchResults = {
-    news: getArticlesByCategory('all')
-      .filter(
-        article =>
-          matches(article.title) ||
-          matches(article.summary) ||
-          article.tags?.some(tag => matches(tag))
-      )
-      .slice(0, 12),
+    news: newsResults,
 
     founders: getPublishedStories()
       .filter(story => matches(story.name) || matches(story.role) || matches(story.excerpt))

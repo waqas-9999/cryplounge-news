@@ -14,7 +14,7 @@
 import { useAppNavigate } from '@/lib/navigation';
 import { images } from '@/lib/images';
 import type { Project } from '@/types/project';
-import type { Article } from '@/data/mockArticles';
+import type { Article } from '@/types/article';
 import type { EventSummary } from '@/services/events';
 
 import { HomePage } from '@/components/pages/HomePage';

@@ -23,11 +23,7 @@ export function SecuritySettingsPage({ currentPage, onNavigate, onLogout }: Secu
   const [lockoutDuration, setLockoutDuration] = useState('30');
 
   const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success('Security settings saved successfully!');
-    }, 1000);
+    toast.error('Security policy enforcement is not yet supported by the backend — nothing was saved.');
   };
 
   return (

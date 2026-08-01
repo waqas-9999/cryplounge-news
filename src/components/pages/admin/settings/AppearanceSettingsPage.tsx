@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Palette, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { getSettings, saveSettings } from '@/services/site';
 
 interface AppearanceSettingsPageProps {
   currentPage: string;
@@ -20,12 +21,32 @@ export function AppearanceSettingsPage({ currentPage, onNavigate, onLogout }: Ap
   const [secondaryColor, setSecondaryColor] = useState('#F1EFA5');
   const [enableAnimations, setEnableAnimations] = useState(true);
 
-  const handleSave = () => {
+  useEffect(() => {
+    getSettings()
+      .then(settings => {
+        if (typeof settings['appearance.defaultTheme'] === 'string') setDefaultTheme(settings['appearance.defaultTheme']);
+        if (typeof settings['appearance.primaryColor'] === 'string') setPrimaryColor(settings['appearance.primaryColor']);
+        if (typeof settings['appearance.secondaryColor'] === 'string') setSecondaryColor(settings['appearance.secondaryColor']);
+        if (typeof settings['appearance.enableAnimations'] === 'boolean') setEnableAnimations(settings['appearance.enableAnimations']);
+      })
+      .catch(() => toast.error('Failed to load settings'));
+  }, []);
+
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await saveSettings([
+        { key: 'appearance.defaultTheme', value: defaultTheme },
+        { key: 'appearance.primaryColor', value: primaryColor },
+        { key: 'appearance.secondaryColor', value: secondaryColor },
+        { key: 'appearance.enableAnimations', value: enableAnimations },
+      ]);
       toast.success('Appearance settings saved successfully!');
-    }, 1000);
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

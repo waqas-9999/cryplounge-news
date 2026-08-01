@@ -21,15 +21,11 @@ export function BackupSettingsPage({ currentPage, onNavigate, onLogout }: Backup
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success('Backup settings saved successfully!');
-    }, 1000);
+    toast.error('Backup configuration is not yet supported by the backend — nothing was saved.');
   };
 
   const createManualBackup = () => {
-    toast.success('Backup created successfully');
+    toast.error('The backend has no backup infrastructure yet.');
   };
 
   return (

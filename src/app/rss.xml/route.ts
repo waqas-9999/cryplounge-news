@@ -1,4 +1,5 @@
-import { mockArticles, articleSlug } from '@/data/mockArticles';
+import { articleSlug } from '@/types/article';
+import { listArticles } from '@/services/news';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge.com';
 
@@ -16,9 +17,8 @@ function escapeXml(value: string): string {
  * the route that actually serves it.
  */
 export async function GET() {
-  const items = [...mockArticles]
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    .slice(0, 50)
+  const { items: articles } = await listArticles({ perPage: 50 });
+  const items = articles
     .map(article => {
       const url = `${SITE_URL}/news/${article.categorySlug}/${articleSlug(article)}`;
       return `    <item>

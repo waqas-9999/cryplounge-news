@@ -20,17 +20,11 @@ export function APISettingsPage({ currentPage, onNavigate, onLogout }: APISettin
   const [apiKey, setApiKey] = useState('');
 
   const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success('API settings saved successfully!');
-    }, 1000);
+    toast.error('API configuration is not yet supported by the backend — nothing was saved.');
   };
 
   const generateApiKey = () => {
-    const newKey = 'sk_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    setApiKey(newKey);
-    toast.success('New API key generated');
+    toast.error('The backend does not issue API keys yet.');
   };
 
   return (

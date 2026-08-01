@@ -3,7 +3,7 @@
 Full audit of the repository as it stands. Every claim below was verified by
 running the code, not by reading it.
 
-**Audited at:** `2c4e35f` plus uncommitted work
+**Audited at:** `0301ccb` ("Part 4"), working tree clean
 **Date:** 1 August 2026
 
 ---
@@ -100,10 +100,17 @@ Highest-risk unexercised code:
 4. **The last-super-admin guard** in `UsersService` — logic that reads correct
    and fails silently if wrong.
 
-**Fix:**
+**Status:** still blocked. Docker is not installed on this machine at all (no
+CLI, no Docker Desktop, no WSL), so `docker-compose.yml` can't be used
+locally as-is. A native PostgreSQL 17 install was attempted via `winget`, but
+no evidence of a successful install has been found (no `postgresql*`
+service, nothing listening on 5432, no winget-registered package). This
+needs to be resolved — either get Docker installed, get native PostgreSQL
+actually running, or use a hosted/remote Postgres instance — before any of
+the rest of this list can be verified.
+
+**Fix (once Postgres is reachable):**
 ```bash
-docker run --name cryplounge-db -e POSTGRES_PASSWORD=devpassword \
-  -e POSTGRES_DB=cryplounge -p 5432:5432 -d postgres:16
 cd server && npm run db:migrate
 SEED_ADMIN_PASSWORD='<strong password>' npm run db:seed
 npm run start:dev
@@ -207,13 +214,11 @@ with a loop.
 
 **Fix:** tighter per-route throttle, plus deduplication by IP + entity + day.
 
-### M4. Uncommitted work is at risk
+### M4. ~~Uncommitted work is at risk~~ — resolved
 
-Not committed: `src/modules/agents/`, `src/modules/webhooks/`, `Dockerfile`,
-`docker-compose.yml`, `server/docs/`, and edits to `permissions.ts` and
-`app.module.ts`.
-
-**Fix:** commit it.
+`agents`, `webhooks`, `Dockerfile`, `docker-compose.yml`, `server/docs/`, and
+the `permissions.ts`/`app.module.ts` edits were committed as `0301ccb`
+("Part 4"). Working tree is clean as of this audit.
 
 ---
 
@@ -221,17 +226,17 @@ Not committed: `src/modules/agents/`, `src/modules/webhooks/`, `Dockerfile`,
 
 Sequenced by dependency — each step makes the next verifiable.
 
-1. **Start Postgres, migrate, seed** (B4). Nothing else can be trusted first.
+1. **Start Postgres, migrate, seed** (B4). Nothing else can be trusted first —
+   still blocked as of this audit; see the note below.
 2. **Exercise the API** — login, create an article, publish it, search, upload.
    Expect real bugs; none of this has run.
-3. **Commit the pending work** (M4).
-4. **Delete the superseded Next.js backend** (M1).
-5. **Build the frontend API client and rewire the services** (B1).
-6. **Wire the admin panel; delete `adminAuth.ts`** (B2, B3).
-7. **Collapse the seven section pages onto the API** (B5).
-8. **Write the tests** (H2).
-9. **Localization, Ads, Redirects, or drop the tables** (H1).
-10. **Sitemap, robots, dashboard, bulk ops, export, admin search** (H3).
+3. **Delete the superseded Next.js backend** (M1).
+4. **Build the frontend API client and rewire the services** (B1).
+5. **Wire the admin panel; delete `adminAuth.ts`** (B2, B3).
+6. **Collapse the seven section pages onto the API** (B5).
+7. **Write the tests** (H2).
+8. **Localization, Ads, Redirects, or drop the tables** (H1).
+9. **Sitemap, robots, dashboard, bulk ops, export, admin search** (H3).
 
 Steps 1–2 are the highest value per hour: they convert a large body of
 unverified code into either working software or a concrete bug list.

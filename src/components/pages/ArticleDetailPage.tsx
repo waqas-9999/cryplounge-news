@@ -5,7 +5,7 @@ import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
-import { mockArticles } from '@/data/mockArticles';
+import { listArticles } from '@/services/news';
 
 interface ArticleDetailPageProps {
   category: string;
@@ -185,49 +185,51 @@ export function ArticleDetailPage({
     }
   };
 
-  // Get related articles: prioritize same category, then same tags, exclude current article
-  const relatedArticles = mockArticles
-    .filter(article => article.id !== articleSlug)
-    .map(article => {
-      let relevanceScore = 0;
-      
-      // Higher score for same category
-      if (article.categorySlug === categorySlug) {
-        relevanceScore += 10;
-      }
-      
-      // Add score for matching tags
-      const matchingTags = article.tags.filter(tag => tags.includes(tag));
-      relevanceScore += matchingTags.length * 2;
-      
-      return {
-        ...article,
-        relevanceScore
-      };
-    })
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .slice(0, 5)
-    .map(article => ({
-      category: article.category,
-      categorySlug: article.categorySlug,
-      time: article.readTime,
-      title: article.title,
-      image: article.imageUrl || vrImage, // Fallback to vrImage if no imageUrl
-      slug: article.id
-    }));
+  // Related articles: same category, excluding the current article
+  const [relatedArticles, setRelatedArticles] = useState<
+    { category: string; categorySlug: string; time: string; title: string; image: string; slug: string }[]
+  >([]);
+  const [bestOfMonth, setBestOfMonth] = useState<
+    { category: string; categorySlug: string; time: string; title: string; image: string; slug: string }[]
+  >([]);
 
-  // Get best performing articles for "Best of the Month"
-  const bestOfMonth = mockArticles
-    .filter(article => article.id !== articleSlug)
-    .slice(0, 1)
-    .map(article => ({
-      category: article.category,
-      categorySlug: article.categorySlug,
-      time: article.readTime,
-      title: article.title,
-      image: article.imageUrl || speakerImage,
-      slug: article.id
-    }));
+  useEffect(() => {
+    listArticles({ category: categorySlug, perPage: 6 })
+      .then(({ items }) => {
+        setRelatedArticles(
+          items
+            .filter(article => (article.slug ?? article.id) !== articleSlug)
+            .slice(0, 5)
+            .map(article => ({
+              category: article.category,
+              categorySlug: article.categorySlug,
+              time: article.readTime,
+              title: article.title,
+              image: article.imageUrl || vrImage,
+              slug: article.slug ?? article.id
+            }))
+        );
+      })
+      .catch(() => setRelatedArticles([]));
+
+    listArticles({ perPage: 2 })
+      .then(({ items }) => {
+        setBestOfMonth(
+          items
+            .filter(article => (article.slug ?? article.id) !== articleSlug)
+            .slice(0, 1)
+            .map(article => ({
+              category: article.category,
+              categorySlug: article.categorySlug,
+              time: article.readTime,
+              title: article.title,
+              image: article.imageUrl || speakerImage,
+              slug: article.slug ?? article.id
+            }))
+        );
+      })
+      .catch(() => setBestOfMonth([]));
+  }, [articleSlug, categorySlug]);
 
   const moreNewsCategories = [
     'Finance', 'Technology', 'Geopolitics', 'Business'

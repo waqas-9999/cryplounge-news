@@ -23,11 +23,7 @@ export function EmailSettingsPage({ currentPage, onNavigate, onLogout }: EmailSe
   const [fromName, setFromName] = useState('CrypLounge');
 
   const handleSave = () => {
-    setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success('Email settings saved successfully!');
-    }, 1000);
+    toast.error('Email/SMTP configuration is not yet supported by the backend — nothing was saved.');
   };
 
   return (

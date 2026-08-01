@@ -1,12 +1,13 @@
-import { mockEvents } from '@/data/mockEvents';
 import type { Project } from '@/types/project';
+import { apiClient } from '@/lib/api-client';
 
 /**
  * Data access for events.
  *
- * Components receive `EventSummary` rather than the full record: cross-content
- * blocks only need enough to render a card and a link, and a narrow projection
- * keeps the serialized payload small when it crosses to the client.
+ * Backed by the real NestJS `events` endpoints. Components receive
+ * `EventSummary` rather than the full record: cross-content blocks only need
+ * enough to render a card and a link, and a narrow projection keeps the
+ * serialized payload small when it crosses to the client.
  */
 export interface EventSummary {
   id: string;
@@ -19,48 +20,55 @@ export interface EventSummary {
   registerLink: string;
 }
 
-function toSummary(event: (typeof mockEvents)[number]): EventSummary {
+interface BackendEvent {
+  id: string;
+  slug: string;
+  name: string;
+  summary: string;
+  startsAt: string;
+  mode: 'ONLINE' | 'IN_PERSON' | 'HYBRID';
+  city?: string | null;
+  country?: string | null;
+  registrationUrl?: string | null;
+  category: { id: string; slug: string; name: string } | null;
+}
+
+function locationOf(event: BackendEvent): string {
+  if (event.mode === 'ONLINE') return 'Online';
+  return [event.city, event.country].filter(Boolean).join(', ') || 'TBA';
+}
+
+function toSummary(event: BackendEvent): EventSummary {
   return {
     id: event.id,
     name: event.name,
     slug: event.slug,
-    category: event.category,
-    date: event.date,
-    location: event.location,
+    category: event.category?.name ?? 'Event',
+    date: event.startsAt,
+    location: locationOf(event),
     summary: event.summary,
-    registerLink: event.registerLink,
+    registerLink: event.registrationUrl ?? '',
   };
 }
 
-function byDateAscending(a: { date: string }, b: { date: string }) {
-  return new Date(a.date).getTime() - new Date(b.date).getTime();
-}
-
 export async function getUpcomingEventSummaries(limit = 3): Promise<EventSummary[]> {
-  const now = Date.now();
-  return mockEvents
-    .filter(e => e.status === 'published' && new Date(e.date).getTime() >= now)
-    .sort(byDateAscending)
-    .slice(0, limit)
-    .map(toSummary);
+  const { items } = await apiClient.getPaginated<BackendEvent>('events', {
+    query: { when: 'upcoming', page: 1, perPage: limit },
+    auth: false,
+  });
+  return items.map(toSummary);
 }
 
 /**
- * Events plausibly relevant to a project, matched on tags and name mentions.
- * Falls back to upcoming events so the block is never empty on a live site.
+ * Events plausibly relevant to a project, matched via the article/event
+ * search on name. Falls back to upcoming events so the block is never empty.
  */
 export async function getEventsForProject(project: Project, limit = 3): Promise<EventSummary[]> {
-  const needles = [project.name.toLowerCase(), ...project.tags.map(t => t.toLowerCase())];
+  const { items } = await apiClient.getPaginated<BackendEvent>('events', {
+    query: { search: project.name, when: 'all', page: 1, perPage: limit },
+    auth: false,
+  });
 
-  const matched = mockEvents
-    .filter(event => {
-      const haystack = [event.name, event.summary, ...(event.tags ?? [])].join(' ').toLowerCase();
-      return needles.some(needle => haystack.includes(needle));
-    })
-    .sort(byDateAscending)
-    .slice(0, limit)
-    .map(toSummary);
-
-  if (matched.length > 0) return matched;
+  if (items.length > 0) return items.map(toSummary);
   return getUpcomingEventSummaries(limit);
 }

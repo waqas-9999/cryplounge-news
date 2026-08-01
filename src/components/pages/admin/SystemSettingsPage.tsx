@@ -1,22 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
-import { 
-  Settings, 
-  Palette, 
-  Mail, 
-  Shield, 
-  Search, 
-  Key, 
+import {
+  Settings,
+  Palette,
+  Mail,
+  Shield,
+  Search,
+  Key,
   Database,
-  Bell,
-  Globe,
   Save,
   RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getSettings, saveSettings } from '@/services/site';
 
 interface SystemSettingsPageProps {
   currentPage: string;
@@ -30,8 +29,9 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // General Settings State
+  // General Settings State (persisted via `settings` key/value store)
   const [siteName, setSiteName] = useState('CrypLounge');
   const [siteTagline, setSiteTagline] = useState('Your Global Cryptocurrency News Platform');
   const [siteUrl, setSiteUrl] = useState('https://cryplounge.com');
@@ -39,7 +39,7 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
   const [language, setLanguage] = useState('en');
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY');
 
-  // Appearance Settings State
+  // Appearance Settings State (persisted via `settings` key/value store)
   const [defaultTheme, setDefaultTheme] = useState('light');
   const [primaryColor, setPrimaryColor] = useState('#FFD200');
   const [secondaryColor, setSecondaryColor] = useState('#F1EFA5');
@@ -61,7 +61,7 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
   const [maxLoginAttempts, setMaxLoginAttempts] = useState('5');
   const [lockoutDuration, setLockoutDuration] = useState('30');
 
-  // SEO Settings State
+  // SEO Settings State (persisted via `settings` key/value store)
   const [metaTitle, setMetaTitle] = useState('CrypLounge - Global Cryptocurrency News Platform');
   const [metaDescription, setMetaDescription] = useState('Stay updated with the latest cryptocurrency news covering finance, technology, geopolitics, and business.');
   const [metaKeywords, setMetaKeywords] = useState('cryptocurrency, crypto news, blockchain, digital currency, CBDC');
@@ -90,19 +90,76 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
     { id: 'backup' as SettingsTab, label: 'Backup', icon: Database },
   ];
 
-  const handleSave = () => {
-    setIsSaving(true);
-    
-    // Simulate saving
-    setTimeout(() => {
-      setIsSaving(false);
-      toast.success('Settings saved successfully!');
-    }, 1000);
-  };
+  // Only General/Appearance/SEO map to the backend's flat settings store.
+  // Email/Security/API/Backup describe infrastructure (SMTP, auth policy
+  // enforcement, API key issuance, scheduled backups) the backend doesn't
+  // implement yet, so their tabs are shown as read-only drafts rather than
+  // faking a save.
+  const CONNECTED_TABS: SettingsTab[] = ['general', 'appearance', 'seo'];
 
-  const handleReset = () => {
-    if (confirm('Are you sure you want to reset all settings to defaults?')) {
-      toast.success('Settings reset to defaults');
+  useEffect(() => {
+    getSettings()
+      .then(settings => {
+        if (typeof settings['general.siteName'] === 'string') setSiteName(settings['general.siteName']);
+        if (typeof settings['general.siteTagline'] === 'string') setSiteTagline(settings['general.siteTagline']);
+        if (typeof settings['general.siteUrl'] === 'string') setSiteUrl(settings['general.siteUrl']);
+        if (typeof settings['general.timezone'] === 'string') setTimezone(settings['general.timezone']);
+        if (typeof settings['general.language'] === 'string') setLanguage(settings['general.language']);
+        if (typeof settings['general.dateFormat'] === 'string') setDateFormat(settings['general.dateFormat']);
+        if (typeof settings['appearance.defaultTheme'] === 'string') setDefaultTheme(settings['appearance.defaultTheme']);
+        if (typeof settings['appearance.primaryColor'] === 'string') setPrimaryColor(settings['appearance.primaryColor']);
+        if (typeof settings['appearance.secondaryColor'] === 'string') setSecondaryColor(settings['appearance.secondaryColor']);
+        if (typeof settings['appearance.enableAnimations'] === 'boolean') setEnableAnimations(settings['appearance.enableAnimations']);
+        if (typeof settings['seo.metaTitle'] === 'string') setMetaTitle(settings['seo.metaTitle']);
+        if (typeof settings['seo.metaDescription'] === 'string') setMetaDescription(settings['seo.metaDescription']);
+        if (typeof settings['seo.metaKeywords'] === 'string') setMetaKeywords(settings['seo.metaKeywords']);
+        if (typeof settings['seo.googleAnalyticsId'] === 'string') setGoogleAnalyticsId(settings['seo.googleAnalyticsId']);
+        if (typeof settings['seo.googleSearchConsole'] === 'string') setGoogleSearchConsole(settings['seo.googleSearchConsole']);
+        if (typeof settings['seo.facebookPixelId'] === 'string') setFacebookPixelId(settings['seo.facebookPixelId']);
+      })
+      .catch(() => toast.error('Failed to load settings'))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    if (!CONNECTED_TABS.includes(activeTab)) {
+      toast.error('This section is not yet connected to a backend service.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (activeTab === 'general') {
+        await saveSettings([
+          { key: 'general.siteName', value: siteName },
+          { key: 'general.siteTagline', value: siteTagline },
+          { key: 'general.siteUrl', value: siteUrl },
+          { key: 'general.timezone', value: timezone },
+          { key: 'general.language', value: language },
+          { key: 'general.dateFormat', value: dateFormat },
+        ]);
+      } else if (activeTab === 'appearance') {
+        await saveSettings([
+          { key: 'appearance.defaultTheme', value: defaultTheme },
+          { key: 'appearance.primaryColor', value: primaryColor },
+          { key: 'appearance.secondaryColor', value: secondaryColor },
+          { key: 'appearance.enableAnimations', value: enableAnimations },
+        ]);
+      } else if (activeTab === 'seo') {
+        await saveSettings([
+          { key: 'seo.metaTitle', value: metaTitle },
+          { key: 'seo.metaDescription', value: metaDescription },
+          { key: 'seo.metaKeywords', value: metaKeywords },
+          { key: 'seo.googleAnalyticsId', value: googleAnalyticsId },
+          { key: 'seo.googleSearchConsole', value: googleSearchConsole },
+          { key: 'seo.facebookPixelId', value: facebookPixelId },
+        ]);
+      }
+      toast.success('Settings saved successfully!');
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -614,26 +671,9 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
                     <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">
                       API Key
                     </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={apiKey}
-                        readOnly
-                        placeholder="Click generate to create new API key"
-                        className="flex-1 px-4 py-2 bg-white dark:bg-[#0F0F10] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#EFB81A]"
-                      />
-                      <button
-                        onClick={() => {
-                          const newKey = 'sk_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                          setApiKey(newKey);
-                          toast.success('New API key generated');
-                        }}
-                        className="px-4 py-2 bg-[#EFB81A] text-gray-900 rounded-lg hover:bg-[#d9a617] transition-colors flex items-center gap-2"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        Generate
-                      </button>
-                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      The backend doesn&apos;t issue API keys yet — this control is disabled until that endpoint exists.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -707,15 +747,9 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
                   </div>
 
                   <div className="md:col-span-2">
-                    <button
-                      onClick={() => {
-                        toast.success('Backup created successfully');
-                      }}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                      <Database className="w-4 h-4" />
-                      Create Manual Backup
-                    </button>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">
+                      The backend has no backup infrastructure yet — this control is disabled until that exists.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -724,17 +758,16 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
 
           {/* Action Buttons */}
           <div className="flex items-center justify-between mt-6">
-            <button
-              onClick={handleReset}
-              className="px-6 py-2 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
-            >
-              Reset to Defaults
-            </button>
+            {!CONNECTED_TABS.includes(activeTab) && (
+              <p className="text-xs text-gray-500 dark:text-gray-500">
+                This section is a UI draft — it isn&apos;t backed by a server yet, so changes here won&apos;t persist.
+              </p>
+            )}
 
             <button
               onClick={handleSave}
-              disabled={isSaving}
-              className="px-6 py-2 bg-[#EFB81A] text-gray-900 rounded-lg hover:bg-[#d9a617] transition-colors flex items-center gap-2 disabled:opacity-50"
+              disabled={isSaving || isLoading}
+              className="ml-auto px-6 py-2 bg-[#EFB81A] text-gray-900 rounded-lg hover:bg-[#d9a617] transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               {isSaving ? 'Saving...' : 'Save Changes'}

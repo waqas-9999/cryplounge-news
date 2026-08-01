@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { 
-  Search, 
+import {
+  Search,
   Eye,
   FileText,
   Tag,
@@ -15,6 +15,7 @@ import {
   Globe,
   Briefcase
 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 interface NewsCategoriesPageProps {
   currentPage: string;
@@ -25,9 +26,10 @@ interface NewsCategoriesPageProps {
 export function NewsCategoriesPage({ currentPage, onNavigate, onLogout }: NewsCategoriesPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [articleCounts, setArticleCounts] = useState<Record<string, number>>({});
 
   // Fixed main categories - locked and cannot be edited/deleted
-  const mainCategories = [
+  const mainCategoriesBase = [
     { 
       id: '1', 
       name: 'Market', 
@@ -65,10 +67,27 @@ export function NewsCategoriesPage({ currentPage, onNavigate, onLogout }: NewsCa
       description: 'Corporate adoption, partnerships, enterprise solutions, and institutional news', 
       icon: Briefcase, 
       color: '#F59E0B', 
-      isActive: true, 
-      articleCount: 0 
+      isActive: true,
+      articleCount: 0
     }
   ];
+
+  const mainCategories = mainCategoriesBase.map(cat => ({
+    ...cat,
+    articleCount: articleCounts[cat.slug] ?? 0,
+  }));
+
+  useEffect(() => {
+    Promise.all(
+      mainCategoriesBase.map(cat =>
+        apiClient
+          .getPaginated('articles/admin', { query: { category: cat.slug, perPage: 1 } })
+          .then(({ pagination }) => [cat.slug, pagination.total] as const)
+          .catch(() => [cat.slug, 0] as const)
+      )
+    ).then(entries => setArticleCounts(Object.fromEntries(entries)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter categories
   const filteredCategories = mainCategories.filter(cat =>

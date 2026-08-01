@@ -19,6 +19,7 @@ import { AdminProfilePage } from '@/components/pages/admin/AdminProfilePage';
 import { UsersListPage } from '@/components/pages/admin/UsersListPage';
 import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsPage';
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
+import { LogsPage } from '@/components/pages/admin/LogsPage';
 
 import { NewsListPage } from '@/components/pages/admin/NewsListPage';
 import { NewsCreatePage } from '@/components/pages/admin/NewsCreatePage';
@@ -42,8 +43,7 @@ function useAdminChrome() {
   const currentPage = useCurrentPageKey();
 
   const onLogout = useCallback(() => {
-    AdminAuthService.clearSession();
-    router.replace('/admin/login');
+    void AdminAuthService.logout().finally(() => router.replace('/admin/login'));
   }, [router]);
 
   return { currentPage, onNavigate, onLogout };
@@ -82,6 +82,10 @@ export function AdminRolesPermissionsView() {
 
 export function AdminSystemSettingsView() {
   return <SystemSettingsPage {...useAdminChrome()} />;
+}
+
+export function AdminLogsView() {
+  return <LogsPage {...useAdminChrome()} />;
 }
 
 /* ---------------------------------------------------------------- news --- */

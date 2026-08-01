@@ -1,11 +1,13 @@
-import { mockArticles, articleSlug, type Article } from '@/data/mockArticles';
+import { apiClient, mediaUrl } from '@/lib/api-client';
+import { articleSlug, type Article, type ArticleStatus } from '@/types/article';
 import type { Project } from '@/types/project';
 
 /**
  * Data access for editorial articles.
  *
- * Same contract as the projects service: async, paginated, and the only place
- * that knows where articles come from. Components never import `@/data`.
+ * Backed by the real NestJS `articles` endpoints. Same contract as before:
+ * async, paginated, and the only place that knows where articles come from.
+ * Components never talk to the API client directly.
  */
 
 export interface ArticleQuery {
@@ -26,8 +28,42 @@ export interface PaginatedArticles {
 
 const DEFAULT_PER_PAGE = 12;
 
-function byNewest(a: Article, b: Article) {
-  return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+/** Backend article shape from `LIST_SELECT` / `DETAIL_INCLUDE`. */
+interface BackendArticle {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  content?: string;
+  status: 'DRAFT' | 'REVIEW' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED';
+  publishedAt: string | null;
+  updatedAt?: string;
+  featured?: boolean;
+  readMinutes: number | null;
+  category: { id: string; slug: string; name: string } | null;
+  author: { id: string; slug: string; name: string; avatarUrl?: string | null } | null;
+  featuredImage: { id: string; path: string; altText?: string | null } | null;
+  tags: { id: string; slug: string; name: string }[];
+}
+
+function toArticle(a: BackendArticle): Article {
+  return {
+    id: a.id,
+    slug: a.slug,
+    title: a.title,
+    summary: a.summary,
+    category: a.category?.name ?? 'General',
+    categorySlug: a.category?.slug ?? 'general',
+    author: a.author?.name ?? 'CrypLounge Staff',
+    readTime: `${a.readMinutes ?? 3} min read`,
+    publishedAt: a.publishedAt ?? a.updatedAt ?? new Date().toISOString(),
+    updatedAt: a.updatedAt,
+    tags: a.tags.map(t => t.name),
+    imageUrl: mediaUrl(a.featuredImage?.path),
+    status: a.status.toLowerCase() as ArticleStatus,
+    featured: a.featured,
+    content: a.content,
+  };
 }
 
 /** Canonical URL for an article. */
@@ -36,59 +72,66 @@ export function articleHref(article: Article): string {
 }
 
 export async function listArticles(query: ArticleQuery = {}): Promise<PaginatedArticles> {
-  let items = [...mockArticles];
-
-  if (query.category) {
-    items = items.filter(a => a.categorySlug === query.category);
-  }
-  if (query.tag) {
-    const tag = query.tag.toLowerCase();
-    items = items.filter(a => a.tags?.some(t => t.toLowerCase() === tag));
-  }
-  if (query.search) {
-    const needle = query.search.trim().toLowerCase();
-    if (needle) {
-      items = items.filter(a =>
-        [a.title, a.summary, ...(a.tags ?? [])].join(' ').toLowerCase().includes(needle)
-      );
-    }
-  }
-
-  items.sort(byNewest);
-
   const perPage = query.perPage ?? DEFAULT_PER_PAGE;
-  const total = items.length;
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const page = Math.min(Math.max(1, query.page ?? 1), totalPages);
-  const start = (page - 1) * perPage;
+  const page = query.page ?? 1;
 
-  return { items: items.slice(start, start + perPage), page, perPage, total, totalPages };
+  const { items, pagination } = await apiClient.getPaginated<BackendArticle>('articles', {
+    query: {
+      category: query.category,
+      tag: query.tag,
+      search: query.search,
+      page,
+      perPage,
+    },
+    auth: false,
+  });
+
+  return {
+    items: items.map(toArticle),
+    page: pagination.page,
+    perPage: pagination.perPage,
+    total: pagination.total,
+    totalPages: pagination.totalPages,
+  };
 }
 
 export async function getLatestArticles(limit = 6): Promise<Article[]> {
-  return [...mockArticles].sort(byNewest).slice(0, limit);
+  const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
+    query: { page: 1, perPage: limit, sortBy: 'publishedAt', sortOrder: 'desc' },
+    auth: false,
+  });
+  return items.map(toArticle);
 }
 
 /**
  * Articles relevant to a project.
  *
- * Matched on tags and name mentions. This is the seam where a real
- * article↔project relation will attach once content is in a database; the
- * signature does not change.
+ * The backend has no dedicated "articles related to a project" endpoint, so
+ * this is a best-effort adaptation using the article search (title/summary
+ * only, not tags) rather than the old mock-data tag-matching heuristic.
  */
 export async function getArticlesForProject(project: Project, limit = 4): Promise<Article[]> {
-  const needles = [project.name.toLowerCase(), ...project.tags.map(t => t.toLowerCase())];
+  const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
+    query: { search: project.name, page: 1, perPage: limit },
+    auth: false,
+  });
+  return items.map(toArticle);
+}
 
-  return [...mockArticles]
-    .map(article => {
-      const haystack = [article.title, article.summary, ...(article.tags ?? [])]
-        .join(' ')
-        .toLowerCase();
-      const score = needles.reduce((sum, needle) => (haystack.includes(needle) ? sum + 1 : sum), 0);
-      return { article, score };
-    })
-    .filter(entry => entry.score > 0)
-    .sort((a, b) => b.score - a.score || byNewest(a.article, b.article))
-    .slice(0, limit)
-    .map(entry => entry.article);
+export async function searchArticles(query: string, limit = 12): Promise<Article[]> {
+  if (!query.trim()) return [];
+  const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
+    query: { search: query, page: 1, perPage: limit },
+    auth: false,
+  });
+  return items.map(toArticle);
+}
+
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  try {
+    const article = await apiClient.get<BackendArticle>(`articles/slug/${slug}`, { auth: false });
+    return toArticle(article);
+  } catch {
+    return null;
+  }
 }

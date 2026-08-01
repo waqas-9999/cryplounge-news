@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { Search, Save } from 'lucide-react';
 import { toast } from 'sonner';
+import { getSettings, saveSettings } from '@/services/site';
 
 interface SEOSettingsPageProps {
   currentPage: string;
@@ -22,12 +23,36 @@ export function SEOSettingsPage({ currentPage, onNavigate, onLogout }: SEOSettin
   const [googleSearchConsole, setGoogleSearchConsole] = useState('');
   const [facebookPixelId, setFacebookPixelId] = useState('');
 
-  const handleSave = () => {
+  useEffect(() => {
+    getSettings()
+      .then(settings => {
+        if (typeof settings['seo.metaTitle'] === 'string') setMetaTitle(settings['seo.metaTitle']);
+        if (typeof settings['seo.metaDescription'] === 'string') setMetaDescription(settings['seo.metaDescription']);
+        if (typeof settings['seo.metaKeywords'] === 'string') setMetaKeywords(settings['seo.metaKeywords']);
+        if (typeof settings['seo.googleAnalyticsId'] === 'string') setGoogleAnalyticsId(settings['seo.googleAnalyticsId']);
+        if (typeof settings['seo.googleSearchConsole'] === 'string') setGoogleSearchConsole(settings['seo.googleSearchConsole']);
+        if (typeof settings['seo.facebookPixelId'] === 'string') setFacebookPixelId(settings['seo.facebookPixelId']);
+      })
+      .catch(() => toast.error('Failed to load settings'));
+  }, []);
+
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await saveSettings([
+        { key: 'seo.metaTitle', value: metaTitle },
+        { key: 'seo.metaDescription', value: metaDescription },
+        { key: 'seo.metaKeywords', value: metaKeywords },
+        { key: 'seo.googleAnalyticsId', value: googleAnalyticsId },
+        { key: 'seo.googleSearchConsole', value: googleSearchConsole },
+        { key: 'seo.facebookPixelId', value: facebookPixelId },
+      ]);
       toast.success('SEO settings saved successfully!');
-    }, 1000);
+    } catch {
+      toast.error('Failed to save settings');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

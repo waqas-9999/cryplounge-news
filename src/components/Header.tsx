@@ -3,7 +3,8 @@
 import { Search, Menu, ChevronDown, Sun, Moon, X, TrendingUp, Rss } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { useCategories } from '../contexts/CategoriesContext';
+import { searchArticles } from '@/services/news';
+import type { Article } from '@/types/article';
 import { Badge } from './ui/badge';
 
 interface HeaderProps {
@@ -60,7 +61,6 @@ const LANGUAGES = [
 
 export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
-  const { getArticlesByCategory } = useCategories();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
@@ -106,12 +106,25 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
     return () => { document.body.style.overflow = ''; };
   }, [isMobileMenuOpen]);
 
-  const searchResults = searchQuery
-    ? getArticlesByCategory('all').filter(a =>
-        a.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        a.summary?.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 6)
-    : [];
+  const [searchResults, setSearchResults] = useState<Article[]>([]);
+
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    searchArticles(searchQuery, 6)
+      .then(results => {
+        if (!cancelled) setSearchResults(results);
+      })
+      .catch(() => {
+        if (!cancelled) setSearchResults([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery]);
 
   const isActive = (slug: string) => {
     // News is the parent of every /news/* URL, so it stays lit across the desk.

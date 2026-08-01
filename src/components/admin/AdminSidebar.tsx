@@ -86,7 +86,7 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       id: 'logs',
       label: 'Logs',
       icon: ScrollText,
-      page: 'admin/ai-logs'
+      page: 'admin/logs'
     },
     {
       id: 'settings',

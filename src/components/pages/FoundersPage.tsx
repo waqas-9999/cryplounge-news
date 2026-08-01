@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useFounders } from '@/contexts/FoundersContext';
 import { founderCategories } from '@/data/mockFounders';
 import type { Project } from '@/types/project';
-import type { Article } from '@/data/mockArticles';
+import type { Article } from '@/types/article';
 import type { EventSummary } from '@/services/events';
 import { FounderRelatedContent } from '@/components/founders/FounderRelatedContent';
 

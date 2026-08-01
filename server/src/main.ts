@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { Logger, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import helmet from 'helmet';
@@ -19,7 +20,7 @@ import { buildValidationPipe } from './common/pipes/validation.pipe';
  */
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
 
   const config = app.get(ConfigService);
   const port = Number(config.get('app.port'));
@@ -30,6 +31,10 @@ async function bootstrap(): Promise<void> {
   // Media lives on the local disk; the directory must exist before the health
   // check or the first upload runs.
   await mkdir(uploadDir, { recursive: true });
+
+  // MediaService/LocalStorageProvider hand back URLs of the form
+  // `/uploads/<path>` — this is what actually serves them.
+  app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
 
   app.use(
     helmet({
