@@ -5,7 +5,7 @@ import { TrendingUp, Star, Award, Calendar, Clock } from 'lucide-react';
 interface ArticleBadgeProps {
   type: 'FEATURED' | 'TRENDING' | 'POPULAR' | 'BEST WEEK' | 'BEST MONTH' | 'LATEST';
   score?: number;
-  className?: string;
+  className?: string; 
 }
 
 export function ArticleBadge({ type, score, className = '' }: ArticleBadgeProps) {
