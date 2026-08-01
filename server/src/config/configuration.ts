@@ -40,13 +40,20 @@ export const storageConfig = registerAs('storage', () => {
   return {
     uploadDir: env.UPLOAD_DIR ?? './uploads',
     maxBytes: Number(env.UPLOAD_MAX_BYTES ?? 10 * 1024 * 1024),
+    /**
+     * Raster formats only.
+     *
+     * SVG is deliberately excluded: it is XML that may contain <script>, and
+     * serving user-uploaded SVG from the site's own origin is a stored-XSS
+     * vector. Re-adding it requires sanitising the markup on upload, not just
+     * widening this list.
+     */
     allowedMimeTypes: [
       'image/jpeg',
       'image/png',
       'image/webp',
       'image/avif',
       'image/gif',
-      'image/svg+xml',
     ] as const,
   };
 });

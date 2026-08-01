@@ -23,6 +23,10 @@ import { EventsModule } from './modules/events/events.module';
 import { FoundersModule } from './modules/founders/founders.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { AuthorsModule } from './modules/authors/authors.module';
+import { MediaModule } from './modules/media/media.module';
+import { SiteModule } from './modules/site/site.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 
@@ -73,6 +77,10 @@ import { DiscoveryModule } from './modules/discovery/discovery.module';
     FoundersModule,
     UsersModule,
     RolesModule,
+    AuthorsModule,
+    MediaModule,
+    SiteModule,
+    AuditModule,
     SearchModule,
     DiscoveryModule,
   ],
