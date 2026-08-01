@@ -30,6 +30,8 @@ import { AuditModule } from './modules/audit/audit.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { AgentsModule } from './modules/agents/agents.module';
 
 /**
  * Application root.
@@ -85,6 +87,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     SearchModule,
     DiscoveryModule,
     AnalyticsModule,
+    WebhooksModule,
+    AgentsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -45,6 +45,7 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'analytics.read', module: 'Analytics', description: 'View analytics and reports' },
   { key: 'audit.read', module: 'Audit', description: 'Read the audit log' },
   { key: 'agents.manage', module: 'AI Agents', description: 'Manage AI agent credentials and permissions' },
+  { key: 'webhooks.manage', module: 'AI Agents', description: 'Manage webhook subscriptions' },
 ];
 
 function contentPermissions(prefix: string, module: string, noun: string): PermissionDefinition[] {
@@ -109,6 +110,7 @@ export const ROLES: RoleDefinitionSeed[] = [
       'analytics.read',
       'audit.read',
       'agents.manage',
+      'webhooks.manage',
     ],
   },
   {
