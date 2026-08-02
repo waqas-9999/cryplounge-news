@@ -7,7 +7,7 @@ interface ArticleBadgeProps {
   score?: number;
   className?: string; 
 }
-
+ 
 export function ArticleBadge({ type, score, className = '' }: ArticleBadgeProps) {
   const badges = {
     'FEATURED': {
