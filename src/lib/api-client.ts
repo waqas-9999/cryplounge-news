@@ -307,6 +307,23 @@ export const apiClient = {
     requestUpload<T>(path, formData, options),
 };
 
+/**
+ * The message to show a user for a failed request. Prefers the backend's
+ * actual message (and, for validation errors, the specific field problems)
+ * over a generic fallback so different failures don't all read the same.
+ */
+export function errorMessage(err: unknown, fallback = 'Something went wrong'): string {
+  if (err instanceof ApiError) {
+    if (err.errors) {
+      const details = Object.values(err.errors).flat();
+      if (details.length > 0) return details.join(' ');
+    }
+    return err.message || fallback;
+  }
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
 
 /**

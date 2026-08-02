@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { apiClient, ApiError, mediaUrl } from '@/lib/api-client';
+import { apiClient, errorMessage, mediaUrl } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
   Save,
@@ -164,7 +164,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
       setFeaturedImage(asset);
       setFormData(prev => ({ ...prev, featuredImageId: asset.id }));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Upload failed');
+      toast.error(errorMessage(err, 'Upload failed'));
     } finally {
       setUploading(false);
     }
@@ -194,7 +194,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
       toast.success(status === 'published' ? 'Article updated and published' : 'Draft saved');
       onNavigate('admin/news');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to update article');
+      toast.error(errorMessage(err, 'Failed to update article'));
     } finally {
       setSaving(null);
     }
@@ -209,7 +209,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
       toast.success('Article deleted');
       onNavigate('admin/news');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to delete article');
+      toast.error(errorMessage(err, 'Failed to delete article'));
     } finally {
       setDeleting(false);
     }

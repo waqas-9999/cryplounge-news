@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, errorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
   Search,
@@ -83,7 +83,7 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
       toast.success('Article deleted');
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to delete article');
+      toast.error(errorMessage(err, 'Failed to delete article'));
     } finally {
       setDeletingId(null);
     }

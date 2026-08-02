@@ -4,7 +4,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { User, Mail, Shield, Calendar, Activity, Save, Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, errorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 interface AdminProfilePageProps {
@@ -76,7 +76,7 @@ export function AdminProfilePage({ currentPage, onNavigate, onLogout }: AdminPro
       setMe(updated);
       toast.success('Avatar updated');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to update avatar');
+      toast.error(errorMessage(err, 'Failed to update avatar'));
     } finally {
       setUploading(false);
     }
@@ -89,7 +89,7 @@ export function AdminProfilePage({ currentPage, onNavigate, onLogout }: AdminPro
       setMe(updated);
       toast.success('Profile updated');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to update profile');
+      toast.error(errorMessage(err, 'Failed to update profile'));
     } finally {
       setSaving(false);
     }

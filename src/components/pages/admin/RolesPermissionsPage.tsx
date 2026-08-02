@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, errorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Shield, Users, CheckCircle2, Search, Save, Loader2 } from 'lucide-react';
 
@@ -82,7 +82,7 @@ export function RolesPermissionsPage({ currentPage, onNavigate, onLogout }: Role
       );
       toast.success('Permissions updated');
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to update permissions');
+      toast.error(errorMessage(err, 'Failed to update permissions'));
     } finally {
       setSaving(false);
     }

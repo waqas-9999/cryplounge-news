@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient, errorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
   Save,
@@ -110,7 +110,7 @@ export function NewsCreatePage({ currentPage, onNavigate, onLogout }: NewsCreate
       setFeaturedImage(asset);
       setFormData(prev => ({ ...prev, featuredImageId: asset.id }));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Upload failed');
+      toast.error(errorMessage(err, 'Upload failed'));
     } finally {
       setUploading(false);
     }
@@ -139,7 +139,7 @@ export function NewsCreatePage({ currentPage, onNavigate, onLogout }: NewsCreate
       toast.success(status === 'published' ? 'Article published' : 'Draft saved');
       onNavigate(`admin/news/edit/${created.id}`);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Failed to save article');
+      toast.error(errorMessage(err, 'Failed to save article'));
     } finally {
       setSaving(null);
     }
