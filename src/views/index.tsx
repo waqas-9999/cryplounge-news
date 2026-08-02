@@ -79,12 +79,17 @@ export function CategoryView({ category }: { category: string }) {
   return <CategoryPage category={category} images={images} onNavigate={useAppNavigate()} />;
 }
 
-export function ArticleView({ category, slug }: { category: string; slug: string }) {
+export function ArticleView({ category, article }: { category: string; article: Article }) {
   return (
     <ArticleDetailPage
-      category={category}
+      category={article.category}
       categorySlug={category}
-      articleSlug={slug}
+      articleSlug={article.slug ?? article.id}
+      articleTitle={article.title}
+      articleContent={article.content}
+      articleImage={article.imageUrl}
+      publishedTime={article.publishedAt}
+      tags={article.tags}
       images={images}
       onNavigate={useAppNavigate()}
     />

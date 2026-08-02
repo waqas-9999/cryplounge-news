@@ -7,6 +7,16 @@ import { trackEvent } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
 import { listArticles } from '@/services/news';
 
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
 interface ArticleDetailPageProps {
   category: string;
   categorySlug: string;
@@ -14,6 +24,7 @@ interface ArticleDetailPageProps {
   articleTitle?: string;
   articleContent?: string;
   articleImage?: string;
+  /** ISO timestamp; formatted as relative time for display. */
   publishedTime?: string;
   tags?: string[];
   images: {
@@ -35,12 +46,13 @@ export function ArticleDetailPage({
   articleTitle = "Latest Crypto News Article",
   articleContent = "",
   articleImage,
-  publishedTime = "2 hours ago",
+  publishedTime,
   tags = ['Crypto', 'News'],
   images,
   onNavigate
 }: ArticleDetailPageProps) {
   const { vrImage, businessmanImage, solanaImage, phoneImage, speakerImage, documentImage, asianBusinessmanImage } = images;
+  const displayTime = publishedTime ? timeAgo(publishedTime) : '';
   const [likes, setLikes] = useState(14);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -244,7 +256,7 @@ export function ArticleDetailPage({
     "@type": "NewsArticle",
     "headline": articleTitle,
     "image": articleImage || phoneImage,
-    "datePublished": new Date().toISOString(),
+    "datePublished": publishedTime || new Date().toISOString(),
     "author": {
       "@type": "Organization",
       "name": "CrypLounge Editorial Team"
@@ -304,8 +316,8 @@ export function ArticleDetailPage({
             <header className="space-y-4 md:space-y-6">
               <div className="flex items-center gap-2" role="contentinfo">
                 <span className="text-[#EFB81A] text-xs md:text-sm">{category}</span>
-                <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm" aria-label={`Published ${publishedTime}`}>
-                  {publishedTime}
+                <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm" aria-label={`Published ${displayTime}`}>
+                  {displayTime}
                 </span>
               </div>
 
