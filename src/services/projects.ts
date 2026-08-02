@@ -162,23 +162,33 @@ export async function getProjectBySlug(slug: string): Promise<Project | null> {
   }
 }
 
-/** Every slug, for `generateStaticParams`. */
+/**
+ * Every slug, for `generateStaticParams`.
+ *
+ * Returns `[]` (rather than throwing) if the backend is unreachable during
+ * build — pages fall back to on-demand rendering instead of failing the
+ * whole build.
+ */
 export async function getAllProjectSlugs(): Promise<string[]> {
-  const slugs: string[] = [];
-  let page = 1;
-  let totalPages = 1;
+  try {
+    const slugs: string[] = [];
+    let page = 1;
+    let totalPages = 1;
 
-  do {
-    const { items, pagination } = await apiClient.getPaginated<BackendProject>('projects', {
-      query: { page, perPage: 100 },
-      auth: false,
-    });
-    slugs.push(...items.map(p => p.slug));
-    totalPages = pagination.totalPages;
-    page += 1;
-  } while (page <= totalPages);
+    do {
+      const { items, pagination } = await apiClient.getPaginated<BackendProject>('projects', {
+        query: { page, perPage: 100 },
+        auth: false,
+      });
+      slugs.push(...items.map(p => p.slug));
+      totalPages = pagination.totalPages;
+      page += 1;
+    } while (page <= totalPages);
 
-  return slugs;
+    return slugs;
+  } catch {
+    return [];
+  }
 }
 
 export async function getFeaturedProjects(limit = 4): Promise<Project[]> {

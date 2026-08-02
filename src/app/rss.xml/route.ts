@@ -16,8 +16,10 @@ function escapeXml(value: string): string {
  * RSS 2.0 feed. The header and footer have always linked to /rss.xml; this is
  * the route that actually serves it.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
-  const { items: articles } = await listArticles({ perPage: 50 });
+  const { items: articles } = await listArticles({ perPage: 50 }).catch(() => ({ items: [] }));
   const items = articles
     .map(article => {
       const url = `${SITE_URL}/news/${article.categorySlug}/${articleSlug(article)}`;
