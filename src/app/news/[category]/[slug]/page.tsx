@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { siteConfig } from '@/config/site';
 import { isNewsCategory } from '@/lib/taxonomy';
+import { excerpt } from '@/lib/text';
 import { getArticleBySlug } from '@/services/news';
 import { ArticleView } from '@/views';
 
@@ -11,15 +13,32 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const article = await getArticleBySlug(slug);
   if (!article || article.categorySlug !== category) return {};
 
+  const title = article.seoTitle || article.title;
+  const description =
+    article.seoDescription || article.summary || excerpt(article.content ?? '');
+  const canonical = article.canonicalUrl || `${siteConfig.url}/news/${category}/${slug}`;
+  const image = article.imageUrl ? [article.imageUrl] : undefined;
+
   return {
-    title: article.title,
-    description: article.summary,
-    alternates: { canonical: `/news/${category}/${slug}` },
+    title,
+    description,
+    alternates: { canonical },
+    robots: article.noindex ? { index: false, follow: true } : undefined,
     openGraph: {
       type: 'article',
-      title: article.title,
-      description: article.summary,
-      images: article.imageUrl ? [article.imageUrl] : undefined,
+      title,
+      description,
+      url: canonical,
+      siteName: siteConfig.name,
+      images: image,
+      publishedTime: article.publishedAt,
+      modifiedTime: article.updatedAt,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: image,
     },
   };
 }

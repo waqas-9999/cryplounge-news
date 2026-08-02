@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { ContentToolbar } from '@/components/admin/ContentToolbar';
+import { SeoChecklist } from '@/components/admin/SeoChecklist';
+import { SlugField } from '@/components/admin/SlugField';
 import { apiClient, errorMessage, mediaUrl } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
@@ -90,6 +93,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     apiClient
@@ -170,6 +174,19 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
     }
   }
 
+  function setAltTextLocal(altText: string) {
+    setFeaturedImage(prev => (prev ? { ...prev, altText } : prev));
+  }
+
+  async function saveAltText() {
+    if (!featuredImage) return;
+    try {
+      await apiClient.patch(`media/${featuredImage.id}`, { altText: featuredImage.altText ?? '' });
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to save alt text'));
+    }
+  }
+
   async function handleSave(status: 'draft' | 'published') {
     if (!articleId) return;
     if (!formData.title.trim() || !formData.summary.trim() || !formData.content.trim()) {
@@ -178,7 +195,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
     }
     setSaving(status);
     try {
-      await apiClient.patch(`articles/${articleId}`, {
+      const updated = await apiClient.patch<{ slug: string }>(`articles/${articleId}`, {
         title: formData.title,
         slug: formData.slug || undefined,
         summary: formData.summary,
@@ -191,6 +208,10 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
         seoTitle: formData.seoTitle || undefined,
         seoDescription: formData.seoDescription || undefined,
       });
+      if (formData.slug && updated.slug !== formData.slug) {
+        toast.info(`"${formData.slug}" was already in use — saved as "${updated.slug}"`);
+        setFormData(prev => ({ ...prev, slug: updated.slug }));
+      }
       toast.success(status === 'published' ? 'Article updated and published' : 'Draft saved');
       onNavigate('admin/news');
     } catch (err) {
@@ -303,15 +324,10 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                     />
                   </div>
 
-                  <div className="bg-white dark:bg-[#1A1A1C] rounded-xl p-6 border border-gray-200 dark:border-gray-800">
-                    <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">URL Slug</label>
-                    <input
-                      type="text"
-                      value={formData.slug}
-                      onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                    />
-                  </div>
+                  <SlugField
+                    value={formData.slug}
+                    onChange={next => setFormData(prev => ({ ...prev, slug: next }))}
+                  />
 
                   <div className="bg-white dark:bg-[#1A1A1C] rounded-xl p-6 border border-gray-200 dark:border-gray-800">
                     <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Summary *</label>
@@ -325,7 +341,13 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
 
                   <div className="bg-white dark:bg-[#1A1A1C] rounded-xl p-6 border border-gray-200 dark:border-gray-800">
                     <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Article Body *</label>
+                    <ContentToolbar
+                      textareaRef={contentRef}
+                      value={formData.content}
+                      onChange={content => setFormData(prev => ({ ...prev, content }))}
+                    />
                     <textarea
+                      ref={contentRef}
                       value={formData.content}
                       onChange={e => setFormData({ ...formData, content: e.target.value })}
                       rows={20}
@@ -351,11 +373,27 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                           value={formData.seoDescription}
                           onChange={e => setFormData({ ...formData, seoDescription: e.target.value })}
                           rows={2}
+                          maxLength={400}
                           className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                         />
+                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {formData.seoDescription.length}/400 · aim for ~120–160 characters
+                        </p>
                       </div>
                     </div>
                   </div>
+
+                  <SeoChecklist
+                    title={formData.title}
+                    slug={formData.slug}
+                    summary={formData.summary}
+                    content={formData.content}
+                    categoryId={formData.categoryId}
+                    featuredImageId={formData.featuredImageId}
+                    featuredImageAltText={featuredImage?.altText}
+                    seoTitle={formData.seoTitle}
+                    seoDescription={formData.seoDescription}
+                  />
                 </div>
 
                 <div className="space-y-6">
@@ -445,6 +483,16 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                           <X className="w-4 h-4" />
                         </button>
                       </div>
+                    )}
+                    {featuredImage && (
+                      <input
+                        type="text"
+                        value={featuredImage.altText ?? ''}
+                        onChange={e => setAltTextLocal(e.target.value)}
+                        onBlur={saveAltText}
+                        placeholder="Alt text (describes the image for accessibility & SEO)"
+                        className="mb-3 w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
                     )}
                     <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center">
                       <ImageIcon className="w-10 h-10 mx-auto text-gray-400 mb-2" />

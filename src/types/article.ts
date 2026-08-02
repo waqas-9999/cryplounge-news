@@ -30,6 +30,12 @@ export interface Article {
   featured?: boolean;
   updatedAt?: string;
 
+  /** SEO overrides — fall back to `title`/`summary` when absent. */
+  seoTitle?: string;
+  seoDescription?: string;
+  canonicalUrl?: string;
+  noindex?: boolean;
+
   /** AI-assigned editorial quality score (0-100), set by the review pipeline. */
   qualityScore?: number;
 }

@@ -89,6 +89,9 @@ export function ArticleView({ category, article }: { category: string; article: 
       articleContent={article.content}
       articleImage={article.imageUrl}
       publishedTime={article.publishedAt}
+      updatedTime={article.updatedAt}
+      articleDescription={article.seoDescription || article.summary}
+      authorName={article.author}
       tags={article.tags}
       images={images}
       onNavigate={useAppNavigate()}

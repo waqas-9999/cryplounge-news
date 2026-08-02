@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { AuditService } from './audit.service';
+import { HtmlSanitizerService } from './html-sanitizer.service';
 import { PublishingService } from './publishing.service';
 import { RelationsService } from './relations.service';
 import { SlugService } from './slug.service';
@@ -12,7 +13,7 @@ import { SlugService } from './slug.service';
  */
 @Global()
 @Module({
-  providers: [SlugService, PublishingService, RelationsService, AuditService],
-  exports: [SlugService, PublishingService, RelationsService, AuditService],
+  providers: [SlugService, PublishingService, RelationsService, AuditService, HtmlSanitizerService],
+  exports: [SlugService, PublishingService, RelationsService, AuditService, HtmlSanitizerService],
 })
 export class ContentCoreModule {}

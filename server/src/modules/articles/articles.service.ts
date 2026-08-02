@@ -4,6 +4,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import type { Paginated } from '@/common/dto/api-response.dto';
 import { BaseCrudService } from '../content-core/base-crud.service';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
+import { HtmlSanitizerService } from '../content-core/html-sanitizer.service';
 import { PublishingService } from '../content-core/publishing.service';
 import { RelationsService } from '../content-core/relations.service';
 import { SlugService } from '../content-core/slug.service';
@@ -60,7 +61,8 @@ export class ArticlesService extends BaseCrudService {
     private readonly slugs: SlugService,
     private readonly publishing: PublishingService,
     private readonly relations: RelationsService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly sanitizer: HtmlSanitizerService
   ) {
     super(prisma.article, 'Article');
   }
@@ -106,6 +108,7 @@ export class ArticlesService extends BaseCrudService {
     const status = dto.status ?? ContentStatus.DRAFT;
     this.assertMayPublish(status, user);
 
+    dto.content = this.sanitizer.sanitize(dto.content);
     const slug = await this.slugs.unique('article', dto.slug ?? dto.title);
     const { publishedAt, scheduledFor } = this.publishing.resolveDates({
       status,
@@ -169,6 +172,7 @@ export class ArticlesService extends BaseCrudService {
     if (!current) await this.findByIdOrFail(id);
 
     const existing = current!;
+    if (dto.content !== undefined) dto.content = this.sanitizer.sanitize(dto.content);
     const status = dto.status ?? existing.status;
 
     if (dto.status && dto.status !== existing.status) {

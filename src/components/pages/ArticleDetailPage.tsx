@@ -5,6 +5,8 @@ import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
+import { siteConfig } from '@/config/site';
+import { excerpt } from '@/lib/text';
 import { listArticles } from '@/services/news';
 
 function timeAgo(iso: string): string {
@@ -26,6 +28,10 @@ interface ArticleDetailPageProps {
   articleImage?: string;
   /** ISO timestamp; formatted as relative time for display. */
   publishedTime?: string;
+  /** ISO timestamp of the last edit, for JSON-LD `dateModified`. */
+  updatedTime?: string;
+  articleDescription?: string;
+  authorName?: string;
   tags?: string[];
   images: {
     vrImage: string;
@@ -39,14 +45,17 @@ interface ArticleDetailPageProps {
   onNavigate?: (page: string) => void;
 }
 
-export function ArticleDetailPage({ 
-  category, 
+export function ArticleDetailPage({
+  category,
   categorySlug,
   articleSlug,
   articleTitle = "Latest Crypto News Article",
   articleContent = "",
   articleImage,
   publishedTime,
+  updatedTime,
+  articleDescription,
+  authorName = 'CrypLounge Editorial Team',
   tags = ['Crypto', 'News'],
   images,
   onNavigate
@@ -250,26 +259,35 @@ export function ArticleDetailPage({
   // Sanitize article content to prevent XSS
   const sanitizedContent = DOMPurify.sanitize(articleContent || "Stay informed with the latest developments in the cryptocurrency and blockchain space. Our comprehensive coverage brings you in-depth analysis, expert insights, and breaking news from across the digital asset ecosystem.");
 
-  // Generate structured data for SEO
+  // Structured data for SEO — plain text only, never raw HTML, per schema.org NewsArticle.
+  const pageUrl = `${siteConfig.url}/news/${categorySlug}/${articleSlug}`;
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "NewsArticle",
     "headline": articleTitle,
-    "image": articleImage || phoneImage,
+    "description": articleDescription || excerpt(sanitizedContent),
+    "image": articleImage || `${siteConfig.url}${phoneImage}`,
     "datePublished": publishedTime || new Date().toISOString(),
+    "dateModified": updatedTime || publishedTime || new Date().toISOString(),
     "author": {
       "@type": "Organization",
-      "name": "CrypLounge Editorial Team"
+      "name": authorName
     },
     "publisher": {
       "@type": "Organization",
-      "name": "CrypLounge",
+      "name": siteConfig.name,
       "logo": {
         "@type": "ImageObject",
-        "url": `${window.location.origin}/logo.png`
+        "url": `${siteConfig.url}/logo.png`
       }
     },
-    "description": sanitizedContent.substring(0, 160)
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": pageUrl
+    },
+    "url": pageUrl,
+    "articleSection": category,
+    "keywords": tags.join(', ')
   };
 
   return (
@@ -422,10 +440,12 @@ export function ArticleDetailPage({
             <aside className="bg-[#F4F4F4] dark:bg-[#1A1A1A] rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-800" aria-label="Author information">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#EFB81A] flex items-center justify-center flex-shrink-0" aria-hidden="true">
-                  <span className="text-black text-lg md:text-xl">CL</span>
+                  <span className="text-black text-lg md:text-xl">
+                    {authorName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+                  </span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-gray-800 dark:text-[#F3F3F5] mb-1">CrypLounge Editorial Team</h3>
+                  <h3 className="text-gray-800 dark:text-[#F3F3F5] mb-1">{authorName}</h3>
                   <p className="text-gray-600 dark:text-[#A0A0A5] text-sm">
                     Expert analysis and insights from our team of crypto journalists and analysts
                   </p>

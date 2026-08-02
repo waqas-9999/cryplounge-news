@@ -44,6 +44,10 @@ interface BackendArticle {
   author: { id: string; slug: string; name: string; avatarUrl?: string | null } | null;
   featuredImage: { id: string; path: string; altText?: string | null } | null;
   tags: { id: string; slug: string; name: string }[];
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  canonicalUrl?: string | null;
+  noindex?: boolean;
 }
 
 function toArticle(a: BackendArticle): Article {
@@ -63,6 +67,10 @@ function toArticle(a: BackendArticle): Article {
     status: a.status.toLowerCase() as ArticleStatus,
     featured: a.featured,
     content: a.content,
+    seoTitle: a.seoTitle ?? undefined,
+    seoDescription: a.seoDescription ?? undefined,
+    canonicalUrl: a.canonicalUrl ?? undefined,
+    noindex: a.noindex,
   };
 }
 
