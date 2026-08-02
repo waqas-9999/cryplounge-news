@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
-import { apiClient, ApiError, mediaUrl } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 import {
   Save,
@@ -42,6 +42,7 @@ interface TagOption {
 interface MediaAsset {
   id: string;
   path: string;
+  url: string;
   altText: string | null;
 }
 
@@ -324,7 +325,7 @@ export function NewsCreatePage({ currentPage, onNavigate, onLogout }: NewsCreate
                     <div className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={mediaUrl(featuredImage.path)}
+                        src={featuredImage.url}
                         alt={featuredImage.altText ?? ''}
                         className="w-full h-40 object-cover rounded-lg"
                       />

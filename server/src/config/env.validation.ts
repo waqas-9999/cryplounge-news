@@ -27,6 +27,16 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default('./uploads'),
   UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
 
+  /**
+   * Which StorageProvider MediaModule binds to. Left unset, it defaults to
+   * `cloudinary` when `VERCEL` is set (the function filesystem is read-only
+   * and ephemeral) and `local` otherwise.
+   */
+  STORAGE_PROVIDER: z.enum(['local', 'cloudinary']).optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+
   /** Public base URL of the frontend, used to build canonical URLs. */
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),
   /** Shared secret for the cache revalidation webhook the frontend exposes. */
@@ -71,6 +81,19 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     }
     if (result.data.JWT_ACCESS_SECRET === result.data.JWT_REFRESH_SECRET) {
       throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must differ.');
+    }
+  }
+
+  // Same fail-fast principle as the JWT secrets above: a deploy that will
+  // resolve to the Cloudinary provider but is missing credentials should
+  // never accept traffic, rather than 500 on the first upload.
+  const resolvedProvider = result.data.STORAGE_PROVIDER ?? (process.env.VERCEL ? 'cloudinary' : 'local');
+  if (resolvedProvider === 'cloudinary') {
+    const missing = (['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const).filter(
+      key => !result.data[key]
+    );
+    if (missing.length > 0) {
+      throw new Error(`Cloudinary storage is selected but missing: ${missing.join(', ')}`);
     }
   }
 

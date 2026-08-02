@@ -38,8 +38,20 @@ export const authConfig = registerAs('auth', () => {
 export const storageConfig = registerAs('storage', () => {
   const env = process.env as unknown as Env;
   return {
+    /**
+     * `local` writes to `uploadDir` on disk; `cloudinary` uploads to
+     * Cloudinary and stores its public ID as `Media.path`. Defaults to
+     * `cloudinary` on Vercel (the function filesystem can't hold uploads
+     * between invocations) and `local` everywhere else.
+     */
+    provider: env.STORAGE_PROVIDER ?? (process.env.VERCEL ? 'cloudinary' : 'local'),
     uploadDir: env.UPLOAD_DIR ?? './uploads',
     maxBytes: Number(env.UPLOAD_MAX_BYTES ?? 10 * 1024 * 1024),
+    cloudinary: {
+      cloudName: env.CLOUDINARY_CLOUD_NAME,
+      apiKey: env.CLOUDINARY_API_KEY,
+      apiSecret: env.CLOUDINARY_API_SECRET,
+    },
     /**
      * Raster formats only.
      *

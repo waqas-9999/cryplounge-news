@@ -4,7 +4,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { User, Mail, Shield, Calendar, Activity, Save, Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { apiClient, ApiError, mediaUrl } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 interface AdminProfilePageProps {
@@ -71,9 +71,8 @@ export function AdminProfilePage({ currentPage, onNavigate, onLogout }: AdminPro
       const form = new FormData();
       form.append('file', file);
       form.append('folder', 'avatars');
-      const asset = await apiClient.upload<{ id: string; path: string }>('media', form);
-      const url = mediaUrl(asset.path) ?? '';
-      const updated = await apiClient.patch<Me>('users/me', { avatarUrl: url });
+      const asset = await apiClient.upload<{ id: string; path: string; url: string }>('media', form);
+      const updated = await apiClient.patch<Me>('users/me', { avatarUrl: asset.url });
       setMe(updated);
       toast.success('Avatar updated');
     } catch (err) {

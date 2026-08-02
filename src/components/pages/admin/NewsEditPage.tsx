@@ -46,6 +46,7 @@ interface TagOption {
 interface MediaAsset {
   id: string;
   path: string;
+  url: string;
   altText: string | null;
 }
 
@@ -130,6 +131,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
             id: article.featuredImage.id,
             path: article.featuredImage.path,
             altText: article.featuredImage.altText,
+            url: mediaUrl(article.featuredImage.path) ?? '',
           });
         }
         setLoadState('ready');
@@ -429,7 +431,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                       <div className="mb-3 relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={mediaUrl(featuredImage.path)}
+                          src={featuredImage.url}
                           alt={featuredImage.altText ?? ''}
                           className="w-full h-32 object-cover rounded-lg"
                         />

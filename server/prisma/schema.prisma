@@ -518,7 +518,9 @@ model Founder {
 
 model Media {
   id         String  @id @default(cuid())
-  /// Path relative to the local upload root. Local storage only, per spec.
+  /// Opaque identifier the active StorageProvider uses to build a URL or
+  /// delete the file: a relative disk path for LocalStorageProvider, or a
+  /// Cloudinary public ID for CloudinaryStorageProvider. Never a full URL.
   path       String  @unique
   filename   String
   mimeType   String

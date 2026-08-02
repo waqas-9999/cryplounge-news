@@ -307,9 +307,27 @@ export const apiClient = {
     requestUpload<T>(path, formData, options),
 };
 
-/** Absolute URL for a media path returned by the backend (e.g. `featuredImage.path`). */
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+/**
+ * Absolute URL for a media path returned by the backend (e.g. `featuredImage.path`).
+ *
+ * Endpoints that go through `MediaService` (upload/list/findById/update) already
+ * return a computed `url` field — prefer that over calling this. This helper only
+ * exists for nested Media relations (e.g. `article.featuredImage.path`) that never
+ * carry one. Legacy local-storage paths always end in a file extension; Cloudinary
+ * public IDs never do (see `CloudinaryStorageProvider.save`), which is what lets us
+ * tell them apart here without a schema change.
+ */
 export function mediaUrl(path: string | null | undefined): string | undefined {
   if (!path) return undefined;
   if (/^https?:\/\//.test(path)) return path;
-  return `${API_ORIGIN}/uploads/${path.replace(/^\/+/, '')}`;
+
+  const isLocalPath = /\.[a-zA-Z0-9]+$/.test(path);
+  if (isLocalPath) {
+    return `${API_ORIGIN}/uploads/${path.replace(/^\/+/, '')}`;
+  }
+
+  if (!CLOUDINARY_CLOUD_NAME) return undefined;
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${path}`;
 }
