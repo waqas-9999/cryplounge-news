@@ -128,29 +128,50 @@ function toProject(p: BackendProject): Project {
   };
 }
 
-/** Filtered, sorted, paginated project list. */
+const EMPTY_PAGE = <T>(page: number, perPage: number): Paginated<T> => ({
+  items: [],
+  page,
+  perPage,
+  total: 0,
+  totalPages: 0,
+});
+
+/**
+ * Filtered, sorted, paginated project list.
+ *
+ * Falls back to an empty page (rather than throwing) if the backend is
+ * unreachable — this list backs several statically generated pages, and a
+ * build shouldn't fail wholesale over a transient API outage.
+ */
 export async function listProjects(query: ProjectQuery = {}): Promise<Paginated<Project>> {
   const sort = SORT_TO_QUERY[query.sort ?? 'newest'];
-  const { items, pagination } = await apiClient.getPaginated<BackendProject>('projects', {
-    query: {
-      category: query.category,
-      network: query.network,
-      tag: query.tag,
-      search: query.search,
-      page: query.page ?? 1,
-      perPage: query.perPage ?? DEFAULT_PER_PAGE,
-      ...sort,
-    },
-    auth: false,
-  });
+  const page = query.page ?? 1;
+  const perPage = query.perPage ?? DEFAULT_PER_PAGE;
 
-  return {
-    items: items.map(toProject),
-    page: pagination.page,
-    perPage: pagination.perPage,
-    total: pagination.total,
-    totalPages: pagination.totalPages,
-  };
+  try {
+    const { items, pagination } = await apiClient.getPaginated<BackendProject>('projects', {
+      query: {
+        category: query.category,
+        network: query.network,
+        tag: query.tag,
+        search: query.search,
+        page,
+        perPage,
+        ...sort,
+      },
+      auth: false,
+    });
+
+    return {
+      items: items.map(toProject),
+      page: pagination.page,
+      perPage: pagination.perPage,
+      total: pagination.total,
+      totalPages: pagination.totalPages,
+    };
+  } catch {
+    return EMPTY_PAGE(page, perPage);
+  }
 }
 
 export async function getProjectBySlug(slug: string): Promise<Project | null> {
@@ -192,11 +213,15 @@ export async function getAllProjectSlugs(): Promise<string[]> {
 }
 
 export async function getFeaturedProjects(limit = 4): Promise<Project[]> {
-  const { items } = await apiClient.getPaginated<BackendProject>('projects', {
-    query: { page: 1, perPage: limit, featured: true },
-    auth: false,
-  });
-  return items.map(toProject);
+  try {
+    const { items } = await apiClient.getPaginated<BackendProject>('projects', {
+      query: { page: 1, perPage: limit, featured: true },
+      auth: false,
+    });
+    return items.map(toProject);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -208,42 +233,58 @@ export async function getFeaturedProjects(limit = 4): Promise<Project[]> {
  * combined featured-OR-editorsPick filter.
  */
 export async function getTrendingProjects(limit = 6): Promise<Project[]> {
-  const { items } = await apiClient.getPaginated<BackendProject>('projects', {
-    query: { page: 1, perPage: Math.max(limit * 4, 24) },
-    auth: false,
-  });
-  return items
-    .filter(p => p.featured || p.editorsPick)
-    .slice(0, limit)
-    .map(toProject);
+  try {
+    const { items } = await apiClient.getPaginated<BackendProject>('projects', {
+      query: { page: 1, perPage: Math.max(limit * 4, 24) },
+      auth: false,
+    });
+    return items
+      .filter(p => p.featured || p.editorsPick)
+      .slice(0, limit)
+      .map(toProject);
+  } catch {
+    return [];
+  }
 }
 
 export async function getRecentProjects(limit = 6): Promise<Project[]> {
-  const { items } = await apiClient.getPaginated<BackendProject>('projects', {
-    query: { page: 1, perPage: limit, sortBy: 'createdAt', sortOrder: 'desc' },
-    auth: false,
-  });
-  return items.map(toProject);
+  try {
+    const { items } = await apiClient.getPaginated<BackendProject>('projects', {
+      query: { page: 1, perPage: limit, sortBy: 'createdAt', sortOrder: 'desc' },
+      auth: false,
+    });
+    return items.map(toProject);
+  } catch {
+    return [];
+  }
 }
 
 export async function getEditorsPicks(limit = 4): Promise<Project[]> {
-  const { items } = await apiClient.getPaginated<BackendProject>('projects', {
-    query: { page: 1, perPage: Math.max(limit * 4, 24) },
-    auth: false,
-  });
-  return items
-    .filter(p => p.editorsPick)
-    .slice(0, limit)
-    .map(toProject);
+  try {
+    const { items } = await apiClient.getPaginated<BackendProject>('projects', {
+      query: { page: 1, perPage: Math.max(limit * 4, 24) },
+      auth: false,
+    });
+    return items
+      .filter(p => p.editorsPick)
+      .slice(0, limit)
+      .map(toProject);
+  } catch {
+    return [];
+  }
 }
 
 /** Same category first, then shared tags — delegates to the backend's `similar` endpoint. */
 export async function getSimilarProjects(project: Project, limit = 4): Promise<Project[]> {
-  const items = await apiClient.get<BackendProject[]>(`projects/slug/${project.slug}/similar`, {
-    query: { limit },
-    auth: false,
-  });
-  return items.slice(0, limit).map(toProject);
+  try {
+    const items = await apiClient.get<BackendProject[]>(`projects/slug/${project.slug}/similar`, {
+      query: { limit },
+      auth: false,
+    });
+    return items.slice(0, limit).map(toProject);
+  } catch {
+    return [];
+  }
 }
 
 export interface CategorySummary {
@@ -258,11 +299,15 @@ interface BackendFacets {
 
 /** Category list with counts, empty categories excluded. */
 export async function getCategorySummaries(): Promise<CategorySummary[]> {
-  const facets = await apiClient.get<BackendFacets>('projects/facets', { auth: false });
-  const counts = new Map(facets.categories.map(c => [c.slug, c.count]));
-  return PROJECT_CATEGORIES.map(slug => ({ slug, count: counts.get(slug) ?? 0 })).filter(
-    entry => entry.count > 0
-  );
+  try {
+    const facets = await apiClient.get<BackendFacets>('projects/facets', { auth: false });
+    const counts = new Map(facets.categories.map(c => [c.slug, c.count]));
+    return PROJECT_CATEGORIES.map(slug => ({ slug, count: counts.get(slug) ?? 0 })).filter(
+      entry => entry.count > 0
+    );
+  } catch {
+    return [];
+  }
 }
 
 export interface FacetSummary {
@@ -272,22 +317,30 @@ export interface FacetSummary {
 
 /** Networks that at least one project supports, most populated first. */
 export async function getNetworkSummaries(): Promise<FacetSummary[]> {
-  const facets = await apiClient.get<BackendFacets>('projects/facets', { auth: false });
-  return facets.networks;
+  try {
+    const facets = await apiClient.get<BackendFacets>('projects/facets', { auth: false });
+    return facets.networks;
+  } catch {
+    return [];
+  }
 }
 
 /** Counts for a curated set of tags, empty ones excluded. */
 export async function getTagSummaries(tags: readonly string[]): Promise<FacetSummary[]> {
-  const results = await Promise.all(
-    tags.map(async value => {
-      const { pagination } = await apiClient.getPaginated<BackendProject>('projects', {
-        query: { tag: value, page: 1, perPage: 1 },
-        auth: false,
-      });
-      return { value, count: pagination.total };
-    })
-  );
-  return results.filter(entry => entry.count > 0).sort((a, b) => b.count - a.count);
+  try {
+    const results = await Promise.all(
+      tags.map(async value => {
+        const { pagination } = await apiClient.getPaginated<BackendProject>('projects', {
+          query: { tag: value, page: 1, perPage: 1 },
+          auth: false,
+        });
+        return { value, count: pagination.total };
+      })
+    );
+    return results.filter(entry => entry.count > 0).sort((a, b) => b.count - a.count);
+  } catch {
+    return [];
+  }
 }
 
 export async function getCollections(): Promise<ProjectCollection[]> {

@@ -79,36 +79,49 @@ export function articleHref(article: Article): string {
   return `/news/${article.categorySlug}/${articleSlug(article)}`;
 }
 
+/**
+ * Falls back to an empty page (rather than throwing) if the backend is
+ * unreachable — several statically generated pages depend on this list, and
+ * a build shouldn't fail wholesale over a transient API outage.
+ */
 export async function listArticles(query: ArticleQuery = {}): Promise<PaginatedArticles> {
   const perPage = query.perPage ?? DEFAULT_PER_PAGE;
   const page = query.page ?? 1;
 
-  const { items, pagination } = await apiClient.getPaginated<BackendArticle>('articles', {
-    query: {
-      category: query.category,
-      tag: query.tag,
-      search: query.search,
-      page,
-      perPage,
-    },
-    auth: false,
-  });
+  try {
+    const { items, pagination } = await apiClient.getPaginated<BackendArticle>('articles', {
+      query: {
+        category: query.category,
+        tag: query.tag,
+        search: query.search,
+        page,
+        perPage,
+      },
+      auth: false,
+    });
 
-  return {
-    items: items.map(toArticle),
-    page: pagination.page,
-    perPage: pagination.perPage,
-    total: pagination.total,
-    totalPages: pagination.totalPages,
-  };
+    return {
+      items: items.map(toArticle),
+      page: pagination.page,
+      perPage: pagination.perPage,
+      total: pagination.total,
+      totalPages: pagination.totalPages,
+    };
+  } catch {
+    return { items: [], page, perPage, total: 0, totalPages: 0 };
+  }
 }
 
 export async function getLatestArticles(limit = 6): Promise<Article[]> {
-  const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
-    query: { page: 1, perPage: limit, sortBy: 'publishedAt', sortOrder: 'desc' },
-    auth: false,
-  });
-  return items.map(toArticle);
+  try {
+    const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
+      query: { page: 1, perPage: limit, sortBy: 'publishedAt', sortOrder: 'desc' },
+      auth: false,
+    });
+    return items.map(toArticle);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -119,20 +132,28 @@ export async function getLatestArticles(limit = 6): Promise<Article[]> {
  * only, not tags) rather than the old mock-data tag-matching heuristic.
  */
 export async function getArticlesForProject(project: Project, limit = 4): Promise<Article[]> {
-  const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
-    query: { search: project.name, page: 1, perPage: limit },
-    auth: false,
-  });
-  return items.map(toArticle);
+  try {
+    const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
+      query: { search: project.name, page: 1, perPage: limit },
+      auth: false,
+    });
+    return items.map(toArticle);
+  } catch {
+    return [];
+  }
 }
 
 export async function searchArticles(query: string, limit = 12): Promise<Article[]> {
   if (!query.trim()) return [];
-  const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
-    query: { search: query, page: 1, perPage: limit },
-    auth: false,
-  });
-  return items.map(toArticle);
+  try {
+    const { items } = await apiClient.getPaginated<BackendArticle>('articles', {
+      query: { search: query, page: 1, perPage: limit },
+      auth: false,
+    });
+    return items.map(toArticle);
+  } catch {
+    return [];
+  }
 }
 
 export async function getArticleBySlug(slug: string): Promise<Article | null> {
