@@ -31,13 +31,19 @@ const LIST_SELECT = {
   labels: { select: { id: true, slug: true, name: true, color: true } },
 } satisfies Prisma.ArticleSelect;
 
+// Article has no self-referencing `articles` relation, unlike the other
+// content types RELATION_INCLUDE is shared with — everything else in it
+// (projects, research, regulations, events, founders) is a real relation here.
+const { articles: _articlesRelationInclude, ...ARTICLE_CROSS_RELATION_INCLUDE } =
+  RelationsService.RELATION_INCLUDE;
+
 const DETAIL_INCLUDE = {
   category: { select: { id: true, slug: true, name: true } },
   author: true,
   featuredImage: true,
   tags: { select: { id: true, slug: true, name: true } },
   labels: { select: { id: true, slug: true, name: true, color: true } },
-  ...RelationsService.RELATION_INCLUDE,
+  ...ARTICLE_CROSS_RELATION_INCLUDE,
 } satisfies Prisma.ArticleInclude;
 
 /**

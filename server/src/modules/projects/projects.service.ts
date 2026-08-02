@@ -31,12 +31,17 @@ const LIST_SELECT = {
   tags: { select: { id: true, slug: true, name: true } },
 } satisfies Prisma.ProjectSelect;
 
+// Project has no self-referencing `projects` relation, unlike the other
+// content types RELATION_INCLUDE is shared with.
+const { projects: _projectsRelationInclude, ...PROJECT_CROSS_RELATION_INCLUDE } =
+  RelationsService.RELATION_INCLUDE;
+
 const DETAIL_INCLUDE = {
   category: { select: { id: true, slug: true, name: true } },
   tags: { select: { id: true, slug: true, name: true } },
   logoImage: true,
   coverImage: true,
-  ...RelationsService.RELATION_INCLUDE,
+  ...PROJECT_CROSS_RELATION_INCLUDE,
 } satisfies Prisma.ProjectInclude;
 
 /**
