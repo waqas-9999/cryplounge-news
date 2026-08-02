@@ -93,7 +93,7 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
 
   useEffect(() => {
     apiClient
-      .get<Category[]>('taxonomy/categories', { query: { kind: 'ARTICLE' }, auth: false })
+      .get<Category[]>('taxonomy/categories', { query: { kind: 'NEWS' }, auth: false })
       .then(setCategories)
       .catch(() => setCategories([]));
     apiClient

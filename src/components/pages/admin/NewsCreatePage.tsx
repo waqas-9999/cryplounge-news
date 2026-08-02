@@ -72,7 +72,7 @@ export function NewsCreatePage({ currentPage, onNavigate, onLogout }: NewsCreate
 
   useEffect(() => {
     apiClient
-      .get<Category[]>('taxonomy/categories', { query: { kind: 'ARTICLE' }, auth: false })
+      .get<Category[]>('taxonomy/categories', { query: { kind: 'NEWS' }, auth: false })
       .then(setCategories)
       .catch(() => setCategories([]));
     apiClient
