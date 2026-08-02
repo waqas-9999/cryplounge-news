@@ -52,11 +52,15 @@ function toSummary(event: BackendEvent): EventSummary {
 }
 
 export async function getUpcomingEventSummaries(limit = 3): Promise<EventSummary[]> {
-  const { items } = await apiClient.getPaginated<BackendEvent>('events', {
-    query: { when: 'upcoming', page: 1, perPage: limit },
-    auth: false,
-  });
-  return items.map(toSummary);
+  try {
+    const { items } = await apiClient.getPaginated<BackendEvent>('events', {
+      query: { when: 'upcoming', page: 1, perPage: limit },
+      auth: false,
+    });
+    return items.map(toSummary);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -64,11 +68,15 @@ export async function getUpcomingEventSummaries(limit = 3): Promise<EventSummary
  * search on name. Falls back to upcoming events so the block is never empty.
  */
 export async function getEventsForProject(project: Project, limit = 3): Promise<EventSummary[]> {
-  const { items } = await apiClient.getPaginated<BackendEvent>('events', {
-    query: { search: project.name, when: 'all', page: 1, perPage: limit },
-    auth: false,
-  });
+  try {
+    const { items } = await apiClient.getPaginated<BackendEvent>('events', {
+      query: { search: project.name, when: 'all', page: 1, perPage: limit },
+      auth: false,
+    });
 
-  if (items.length > 0) return items.map(toSummary);
+    if (items.length > 0) return items.map(toSummary);
+  } catch {
+    // fall through to upcoming events
+  }
   return getUpcomingEventSummaries(limit);
 }
