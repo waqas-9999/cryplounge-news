@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, MapPin, Clock, ExternalLink, TrendingUp } from 'lucide-react';
+import { Calendar, MapPin, Clock, ExternalLink, TrendingUp, Loader2 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { useEvents } from '@/contexts/EventsContext';
@@ -12,8 +12,8 @@ interface EventsPageProps {
 }
 
 export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
-  const { getFeaturedEvents, getUpcomingEvents, getOngoingEvents, getEndedEvents } = useEvents();
-  
+  const { loading, error, getFeaturedEvents, getUpcomingEvents, getOngoingEvents, getEndedEvents } = useEvents();
+
   // Map initialType to filter state
   const getInitialFilter = () => {
     if (initialType === 'upcoming') return 'upcoming';
@@ -88,6 +88,20 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
           </p>
         </div>
 
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="w-6 h-6 animate-spin text-[#EFB81A]" />
+          </div>
+        ) : error ? (
+          <div className="py-24 text-center text-sm text-gray-500 dark:text-gray-400">
+            Couldn&apos;t load events. Please try again later.
+          </div>
+        ) : ongoingEvents.length + upcomingEvents.length + endedEvents.length === 0 ? (
+          <div className="py-24 text-center text-sm text-gray-500 dark:text-gray-400">
+            No events yet — check back soon.
+          </div>
+        ) : (
+        <>
         {/* Filter Section */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
@@ -428,6 +442,8 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
               ))}
             </div>
           </div>
+        )}
+        </>
         )}
 
         {/* CTA */}

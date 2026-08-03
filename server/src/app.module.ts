@@ -20,6 +20,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { ResearchModule } from './modules/research/research.module';
 import { RegulationsModule } from './modules/regulations/regulations.module';
 import { EventsModule } from './modules/events/events.module';
+import { OrganizersModule } from './modules/organizers/organizers.module';
 import { FoundersModule } from './modules/founders/founders.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -78,6 +79,7 @@ import { AgentsModule } from './modules/agents/agents.module';
     RegulationsModule,
     EventsModule,
     FoundersModule,
+    OrganizersModule,
     UsersModule,
     RolesModule,
     AuthorsModule,

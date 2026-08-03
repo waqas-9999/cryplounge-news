@@ -105,6 +105,23 @@ export class CreateEventDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) country?: string;
   @ApiPropertyOptional() @IsOptional() @IsUrl() onlineUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsUrl() registerUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsUrl() telegramChannel?: string;
+  @ApiPropertyOptional({ description: 'Display language, e.g. "English"' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  language?: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  isFree?: boolean;
+
+  @ApiPropertyOptional({ description: 'Free text, e.g. "$50" or "0.05 ETH"; ignored when isFree' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  ticketPrice?: string;
 
   @ApiPropertyOptional({ enum: ContentStatus, default: ContentStatus.DRAFT })
   @IsOptional()
@@ -114,6 +131,7 @@ export class CreateEventDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() featured?: boolean;
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bannerImageId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() organizerId?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
@@ -152,6 +170,18 @@ export class CreateEventDto {
   @IsString({ each: true })
   founderIds?: string[];
 
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  researchIds?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  regulationIds?: string[];
+
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) seoTitle?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(400) seoDescription?: string;
   @ApiPropertyOptional() @IsOptional() @IsBoolean() noindex?: boolean;
@@ -189,4 +219,14 @@ export class EventQueryDto extends PaginationQueryDto {
   @IsBoolean()
   @Type(() => Boolean)
   featured?: boolean;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() country?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() organizerId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isFree?: boolean;
 }

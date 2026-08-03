@@ -28,6 +28,11 @@ import { NewsAnalyticsPage } from '@/components/pages/admin/NewsAnalyticsPage';
 import { NewsDetailAnalyticsPage } from '@/components/pages/admin/NewsDetailAnalyticsPage';
 import { NewsCategoriesPage } from '@/components/pages/admin/NewsCategoriesPage';
 
+import { EventsListPage } from '@/components/pages/admin/EventsListPage';
+import { EventsCreatePage } from '@/components/pages/admin/EventsCreatePage';
+import { EventsEditPage } from '@/components/pages/admin/EventsEditPage';
+import { OrganizersListPage } from '@/components/pages/admin/OrganizersListPage';
+
 import { GeneralSettingsPage } from '@/components/pages/admin/settings/GeneralSettingsPage';
 import { AppearanceSettingsPage } from '@/components/pages/admin/settings/AppearanceSettingsPage';
 import { EmailSettingsPage } from '@/components/pages/admin/settings/EmailSettingsPage';
@@ -112,6 +117,24 @@ export function AdminNewsDetailAnalyticsView({ articleId }: { articleId: string 
 
 export function AdminNewsCategoriesView() {
   return <NewsCategoriesPage {...useAdminChrome()} />;
+}
+
+/* -------------------------------------------------------------- events --- */
+
+export function AdminEventsListView() {
+  return <EventsListPage {...useAdminChrome()} />;
+}
+
+export function AdminEventsCreateView() {
+  return <EventsCreatePage {...useAdminChrome()} />;
+}
+
+export function AdminEventsEditView({ eventId }: { eventId: string }) {
+  return <EventsEditPage {...useAdminChrome()} eventId={eventId} />;
+}
+
+export function AdminOrganizersListView() {
+  return <OrganizersListPage {...useAdminChrome()} />;
 }
 
 /* ------------------------------------------------------------ settings --- */

@@ -25,21 +25,29 @@ const LIST_SELECT = {
   registerUrl: true,
   status: true,
   featured: true,
+  isFree: true,
+  ticketPrice: true,
+  cancelledAt: true,
+  postponedAt: true,
   category: { select: { id: true, slug: true, name: true } },
   bannerImage: { select: { id: true, path: true, altText: true } },
   tags: { select: { id: true, slug: true, name: true } },
+  organizer: { select: { id: true, name: true, verified: true, logo: { select: { id: true, path: true } } } },
 } satisfies Prisma.EventSelect;
 
 const DETAIL_INCLUDE = {
   category: { select: { id: true, slug: true, name: true } },
   bannerImage: true,
   tags: { select: { id: true, slug: true, name: true } },
+  organizer: true,
   speakers: {
     include: { founder: { select: { id: true, slug: true, name: true } } },
   },
   articles: RelationsService.RELATION_INCLUDE.articles,
   projects: RelationsService.RELATION_INCLUDE.projects,
   founders: RelationsService.RELATION_INCLUDE.founders,
+  research: RelationsService.RELATION_INCLUDE.research,
+  regulations: RelationsService.RELATION_INCLUDE.regulations,
 } satisfies Prisma.EventInclude;
 
 /**
@@ -75,6 +83,10 @@ export class EventsService extends BaseCrudService {
       ...(query.category ? { category: { slug: query.category } } : {}),
       ...(query.mode ? { mode: query.mode } : {}),
       ...(query.featured !== undefined ? { featured: query.featured } : {}),
+      ...(query.country ? { country: query.country } : {}),
+      ...(query.city ? { city: query.city } : {}),
+      ...(query.organizerId ? { organizerId: query.organizerId } : {}),
+      ...(query.isFree !== undefined ? { isFree: query.isFree } : {}),
     };
 
     return this.listPaginated(query, {
@@ -119,6 +131,11 @@ export class EventsService extends BaseCrudService {
         country: dto.country,
         onlineUrl: dto.onlineUrl,
         registerUrl: dto.registerUrl,
+        telegramChannel: dto.telegramChannel,
+        language: dto.language,
+        isFree: dto.isFree ?? true,
+        ticketPrice: dto.ticketPrice,
+        organizerId: dto.organizerId,
         slug,
         status,
         featured: dto.featured ?? false,
@@ -135,6 +152,8 @@ export class EventsService extends BaseCrudService {
           articles: dto.articleIds,
           projects: dto.projectIds,
           founders: dto.founderIds,
+          research: dto.researchIds,
+          regulations: dto.regulationIds,
         }),
       },
       include: DETAIL_INCLUDE,
@@ -191,6 +210,11 @@ export class EventsService extends BaseCrudService {
         ...(dto.country !== undefined ? { country: dto.country } : {}),
         ...(dto.onlineUrl !== undefined ? { onlineUrl: dto.onlineUrl } : {}),
         ...(dto.registerUrl !== undefined ? { registerUrl: dto.registerUrl } : {}),
+        ...(dto.telegramChannel !== undefined ? { telegramChannel: dto.telegramChannel } : {}),
+        ...(dto.language !== undefined ? { language: dto.language } : {}),
+        ...(dto.isFree !== undefined ? { isFree: dto.isFree } : {}),
+        ...(dto.ticketPrice !== undefined ? { ticketPrice: dto.ticketPrice } : {}),
+        ...(dto.organizerId !== undefined ? { organizerId: dto.organizerId } : {}),
         ...(dto.featured !== undefined ? { featured: dto.featured } : {}),
         ...(dto.categoryId !== undefined ? { categoryId: dto.categoryId } : {}),
         ...(dto.bannerImageId !== undefined ? { bannerImageId: dto.bannerImageId } : {}),
@@ -210,6 +234,8 @@ export class EventsService extends BaseCrudService {
           articles: dto.articleIds,
           projects: dto.projectIds,
           founders: dto.founderIds,
+          research: dto.researchIds,
+          regulations: dto.regulationIds,
         }),
       },
       include: DETAIL_INCLUDE,

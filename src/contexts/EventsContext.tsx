@@ -1,126 +1,129 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { mockEvents, Event } from '../data/mockEvents';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { apiClient, mediaUrl } from '@/lib/api-client';
+
+/**
+ * Public-facing event shape, projected from the real `events` API.
+ * Consumers (EventsPage, SearchPage) only need enough to render cards and
+ * link out — full agenda/speaker detail lives on the (future) detail page.
+ */
+export interface Event {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  date: string;
+  endDate?: string | null;
+  time: string;
+  location: string;
+  locationType: 'online' | 'offline' | 'hybrid';
+  eventStatus: 'upcoming' | 'ongoing' | 'ended';
+  featured: boolean;
+  summary: string;
+  description: string;
+  bannerImage: string;
+  registerLink: string;
+}
+
+interface BackendEvent {
+  id: string;
+  slug: string;
+  name: string;
+  summary: string;
+  startsAt: string;
+  endsAt: string | null;
+  mode: 'ONLINE' | 'OFFLINE' | 'HYBRID';
+  venue?: string | null;
+  city?: string | null;
+  country?: string | null;
+  registerUrl?: string | null;
+  featured: boolean;
+  category: { id: string; slug: string; name: string } | null;
+  bannerImage: { path: string; altText: string | null } | null;
+}
+
+const FALLBACK_BANNER = '/images/event-placeholder.jpg';
+
+function locationOf(event: BackendEvent): string {
+  if (event.mode === 'ONLINE') return 'Online';
+  return event.venue || [event.city, event.country].filter(Boolean).join(', ') || 'TBA';
+}
+
+function eventStatusOf(event: BackendEvent): Event['eventStatus'] {
+  const now = Date.now();
+  const starts = new Date(event.startsAt).getTime();
+  const ends = event.endsAt ? new Date(event.endsAt).getTime() : starts;
+  if (now < starts) return 'upcoming';
+  if (now > ends) return 'ended';
+  return 'ongoing';
+}
+
+function timeOf(event: BackendEvent): string {
+  return new Date(event.startsAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function toEvent(event: BackendEvent): Event {
+  return {
+    id: event.id,
+    name: event.name,
+    slug: event.slug,
+    category: event.category?.name ?? 'Event',
+    date: event.startsAt,
+    endDate: event.endsAt,
+    time: timeOf(event),
+    location: locationOf(event),
+    locationType: event.mode.toLowerCase() as Event['locationType'],
+    eventStatus: eventStatusOf(event),
+    featured: event.featured,
+    summary: event.summary,
+    description: event.summary,
+    bannerImage: mediaUrl(event.bannerImage?.path) ?? FALLBACK_BANNER,
+    registerLink: event.registerUrl ?? '',
+  };
+}
 
 interface EventsContextType {
   events: Event[];
-  addEvent: (event: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'stats'>) => void;
-  updateEvent: (id: string, updates: Partial<Event>) => void;
-  deleteEvent: (id: string) => void;
-  getEventById: (id: string) => Event | undefined;
-  getEventBySlug: (slug: string) => Event | undefined;
-  getPublishedEvents: () => Event[];
+  loading: boolean;
+  error: boolean;
   getFeaturedEvents: () => Event[];
   getUpcomingEvents: () => Event[];
   getOngoingEvents: () => Event[];
   getEndedEvents: () => Event[];
-  getEventsByCategory: (category: string) => Event[];
-  getEventsByLocationType: (type: string) => Event[];
 }
 
 const EventsContext = createContext<EventsContextType | undefined>(undefined);
 
 export function EventsProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<Event[]>(mockEvents);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const addEvent = (eventData: Omit<Event, 'id' | 'createdAt' | 'updatedAt' | 'stats'>) => {
-    const newEvent: Event = {
-      ...eventData,
-      id: Date.now().toString(),
-      stats: {
-        views: 0,
-        registrations: 0,
-        shares: 0,
-        interested: 0
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    setEvents(prev => [...prev, newEvent]);
-  };
+  useEffect(() => {
+    apiClient
+      .getPaginated<BackendEvent>('events', { query: { when: 'all', perPage: 100 }, auth: false })
+      .then(({ items }) => {
+        setEvents(items.map(toEvent));
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
+  }, []);
 
-  const updateEvent = (id: string, updates: Partial<Event>) => {
-    setEvents(prev =>
-      prev.map(event =>
-        event.id === id
-          ? { ...event, ...updates, updatedAt: new Date().toISOString() }
-          : event
-      )
-    );
-  };
+  const byDateAsc = (a: Event, b: Event) => new Date(a.date).getTime() - new Date(b.date).getTime();
+  const byDateDesc = (a: Event, b: Event) => new Date(b.date).getTime() - new Date(a.date).getTime();
 
-  const deleteEvent = (id: string) => {
-    setEvents(prev => prev.filter(event => event.id !== id));
-  };
-
-  const getEventById = (id: string) => {
-    return events.find(event => event.id === id);
-  };
-
-  const getEventBySlug = (slug: string) => {
-    return events.find(event => event.slug === slug);
-  };
-
-  const getPublishedEvents = () => {
-    return events
-      .filter(event => event.status === 'published')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const getFeaturedEvents = () => {
-    return events
-      .filter(event => event.status === 'published' && event.featured)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const getUpcomingEvents = () => {
-    return events
-      .filter(event => event.status === 'published' && event.eventStatus === 'upcoming')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const getOngoingEvents = () => {
-    return events
-      .filter(event => event.status === 'published' && event.eventStatus === 'ongoing')
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const getEndedEvents = () => {
-    return events
-      .filter(event => event.status === 'published' && event.eventStatus === 'ended')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
-
-  const getEventsByCategory = (category: string) => {
-    return events
-      .filter(event => event.status === 'published' && event.category === category)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const getEventsByLocationType = (type: string) => {
-    return events
-      .filter(event => event.status === 'published' && event.locationType === type)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
+  const getFeaturedEvents = () => events.filter(e => e.featured).sort(byDateAsc);
+  const getUpcomingEvents = () => events.filter(e => e.eventStatus === 'upcoming').sort(byDateAsc);
+  const getOngoingEvents = () => events.filter(e => e.eventStatus === 'ongoing').sort(byDateAsc);
+  const getEndedEvents = () => events.filter(e => e.eventStatus === 'ended').sort(byDateDesc);
 
   return (
     <EventsContext.Provider
-      value={{
-        events,
-        addEvent,
-        updateEvent,
-        deleteEvent,
-        getEventById,
-        getEventBySlug,
-        getPublishedEvents,
-        getFeaturedEvents,
-        getUpcomingEvents,
-        getOngoingEvents,
-        getEndedEvents,
-        getEventsByCategory,
-        getEventsByLocationType
-      }}
+      value={{ events, loading, error, getFeaturedEvents, getUpcomingEvents, getOngoingEvents, getEndedEvents }}
     >
       {children}
     </EventsContext.Provider>

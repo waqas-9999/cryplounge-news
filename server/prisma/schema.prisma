@@ -339,6 +339,7 @@ model Research {
   tags     Tag[]
   projects Project[]
   articles Article[]
+  events   Event[]
 
   seoTitle       String?
   seoDescription String?
@@ -377,6 +378,7 @@ model Regulation {
   tags     Tag[]
   projects Project[]
   articles Article[]
+  events   Event[]
 
   seoTitle       String?
   seoDescription String?
@@ -420,9 +422,30 @@ model Event {
   onlineUrl String?
 
   registerUrl String?
+  telegramChannel String?
+  /// Free-text so international / crypto-denominated prices don't need a
+  /// currency engineering pass (e.g. "$50", "0.05 ETH", "Free").
+  isFree      Boolean @default(true)
+  ticketPrice String?
+  /// e.g. "English" -- free text, not an enum, since this is display-only.
+  language String?
 
   status   ContentStatus @default(DRAFT)
   featured Boolean       @default(false)
+  /// Set when an editor cancels/postpones a published event. Deliberately not
+  /// part of `ContentStatus`: cancelling/postponing doesn't change who can see
+  /// the page, just how it's labeled, so it's presentation metadata rather
+  /// than a workflow state.
+  cancelledAt DateTime?
+  postponedAt DateTime?
+
+  organizerId String?
+  organizer   Organizer? @relation(fields: [organizerId], references: [id], onDelete: SetNull)
+
+  /// Set on public submissions (no user account required to submit). Null for
+  /// events created directly by an editor.
+  submittedByName  String?
+  submittedByEmail String?
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -433,10 +456,12 @@ model Event {
   speakers EventSpeaker[]
   sponsors String[]
 
-  tags     Tag[]
-  articles Article[]
-  projects Project[]
-  founders Founder[]
+  tags        Tag[]
+  articles    Article[]
+  projects    Project[]
+  founders    Founder[]
+  research    Research[]
+  regulations Regulation[]
 
   seoTitle       String?
   seoDescription String?
@@ -453,6 +478,37 @@ model Event {
 
   @@index([startsAt])
   @@index([status])
+  @@index([organizerId])
+}
+
+model Organizer {
+  id          String  @id @default(cuid())
+  name        String
+  description String? @db.Text
+
+  logoId String?
+  logo   Media?  @relation(fields: [logoId], references: [id], onDelete: SetNull)
+
+  contactPerson    String?
+  contactEmail     String?
+  telegramUsername String?
+  telegramChannel  String?
+  website          String?
+  x                String?
+  linkedin         String?
+
+  verified Boolean @default(false)
+
+  events Event[]
+
+  /// Soft delete. Rows are hidden from every query rather than removed, so an
+  /// accidental delete is recoverable and inbound links do not break.
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([verified])
 }
 
 model EventSpeaker {
@@ -541,6 +597,7 @@ model Media {
   researchCovers  Research[]
   eventBanners    Event[]
   founderPhotos   Founder[]
+  organizerLogos  Organizer[]
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.

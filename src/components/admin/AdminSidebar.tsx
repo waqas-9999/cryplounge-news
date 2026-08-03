@@ -9,6 +9,7 @@ import {
   ChevronDown,
   LogOut,
   ScrollText,
+  CalendarDays,
   X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -27,6 +28,7 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
     const sections: string[] = [];
     
     if (currentPage.startsWith('admin/news')) sections.push('news');
+    if (currentPage.startsWith('admin/events') || currentPage.startsWith('admin/organizers')) sections.push('events');
     if (currentPage.startsWith('admin/settings')) sections.push('settings');
     
     // Always include dashboard
@@ -71,6 +73,16 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'AI Settings', page: 'admin/news/ai-settings' },
         { label: 'Categories', page: 'admin/news/categories' },
         { label: 'Analytics', page: 'admin/news/analytics' }
+      ]
+    },
+    {
+      id: 'events',
+      label: 'Events Management',
+      icon: CalendarDays,
+      submenu: [
+        { label: 'All Events', page: 'admin/events' },
+        { label: 'Create New', page: 'admin/events/create' },
+        { label: 'Organizers', page: 'admin/organizers' }
       ]
     },
     {
