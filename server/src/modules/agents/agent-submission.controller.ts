@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
-import { ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -17,8 +17,8 @@ import { AgentAuthGuard } from './guards/agent-auth.guard';
 @Controller('agents')
 @Public()
 @UseGuards(AgentAuthGuard)
-@ApiHeader({ name: 'X-Agent-Key', required: true })
-@ApiHeader({ name: 'X-Agent-Secret', required: true })
+@ApiSecurity('agent-key')
+@ApiSecurity('agent-secret')
 export class AgentSubmissionController {
   constructor(private readonly agents: AgentsService) {}
 

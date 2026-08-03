@@ -75,14 +75,24 @@ export async function configureApp(app: NestExpressApplication): Promise<void> {
             'with an API key and secret.'
         )
         .setVersion('1.0')
-        .addBearerAuth()
-        .addApiKey({ type: 'apiKey', name: 'X-Agent-Key', in: 'header' }, 'agent-key')
+        .addBearerAuth(
+          { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Admin/editorial user access token' },
+          'bearer'
+        )
+        .addApiKey(
+          { type: 'apiKey', name: 'X-Agent-Key', in: 'header', description: 'Agent API key' },
+          'agent-key'
+        )
+        .addApiKey(
+          { type: 'apiKey', name: 'X-Agent-Secret', in: 'header', description: 'Agent API secret' },
+          'agent-secret'
+        )
         .build()
     );
-    SwaggerModule.setup('api/docs', app, document, {
+    SwaggerModule.setup('docs', app, document, {
       swaggerOptions: { persistAuthorization: true },
     });
-    logger.log('Swagger UI at /api/docs');
+    logger.log('Swagger UI at /docs');
   }
 
   logger.log(`CORS origins: ${corsOrigins.join(', ') || 'none'}`);

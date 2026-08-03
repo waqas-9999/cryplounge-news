@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { AgentsService } from './agents.service';
@@ -52,6 +52,7 @@ export class AgentsController {
 
   @Get(':id/requests')
   @ResponseMessage('Recent requests')
+  @ApiQuery({ name: 'limit', required: false, description: 'Max requests to return' })
   requests(@Param('id') id: string, @Query('limit') limit?: string) {
     return this.agents.recentRequests(id, limit ? Number(limit) : undefined);
   }

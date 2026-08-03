@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CreateWebhookDto, UpdateWebhookDto } from './dto/webhook.dto';
@@ -14,6 +14,7 @@ export class WebhooksController {
 
   @Get()
   @ResponseMessage('Webhooks')
+  @ApiQuery({ name: 'agentId', required: false, description: 'Filter to webhooks owned by one agent' })
   list(@Query('agentId') agentId?: string) {
     return this.webhooks.list(agentId);
   }
