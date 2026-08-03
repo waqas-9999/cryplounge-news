@@ -15,7 +15,10 @@ import { useAppNavigate } from '@/lib/navigation';
 import { images } from '@/lib/images';
 import type { Project } from '@/types/project';
 import type { Article } from '@/types/article';
-import type { EventSummary } from '@/services/events';
+import type { EventSummary, EventDetail } from '@/services/events';
+import type { FounderDetail } from '@/services/founders';
+import { EventDetailPage } from '@/components/pages/EventDetailPage';
+import { FounderDetailPage } from '@/components/pages/FounderDetailPage';
 
 import { HomePage } from '@/components/pages/HomePage';
 import { LatestPage } from '@/components/pages/LatestPage';
@@ -116,6 +119,14 @@ export function EventsView() {
 
 export function SubmitEventView() {
   return <SubmitEventPage onNavigate={useAppNavigate()} />;
+}
+
+export function EventDetailView({ event }: { event: EventDetail }) {
+  return <EventDetailPage event={event} onNavigate={useAppNavigate()} />;
+}
+
+export function FounderDetailView({ founder }: { founder: FounderDetail }) {
+  return <FounderDetailPage founder={founder} onNavigate={useAppNavigate()} />;
 }
 
 export function FoundersView({

@@ -160,7 +160,10 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
 
         {/* Featured Event Hero */}
         {featuredEvent && selectedFilter === 'all' && (
-          <div className="relative h-[320px] sm:h-[400px] md:h-[500px] rounded-xl sm:rounded-2xl overflow-hidden group">
+          <div
+            className="relative h-[320px] sm:h-[400px] md:h-[500px] rounded-xl sm:rounded-2xl overflow-hidden group cursor-pointer"
+            onClick={() => onNavigate?.(`events/${featuredEvent.slug}`)}
+          >
             <img
               src={featuredEvent.bannerImage}
               alt={featuredEvent.name}
@@ -213,7 +216,10 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 </div>
                 
                 <button
-                  onClick={() => window.open(featuredEvent.registerLink, '_blank', 'noopener,noreferrer')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(featuredEvent.registerLink, '_blank', 'noopener,noreferrer');
+                  }}
                   className="inline-flex items-center gap-2 bg-[#EFB81A] hover:bg-[#F9D96A] text-black px-4 sm:px-6 py-2 sm:py-3 rounded-lg text-xs sm:text-sm md:text-base transition-colors font-medium"
                 >
                   View Details
@@ -240,7 +246,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 <div
                   key={event.id}
                   className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all duration-300 group cursor-pointer"
-                  onClick={() => window.open(event.registerLink, '_blank', 'noopener,noreferrer')}
+                  onClick={() => onNavigate?.(`events/${event.slug}`)}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img
@@ -284,7 +290,13 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                       </div>
                     </div>
                     
-                    <button className="w-full px-3 py-1.5 sm:py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-all duration-200 text-[10px] sm:text-xs flex items-center justify-center gap-1.5 font-medium">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(event.registerLink, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="w-full px-3 py-1.5 sm:py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-all duration-200 text-[10px] sm:text-xs flex items-center justify-center gap-1.5 font-medium"
+                    >
                       Join Live
                       <ExternalLink className="w-3 h-3" />
                     </button>
@@ -314,7 +326,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                 <div
                   key={event.id}
                   className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all duration-300 group cursor-pointer"
-                  onClick={() => window.open(event.registerLink, '_blank', 'noopener,noreferrer')}
+                  onClick={() => onNavigate?.(`events/${event.slug}`)}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img
@@ -323,7 +335,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  
+
                   <div className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge className={`${getCategoryColor(event.category)} text-[10px] px-2 py-0.5 border`}>
@@ -384,8 +396,8 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
               {endedEvents.map((event) => (
                 <div
                   key={event.id}
+                  onClick={() => onNavigate?.(`events/${event.slug}`)}
                   className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-gray-400 dark:hover:border-gray-600 transition-all duration-300 group cursor-pointer opacity-90 hover:opacity-100"
-                  onClick={() => window.open(event.registerLink, '_blank', 'noopener,noreferrer')}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img

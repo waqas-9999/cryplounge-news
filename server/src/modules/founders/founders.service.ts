@@ -9,6 +9,7 @@ import { RelationsService } from '../content-core/relations.service';
 import { SlugService } from '../content-core/slug.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import type { CreateFounderDto, FounderQueryDto, UpdateFounderDto } from './dto/founder.dto';
+import type { SubmitFounderDto } from './dto/submit-founder.dto';
 
 const LIST_SELECT = {
   id: true,
@@ -196,6 +197,44 @@ export class FoundersService extends BaseCrudService {
       entityId: founder.id,
       summary: `Updated founder profile "${founder.name}"`,
       context,
+    });
+
+    return founder;
+  }
+
+  /**
+   * Public, unauthenticated submission. Always lands in REVIEW so an editor
+   * has to approve before it's visible to anyone else.
+   */
+  async submit(dto: SubmitFounderDto) {
+    const slug = await this.slugs.unique('founder', dto.name);
+
+    const founder = await this.prisma.founder.create({
+      data: {
+        name: dto.name,
+        role: dto.role,
+        company: dto.company,
+        bio: dto.bio,
+        excerpt: dto.excerpt,
+        photoId: dto.photoId,
+        website: dto.website,
+        x: dto.x,
+        linkedin: dto.linkedin,
+        github: dto.github,
+        region: dto.region,
+        submittedByName: dto.submittedByName,
+        submittedByEmail: dto.submittedByEmail,
+        slug,
+        status: ContentStatus.REVIEW,
+      },
+      include: DETAIL_INCLUDE,
+    });
+
+    await this.audit.record({
+      action: AuditAction.CREATE,
+      entity: 'Founder',
+      entityId: founder.id,
+      summary: `"${founder.name}" story submitted for review by ${dto.submittedByEmail}`,
     });
 
     return founder;

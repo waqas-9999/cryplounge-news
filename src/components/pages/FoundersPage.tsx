@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Users, TrendingUp, Globe, Rocket } from 'lucide-react';
+import { ArrowRight, Users, TrendingUp, Globe, Rocket, PenLine } from 'lucide-react';
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { FilterBar, FilterState } from '@/components/FilterBar';
 import { useState } from 'react';
@@ -45,7 +45,12 @@ export function FoundersPage({
   // Get published stories
   // Get published and featured stories from context
   const allStories = getPublishedStories();
-  const featuredStoriesData = getFeaturedStories().slice(0, 3);
+  const featuredStories = getFeaturedStories();
+  // Fall back to other published stories so the hero and "more featured"
+  // sections aren't empty when fewer than 3 stories are marked featured.
+  const featuredIds = new Set(featuredStories.map(story => story.id));
+  const fillerStories = allStories.filter(story => !featuredIds.has(story.id));
+  const featuredStoriesData = [...featuredStories, ...fillerStories].slice(0, 3);
   
   // Apply filters to stories
   const filteredStories = allStories.filter(story => {
@@ -111,17 +116,28 @@ export function FoundersPage({
               <span className="px-3 py-1 bg-white dark:bg-[#EFB81A]/20 text-gray-800 dark:text-[#EFB81A] rounded-lg text-xs">{featuredStoriesData[0]?.region || 'Global'}</span>
               <span className="px-3 py-1 bg-white dark:bg-[#EFB81A]/20 text-gray-800 dark:text-[#EFB81A] rounded-lg text-xs">{featuredStoriesData[0]?.ecosystem || 'Ethereum'}</span>
             </div>
-            {featuredStoriesData[0]?.socialLinks?.website && (
-              <a
-                href={featuredStoriesData[0].socialLinks.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-6 py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/80 transition-colors flex items-center gap-2 w-fit"
-                aria-label={`Visit the website of ${featuredStoriesData[0]?.name ?? 'this founder'}`}
-            >
-              Visit Website <ArrowRight className="w-4 h-4" aria-hidden="true" />
-            </a>
-          )}
+            <div className="flex flex-wrap items-center gap-3">
+              {featuredStoriesData[0]?.slug && (
+                <button
+                  onClick={() => onNavigate(`founders/${featuredStoriesData[0].slug}`)}
+                  className="px-6 py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/80 transition-colors flex items-center gap-2 w-fit"
+                  aria-label={`Read the full story of ${featuredStoriesData[0]?.name ?? 'this founder'}`}
+                >
+                  Read Full Story <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
+              {featuredStoriesData[0]?.socialLinks?.website && (
+                <a
+                  href={featuredStoriesData[0].socialLinks.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 border border-[#EFB81A] text-black dark:text-[#EFB81A] rounded-lg hover:bg-[#EFB81A]/10 transition-colors flex items-center gap-2 w-fit"
+                  aria-label={`Visit the website of ${featuredStoriesData[0]?.name ?? 'this founder'}`}
+                >
+                  Visit Website <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
+              )}
+            </div>
           </div>
           <div className="aspect-[4/3] lg:aspect-auto">
             <img 
@@ -145,7 +161,8 @@ export function FoundersPage({
           {featuredStoriesData.slice(1).map((story) => (
             <article
               key={story.id}
-              className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all text-left group"
+              onClick={() => onNavigate(`founders/${story.slug}`)}
+              className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all text-left group cursor-pointer"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="aspect-[4/3] sm:aspect-auto overflow-hidden">
@@ -191,7 +208,8 @@ export function FoundersPage({
           {filteredStories.map((story) => (
             <article
               key={story.id}
-              className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all text-left group"
+              onClick={() => onNavigate(`founders/${story.slug}`)}
+              className="bg-white dark:bg-[#1A1A1A] rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all text-left group cursor-pointer"
             >
               <div className="aspect-[16/10] overflow-hidden">
                 <img 
@@ -242,6 +260,22 @@ export function FoundersPage({
           <div className="text-gray-800 dark:text-gray-100 text-xl md:text-2xl mb-1">25+</div>
           <div className="text-gray-500 dark:text-gray-400 text-xs md:text-sm">Unicorns</div>
         </div>
+      </div>
+
+      {/* CTA */}
+      <div className="bg-[#F9D96A] dark:bg-[#1A1A1A] border-2 border-[#EFB81A] dark:border-[#EFB81A]/40 rounded-xl md:rounded-2xl p-6 sm:p-8 md:p-12 text-center">
+        <PenLine className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mx-auto mb-3 sm:mb-4 text-[#EFB81A]" aria-hidden="true" />
+        <h2 className="mb-2 sm:mb-3 md:mb-4 text-xl sm:text-2xl md:text-3xl text-black dark:text-white">Got a Story to Tell?</h2>
+        <p className="mb-4 sm:mb-6 md:mb-8 max-w-2xl mx-auto text-sm sm:text-base text-gray-800 dark:text-gray-300">
+          Share your journey as a founder or builder in Web3 and get featured on CrypLounge&apos;s Yellow Page for thousands of readers to discover
+        </p>
+        <button
+          onClick={() => onNavigate('submit-story')}
+          className="px-6 sm:px-8 py-2.5 sm:py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] dark:hover:bg-white dark:hover:text-black transition-colors text-sm sm:text-base font-medium"
+          aria-label="Submit your story to CrypLounge"
+        >
+          Submit Your Story
+        </button>
       </div>
 
       {/* Onward content instead of a decorative call to action. */}

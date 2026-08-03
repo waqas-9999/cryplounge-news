@@ -548,6 +548,10 @@ model Founder {
   publishedAt DateTime?
   featured  Boolean       @default(false)
 
+  /// Set only on public "submit your story" submissions.
+  submittedByName  String?
+  submittedByEmail String?
+
   tags     Tag[]
   projects Project[]
   articles Article[]

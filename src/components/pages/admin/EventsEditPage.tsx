@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { SlugField } from '@/components/admin/SlugField';
+import { ContentToolbar } from '@/components/admin/ContentToolbar';
 import { apiClient, errorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Save, Upload, X, Sparkles, Image as ImageIcon, Loader2 } from 'lucide-react';
@@ -102,6 +103,7 @@ export function EventsEditPage({ currentPage, onNavigate, onLogout, eventId }: E
   const [saving, setSaving] = useState<'draft' | 'published' | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     apiClient
@@ -281,7 +283,13 @@ export function EventsEditPage({ currentPage, onNavigate, onLogout, eventId }: E
 
                 <div className="bg-white dark:bg-[#1A1A1C] rounded-xl p-6 border border-gray-200 dark:border-gray-800">
                   <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Description & Agenda *</label>
+                  <ContentToolbar
+                    textareaRef={contentRef}
+                    value={formData.content}
+                    onChange={content => setFormData(prev => ({ ...prev, content }))}
+                  />
                   <textarea
+                    ref={contentRef}
                     value={formData.content}
                     onChange={e => setFormData({ ...formData, content: e.target.value })}
                     rows={12}

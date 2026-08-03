@@ -10,6 +10,7 @@ import {
   LogOut,
   ScrollText,
   CalendarDays,
+  BookUser,
   X
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -29,6 +30,7 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
     
     if (currentPage.startsWith('admin/news')) sections.push('news');
     if (currentPage.startsWith('admin/events') || currentPage.startsWith('admin/organizers')) sections.push('events');
+    if (currentPage.startsWith('admin/founders')) sections.push('founders');
     if (currentPage.startsWith('admin/settings')) sections.push('settings');
     
     // Always include dashboard
@@ -83,6 +85,15 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'All Events', page: 'admin/events' },
         { label: 'Create New', page: 'admin/events/create' },
         { label: 'Organizers', page: 'admin/organizers' }
+      ]
+    },
+    {
+      id: 'founders',
+      label: 'Stories Management',
+      icon: BookUser,
+      submenu: [
+        { label: 'All Stories', page: 'admin/founders' },
+        { label: 'Create New', page: 'admin/founders/create' }
       ]
     },
     {

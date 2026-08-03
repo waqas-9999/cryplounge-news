@@ -1,68 +1,70 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowLeft, Upload, X, Check, User, Briefcase, Globe, Image as ImageIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ArrowLeft, Upload, X, Check, User, Briefcase, Globe, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { toast } from 'sonner';
+import { API_ORIGIN, apiClient, errorMessage } from '@/lib/api-client';
 
 interface SubmitStoryPageProps {
   onNavigate: (page: string) => void;
 }
 
+interface MediaAsset {
+  id: string;
+  url: string;
+}
+
+function absoluteUrl(url: string): string {
+  return /^https?:\/\//.test(url) ? url : `${API_ORIGIN}${url}`;
+}
+
+const inputClass =
+  'w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all';
+
 export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
   const [formData, setFormData] = useState({
     name: '',
     role: '',
-    category: '',
-    ecosystem: '',
+    company: '',
     region: '',
-    story: '',
+    bio: '',
     excerpt: '',
     website: '',
-    twitter: '',
+    x: '',
     linkedin: '',
-    telegram: '',
-    projects: '',
-    achievements: '',
+    github: '',
+    submittedByName: '',
+    submittedByEmail: '',
   });
 
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<MediaAsset | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const categories = [
-    'DeFi', 'NFT', 'Gaming', 'Infrastructure', 'Layer 1', 'Layer 2',
-    'DEX', 'Protocol', 'DAO', 'Metaverse', 'AI', 'DePIN', 'RWA'
-  ];
-
-  const ecosystems = [
-    'Ethereum', 'Solana', 'Polygon', 'BNB Chain', 'Avalanche', 
-    'Bitcoin', 'Cosmos', 'Polkadot', 'Arbitrum', 'Optimism'
-  ];
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const regions = [
-    'Global', 'North America', 'Europe', 'Asia', 'Latin America', 
+    'Global', 'North America', 'Europe', 'Asia', 'Latin America',
     'Middle East', 'Africa', 'Oceania'
   ];
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Photo size must be less than 5MB');
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  async function handleUpload(file: File) {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Photo size must be less than 5MB');
+      return;
     }
-  };
-
-  const handleRemovePhoto = () => {
-    setPhotoPreview(null);
-  };
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const asset = await apiClient.upload<MediaAsset>('founders/submit/photo', form, { auth: false });
+      setPhoto(asset);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Upload failed'));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -73,26 +75,47 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validation
-    if (!formData.name || !formData.role || !formData.category || !formData.story) {
+
+    if (
+      !formData.name ||
+      !formData.role ||
+      !formData.bio ||
+      !formData.excerpt ||
+      !formData.submittedByName ||
+      !formData.submittedByEmail
+    ) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    if (!photoPreview) {
-      toast.error('Please upload your photo');
-      return;
-    }
-
     setIsSubmitting(true);
-
-    // Simulate submission
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await apiClient.post(
+        'founders/submit',
+        {
+          name: formData.name,
+          role: formData.role,
+          company: formData.company || undefined,
+          bio: formData.bio,
+          excerpt: formData.excerpt,
+          photoId: photo?.id || undefined,
+          website: formData.website || undefined,
+          x: formData.x || undefined,
+          linkedin: formData.linkedin || undefined,
+          github: formData.github || undefined,
+          region: formData.region || undefined,
+          submittedByName: formData.submittedByName,
+          submittedByEmail: formData.submittedByEmail,
+        },
+        { auth: false }
+      );
       toast.success('Your story has been submitted successfully! Our team will review it shortly.');
       onNavigate('founders');
-    }, 2000);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to submit your story'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -132,7 +155,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
           </div>
           <h1 className="text-gray-800 dark:text-gray-100 mb-3">Share Your Journey</h1>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl">
-            Tell the community about your experience building in Web3. Your story could inspire the next generation of innovators.
+            Tell the community about your experience building in Web3. Your story could inspire the next generation of innovators. Our team reviews every submission before it goes live.
           </p>
         </div>
 
@@ -143,31 +166,46 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
             <label className="block mb-4">
               <span className="text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-3">
                 <ImageIcon className="w-5 h-5 text-[#EFB81A]" />
-                Profile Photo <span className="text-red-500">*</span>
+                Profile Photo
               </span>
-              
-              {!photoPreview ? (
-                <div className="flex flex-col items-center justify-center py-12 cursor-pointer hover:border-[#EFB81A] transition-colors border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
-                  <Upload className="w-12 h-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">Click to upload or drag and drop</p>
+
+              {!photo ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full flex flex-col items-center justify-center py-12 cursor-pointer hover:border-[#EFB81A] transition-colors border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <Loader2 className="w-12 h-12 text-[#EFB81A] mb-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-12 h-12 text-gray-400 mb-4" />
+                  )}
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">
+                    {uploading ? 'Uploading...' : 'Click to upload or drag and drop'}
+                  </p>
                   <p className="text-sm text-gray-400">PNG, JPG up to 5MB</p>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
-                    onChange={handlePhotoUpload}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUpload(file);
+                    }}
                     className="hidden"
                   />
-                </div>
+                </button>
               ) : (
                 <div className="relative inline-block">
                   <img
-                    src={photoPreview}
+                    src={absoluteUrl(photo.url)}
                     alt="Preview"
                     className="w-48 h-48 object-cover rounded-2xl border-4 border-[#EFB81A]"
                   />
                   <button
                     type="button"
-                    onClick={handleRemovePhoto}
+                    onClick={() => setPhoto(null)}
                     className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
                     aria-label="Remove photo"
                   >
@@ -184,7 +222,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
               <User className="w-5 h-5 text-[#EFB81A]" />
               Personal Information
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
@@ -196,11 +234,10 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   value={formData.name}
                   onChange={handleInputChange}
                   placeholder="Satoshi Nakamoto"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  className={inputClass}
                   required
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
                   Role/Title <span className="text-red-500">*</span>
@@ -211,46 +248,23 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   value={formData.role}
                   onChange={handleInputChange}
                   placeholder="Founder & CEO"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  className={inputClass}
                   required
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
-                  Category <span className="text-red-500">*</span>
+                  Project / Company
                 </label>
-                <select
-                  name="category"
-                  value={formData.category}
+                <input
+                  type="text"
+                  name="company"
+                  value={formData.company}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                  placeholder="The project or company you built"
+                  className={inputClass}
+                />
               </div>
-
-              <div>
-                <label className="block mb-2 text-gray-700 dark:text-gray-300">
-                  Primary Ecosystem
-                </label>
-                <select
-                  name="ecosystem"
-                  value={formData.ecosystem}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
-                >
-                  <option value="">Select Ecosystem</option>
-                  {ecosystems.map((eco) => (
-                    <option key={eco} value={eco}>{eco}</option>
-                  ))}
-                </select>
-              </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
                   Region
@@ -259,7 +273,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   name="region"
                   value={formData.region}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  className={inputClass}
                 >
                   <option value="">Select Region</option>
                   {regions.map((reg) => (
@@ -267,7 +281,6 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
                   Website
@@ -278,7 +291,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   value={formData.website}
                   onChange={handleInputChange}
                   placeholder="https://example.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -290,47 +303,45 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
               <Globe className="w-5 h-5 text-[#EFB81A]" />
               Social Links
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
                   Twitter/X
                 </label>
                 <input
-                  type="text"
-                  name="twitter"
-                  value={formData.twitter}
+                  type="url"
+                  name="x"
+                  value={formData.x}
                   onChange={handleInputChange}
-                  placeholder="@username"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  placeholder="https://x.com/username"
+                  className={inputClass}
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
                   LinkedIn
                 </label>
                 <input
-                  type="text"
+                  type="url"
                   name="linkedin"
                   value={formData.linkedin}
                   onChange={handleInputChange}
-                  placeholder="linkedin.com/in/username"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  placeholder="https://linkedin.com/in/username"
+                  className={inputClass}
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
-                  Telegram
+                  GitHub
                 </label>
                 <input
-                  type="text"
-                  name="telegram"
-                  value={formData.telegram}
+                  type="url"
+                  name="github"
+                  value={formData.github}
                   onChange={handleInputChange}
-                  placeholder="@username"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all"
+                  placeholder="https://github.com/username"
+                  className={inputClass}
                 />
               </div>
             </div>
@@ -342,7 +353,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
               <Briefcase className="w-5 h-5 text-[#EFB81A]" />
               Your Story
             </h3>
-            
+
             <div className="space-y-6">
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
@@ -354,11 +365,11 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   onChange={handleInputChange}
                   placeholder="A brief summary of your journey (1-2 sentences)"
                   rows={2}
-                  maxLength={200}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all resize-none"
+                  maxLength={600}
+                  className={`${inputClass} resize-none`}
                   required
                 />
-                <p className="text-sm text-gray-400 mt-2">{formData.excerpt.length}/200 characters</p>
+                <p className="text-sm text-gray-400 mt-2">{formData.excerpt.length}/600 characters</p>
               </div>
 
               <div>
@@ -366,41 +377,52 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
                   Full Story <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  name="story"
-                  value={formData.story}
+                  name="bio"
+                  value={formData.bio}
                   onChange={handleInputChange}
                   placeholder="Tell us about your journey, challenges, achievements, and vision for the future..."
                   rows={8}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all resize-none"
+                  className={`${inputClass} resize-none`}
                   required
                 />
               </div>
+            </div>
+          </div>
 
+          {/* Contact Details */}
+          <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl p-6 md:p-8 border border-gray-200 dark:border-gray-800">
+            <h3 className="text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
+              <User className="w-5 h-5 text-[#EFB81A]" />
+              Your Contact Details
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
-                  Projects & Companies
+                  Your Name <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="projects"
-                  value={formData.projects}
+                <input
+                  type="text"
+                  name="submittedByName"
+                  value={formData.submittedByName}
                   onChange={handleInputChange}
-                  placeholder="List the projects or companies you've founded or contributed to..."
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all resize-none"
+                  placeholder="Satoshi Nakamoto"
+                  className={inputClass}
+                  required
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-gray-700 dark:text-gray-300">
-                  Key Achievements
+                  Your Email <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="achievements"
-                  value={formData.achievements}
+                <input
+                  type="email"
+                  name="submittedByEmail"
+                  value={formData.submittedByEmail}
                   onChange={handleInputChange}
-                  placeholder="Notable achievements, awards, or milestones..."
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-black text-gray-800 dark:text-gray-100 focus:border-[#EFB81A] focus:ring-2 focus:ring-[#EFB81A]/20 outline-none transition-all resize-none"
+                  placeholder="you@example.com"
+                  className={inputClass}
+                  required
                 />
               </div>
             </div>
@@ -446,7 +468,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-[#EFB81A] flex-shrink-0 mt-0.5" />
-              We may reach out for additional information or photos
+              We may reach out to your email for additional information or photos
             </li>
             <li className="flex items-start gap-2">
               <Check className="w-4 h-4 text-[#EFB81A] flex-shrink-0 mt-0.5" />

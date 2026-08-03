@@ -33,6 +33,10 @@ import { EventsCreatePage } from '@/components/pages/admin/EventsCreatePage';
 import { EventsEditPage } from '@/components/pages/admin/EventsEditPage';
 import { OrganizersListPage } from '@/components/pages/admin/OrganizersListPage';
 
+import { FoundersListPage } from '@/components/pages/admin/FoundersListPage';
+import { FoundersCreatePage } from '@/components/pages/admin/FoundersCreatePage';
+import { FoundersEditPage } from '@/components/pages/admin/FoundersEditPage';
+
 import { GeneralSettingsPage } from '@/components/pages/admin/settings/GeneralSettingsPage';
 import { AppearanceSettingsPage } from '@/components/pages/admin/settings/AppearanceSettingsPage';
 import { EmailSettingsPage } from '@/components/pages/admin/settings/EmailSettingsPage';
@@ -135,6 +139,20 @@ export function AdminEventsEditView({ eventId }: { eventId: string }) {
 
 export function AdminOrganizersListView() {
   return <OrganizersListPage {...useAdminChrome()} />;
+}
+
+/* ------------------------------------------------------------ founders --- */
+
+export function AdminFoundersListView() {
+  return <FoundersListPage {...useAdminChrome()} />;
+}
+
+export function AdminFoundersCreateView() {
+  return <FoundersCreatePage {...useAdminChrome()} />;
+}
+
+export function AdminFoundersEditView({ founderId }: { founderId: string }) {
+  return <FoundersEditPage {...useAdminChrome()} founderId={founderId} />;
 }
 
 /* ------------------------------------------------------------ settings --- */
