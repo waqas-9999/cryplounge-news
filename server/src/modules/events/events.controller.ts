@@ -10,8 +10,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -19,13 +22,31 @@ import { auditContext } from '../articles/articles.controller';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { MediaService } from '../media/media.service';
 import { CreateEventDto, EventQueryDto, UpdateEventDto } from './dto/event.dto';
+import { SubmitEventDto } from './dto/submit-event.dto';
 import { EventsService } from './events.service';
 
 @ApiTags('Events')
 @Controller('events')
 export class EventsController {
-  constructor(private readonly events: EventsService) {}
+  constructor(
+    private readonly events: EventsService,
+    private readonly media: MediaService
+  ) {}
+
+  @Public()
+  @Post('submit/banner')
+  @ResponseMessage('Banner uploaded')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a banner image for a public event submission' })
+  @ApiBody({
+    schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSubmissionBanner(@UploadedFile() file: Express.Multer.File) {
+    return this.media.uploadAnonymous(file, { folder: 'event-submissions' });
+  }
 
   @Public()
   @Get()
@@ -56,6 +77,14 @@ export class EventsController {
   @ResponseMessage('Event')
   byId(@Param('id') id: string) {
     return this.events.findById(id);
+  }
+
+  @Public()
+  @Post('submit')
+  @ResponseMessage('Event submitted for review')
+  @ApiOperation({ summary: 'Public event submission; always lands in REVIEW' })
+  submit(@Body() dto: SubmitEventDto) {
+    return this.events.submit(dto);
   }
 
   @Post()

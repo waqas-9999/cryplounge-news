@@ -9,6 +9,7 @@ import { RelationsService } from '../content-core/relations.service';
 import { SlugService } from '../content-core/slug.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import type { CreateEventDto, EventQueryDto, UpdateEventDto } from './dto/event.dto';
+import type { SubmitEventDto } from './dto/submit-event.dto';
 
 const LIST_SELECT = {
   id: true,
@@ -250,6 +251,51 @@ export class EventsService extends BaseCrudService {
       entityId: event.id,
       summary: `Updated event "${event.name}"`,
       context,
+    });
+
+    return event;
+  }
+
+  /**
+   * Public, unauthenticated submission. Always lands in REVIEW so an editor
+   * has to approve before it's visible to anyone else.
+   */
+  async submit(dto: SubmitEventDto) {
+    this.assertDatesCoherent(dto.startsAt, dto.endsAt);
+
+    const slug = await this.slugs.unique('event', dto.name);
+
+    const event = await this.prisma.event.create({
+      data: {
+        name: dto.name,
+        summary: dto.summary,
+        content: dto.content,
+        startsAt: dto.startsAt,
+        endsAt: dto.endsAt,
+        mode: dto.mode ?? 'OFFLINE',
+        venue: dto.venue,
+        city: dto.city,
+        country: dto.country,
+        onlineUrl: dto.onlineUrl,
+        registerUrl: dto.registerUrl,
+        telegramChannel: dto.telegramChannel,
+        isFree: dto.isFree ?? true,
+        ticketPrice: dto.ticketPrice,
+        submittedByName: dto.submittedByName,
+        submittedByEmail: dto.submittedByEmail,
+        slug,
+        status: ContentStatus.REVIEW,
+        categoryId: dto.categoryId,
+        bannerImageId: dto.bannerImageId,
+      },
+      include: DETAIL_INCLUDE,
+    });
+
+    await this.audit.record({
+      action: AuditAction.CREATE,
+      entity: 'Event',
+      entityId: event.id,
+      summary: `"${event.name}" submitted for review by ${dto.submittedByEmail}`,
     });
 
     return event;

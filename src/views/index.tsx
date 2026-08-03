@@ -28,6 +28,7 @@ import { CategoryPage } from '@/components/pages/CategoryPage';
 import { ArticleDetailPage } from '@/components/pages/ArticleDetailPage';
 
 import { EventsPage } from '@/components/pages/EventsPage';
+import { SubmitEventPage } from '@/components/pages/SubmitEventPage';
 import { FoundersPage } from '@/components/pages/FoundersPage';
 
 import AboutPage from '@/components/pages/AboutPage';
@@ -111,6 +112,10 @@ export function RegulationView() {
 
 export function EventsView() {
   return <EventsPage onNavigate={useAppNavigate()} />;
+}
+
+export function SubmitEventView() {
+  return <SubmitEventPage onNavigate={useAppNavigate()} />;
 }
 
 export function FoundersView({

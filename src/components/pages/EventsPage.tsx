@@ -454,7 +454,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
             List your blockchain or crypto event on CrypLounge and reach thousands of potential attendees from around the world
           </p>
           <button 
-            onClick={() => onNavigate?.('submit-story')}
+            onClick={() => onNavigate?.('events/submit')}
             className="px-6 sm:px-8 py-2.5 sm:py-3 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] dark:hover:bg-white dark:hover:text-black transition-colors text-sm sm:text-base font-medium"
             aria-label="Submit your event to CrypLounge"
           >

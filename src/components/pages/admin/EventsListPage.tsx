@@ -11,6 +11,7 @@ import {
   Edit,
   Trash2,
   CheckCircle,
+  XCircle,
   Clock,
   AlertCircle,
   Loader2,
@@ -94,6 +95,17 @@ export function EventsListPage({ currentPage, onNavigate, onLogout }: EventsList
       load();
     } catch (err) {
       toast.error(errorMessage(err, 'Failed to approve event'));
+    }
+  }
+
+  async function handleReject(id: string) {
+    if (!window.confirm('Reject this submission? It will be moved back to Draft.')) return;
+    try {
+      await apiClient.patch(`events/${id}`, { status: 'DRAFT' });
+      toast.success('Event rejected');
+      load();
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to reject event'));
     }
   }
 
@@ -239,13 +251,22 @@ export function EventsListPage({ currentPage, onNavigate, onLogout }: EventsList
                           <td className="py-3 px-4">
                             <div className="flex items-center justify-end gap-2">
                               {event.status === 'REVIEW' && (
-                                <button
-                                  onClick={() => handleApprove(event.id)}
-                                  className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/20 rounded transition-colors"
-                                  title="Approve & Publish"
-                                >
-                                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleApprove(event.id)}
+                                    className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/20 rounded transition-colors"
+                                    title="Approve & Publish"
+                                  >
+                                    <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(event.id)}
+                                    className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors"
+                                    title="Reject"
+                                  >
+                                    <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                  </button>
+                                </>
                               )}
                               <button
                                 onClick={() => onNavigate(`admin/events/edit/${event.id}`)}
