@@ -129,7 +129,7 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => onNavigate('founders')} className="cursor-pointer">Yellow Page</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => onNavigate('founders')} className="cursor-pointer">Founder Page</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -142,10 +142,10 @@ export function SubmitStoryPage({ onNavigate }: SubmitStoryPageProps) {
         <button
           onClick={() => onNavigate('founders')}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-[#EFB81A] transition-colors"
-          aria-label="Go back to Yellow Page"
+          aria-label="Go back to Founder Page"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Yellow Page
+          Back to Founder Page
         </button>
 
         {/* Header */}

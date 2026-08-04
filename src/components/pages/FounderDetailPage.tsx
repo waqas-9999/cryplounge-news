@@ -50,7 +50,7 @@ export function FounderDetailPage({ founder, onNavigate }: FounderDetailPageProp
             aria-label="Go back to founders"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Yellow Page</span>
+            <span>Back to Founder Page</span>
           </button>
         </nav>
 

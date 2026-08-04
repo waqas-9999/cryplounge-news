@@ -73,7 +73,7 @@ export function FoundersPage({
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Yellow Page</BreadcrumbPage>
+            <BreadcrumbPage>Founder Page</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -81,7 +81,7 @@ export function FoundersPage({
       {/* Header */}
       <div>
         <div className="inline-block px-4 py-2 bg-[#F9D96A] dark:bg-[#EFB81A]/20 rounded-lg mb-3 md:mb-4">
-          <span className="text-black dark:text-[#EFB81A] text-sm">YELLOW PAGE STORIES</span>
+          <span className="text-black dark:text-[#EFB81A] text-sm">FOUNDER PAGE STORIES</span>
         </div>
         <h1 className="text-gray-800 dark:text-gray-100 mb-3 md:mb-4">Stories Behind Innovation</h1>
         <p className="text-gray-600 dark:text-gray-400 max-w-3xl">
@@ -194,11 +194,11 @@ export function FoundersPage({
       <div>
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <div className="inline-block px-3 md:px-4 py-1.5 md:py-2 bg-[#F9D96A] dark:bg-[#EFB81A]/20 rounded-lg">
-            <span className="text-black dark:text-[#EFB81A] text-xs md:text-sm">ALL YELLOW PAGES</span>
+            <span className="text-black dark:text-[#EFB81A] text-xs md:text-sm">ALL FOUNDER PAGES</span>
           </div>
           <button 
             className="text-xs md:text-sm text-gray-800 dark:text-gray-200 flex items-center gap-1 hover:text-[#EFB81A] transition-colors"
-            aria-label="View all Yellow Page profiles"
+            aria-label="View all founder profiles"
           >
             View all <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
           </button>
@@ -267,7 +267,7 @@ export function FoundersPage({
         <PenLine className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mx-auto mb-3 sm:mb-4 text-[#EFB81A]" aria-hidden="true" />
         <h2 className="mb-2 sm:mb-3 md:mb-4 text-xl sm:text-2xl md:text-3xl text-black dark:text-white">Got a Story to Tell?</h2>
         <p className="mb-4 sm:mb-6 md:mb-8 max-w-2xl mx-auto text-sm sm:text-base text-gray-800 dark:text-gray-300">
-          Share your journey as a founder or builder in Web3 and get featured on CrypLounge&apos;s Yellow Page for thousands of readers to discover
+          Share your journey as a founder or builder in Web3 and get featured on CrypLounge&apos;s Founder Page for thousands of readers to discover
         </p>
         <button
           onClick={() => onNavigate('submit-story')}
