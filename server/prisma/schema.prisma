@@ -954,3 +954,45 @@ model SearchQuery {
   @@index([term])
   @@index([createdAt])
 }
+
+/// One anonymous analytics event (page view, article view, scroll milestone,
+/// share, …). Sessions are reconstructed by `sessionId`; a hashed `visitorId`
+/// distinguishes new vs returning without storing personal data. Geographic
+/// and device fields are only populated when the client supplies them — the
+/// UI shows "Not available" rather than invented values.
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  /// e.g. page_view | article_view | article_scroll | share | search | …
+  type      String
+  /// Anonymous session id generated client-side per visit.
+  sessionId String
+  /// Hashed anonymous visitor id (persists across sessions).
+  visitorId String?
+  path      String?
+  referrer  String?
+  /// Captured from Accept-Language region when available.
+  country   String?
+  region    String?
+  city      String?
+  deviceType String?
+  browser   String?
+  os        String?
+  screenResolution String?
+  language  String?
+  /// Content context (entity type + id, e.g. Article + article id).
+  entity    String?
+  entityId  String?
+  categoryId String?
+  authorId  String?
+  /// Scroll depth in % for article_scroll milestones.
+  scrollDepth Int?
+  /// Extra structured payload (share platform, search term, …).
+  meta      Json?
+  timestamp DateTime @default(now())
+
+  @@index([type, timestamp])
+  @@index([sessionId, timestamp])
+  @@index([entity, entityId, timestamp])
+  @@index([country, timestamp])
+  @@index([visitorId, timestamp])
+}
