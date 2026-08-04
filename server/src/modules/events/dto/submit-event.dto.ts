@@ -70,6 +70,7 @@ export class SubmitEventDto {
   ticketPrice?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString() categoryId?: string;
+  @ApiPropertyOptional({ description: 'Optional existing organizer to link' }) @IsOptional() @IsString() organizerId?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() bannerImageId?: string;
 
   @ApiProperty({ description: 'Organizer contact name' })

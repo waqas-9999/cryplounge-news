@@ -69,10 +69,6 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'All Articles', page: 'admin/news' },
         { label: 'Create New', page: 'admin/news/create' },
         { label: 'Comments', page: 'admin/news/comments' },
-        { label: 'Moderation Queue', page: 'admin/news/moderation' },
-        { label: 'News Sources', page: 'admin/news/sources' },
-        { label: 'Auto-Fetch Config', page: 'admin/news/auto-fetch' },
-        { label: 'AI Settings', page: 'admin/news/ai-settings' },
         { label: 'Categories', page: 'admin/news/categories' },
         { label: 'Analytics', page: 'admin/news/analytics' }
       ]

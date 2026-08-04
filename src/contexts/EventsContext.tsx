@@ -24,6 +24,7 @@ export interface Event {
   description: string;
   bannerImage: string;
   registerLink: string;
+  organizer: { id: string; name: string } | null;
 }
 
 interface BackendEvent {
@@ -41,6 +42,7 @@ interface BackendEvent {
   featured: boolean;
   category: { id: string; slug: string; name: string } | null;
   bannerImage: { path: string; altText: string | null } | null;
+  organizer?: { id: string; name: string; verified?: boolean } | null;
 }
 
 const FALLBACK_BANNER = '/images/event-placeholder.jpg';
@@ -80,6 +82,7 @@ function toEvent(event: BackendEvent): Event {
     description: event.summary,
     bannerImage: mediaUrl(event.bannerImage?.path) ?? FALLBACK_BANNER,
     registerLink: event.registerUrl ?? '',
+    organizer: event.organizer ? { id: event.organizer.id, name: event.organizer.name } : null,
   };
 }
 

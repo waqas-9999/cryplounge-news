@@ -16,6 +16,11 @@ interface Category {
   name: string;
 }
 
+interface Organizer {
+  id: string;
+  name: string;
+}
+
 interface MediaAsset {
   id: string;
   url: string;
@@ -30,6 +35,7 @@ const inputClass =
 
 export function SubmitEventPage({ onNavigate }: SubmitEventPageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [organizers, setOrganizers] = useState<Organizer[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bannerImage, setBannerImage] = useState<MediaAsset | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -51,6 +57,7 @@ export function SubmitEventPage({ onNavigate }: SubmitEventPageProps) {
     isFree: true,
     ticketPrice: '',
     categoryId: '',
+    organizerId: '',
     bannerImageId: '',
     submittedByName: '',
     submittedByEmail: '',
@@ -61,6 +68,10 @@ export function SubmitEventPage({ onNavigate }: SubmitEventPageProps) {
       .get<Category[]>('taxonomy/categories', { query: { kind: 'EVENT' }, auth: false })
       .then(setCategories)
       .catch(() => setCategories([]));
+    apiClient
+      .getPaginated<Organizer>('organizers', { query: { perPage: 100 }, auth: false })
+      .then(({ items }) => setOrganizers(items))
+      .catch(() => setOrganizers([]));
   }, []);
 
   async function handleUpload(file: File) {
@@ -137,6 +148,7 @@ export function SubmitEventPage({ onNavigate }: SubmitEventPageProps) {
           isFree: formData.isFree,
           ticketPrice: formData.isFree ? undefined : formData.ticketPrice || undefined,
           categoryId: formData.categoryId || undefined,
+          organizerId: formData.organizerId || undefined,
           bannerImageId: formData.bannerImageId || undefined,
           submittedByName: formData.submittedByName,
           submittedByEmail: formData.submittedByEmail,
@@ -285,6 +297,18 @@ export function SubmitEventPage({ onNavigate }: SubmitEventPageProps) {
                   <option value="">Select Category</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-gray-700 dark:text-gray-300">
+                  Organizer
+                </label>
+                <select name="organizerId" value={formData.organizerId} onChange={handleChange} className={inputClass}>
+                  <option value="">Self (you or your team)</option>
+                  {organizers.map(org => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
                   ))}
                 </select>
               </div>

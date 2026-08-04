@@ -203,23 +203,21 @@ export function EventDetailPage({ event, onNavigate }: EventDetailPageProps) {
               </section>
             )}
 
-            {event.organizer && (
-              <aside className="bg-[#F4F4F4] dark:bg-[#1A1A1A] rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-800" aria-label="Organizer information">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#EFB81A] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {event.organizer.logo ? (
-                      <img src={event.organizer.logo} alt={event.organizer.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Users className="w-6 h-6 text-black" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-gray-800 dark:text-[#F3F3F5] mb-1">{event.organizer.name}</h3>
-                    <p className="text-gray-600 dark:text-[#A0A0A5] text-sm">Event Organizer</p>
-                  </div>
+            <aside className="bg-[#F4F4F4] dark:bg-[#1A1A1A] rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-800" aria-label="Organizer information">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#EFB81A] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {event.organizer?.logo ? (
+                    <img src={event.organizer.logo} alt={event.organizer.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Users className="w-6 h-6 text-black" />
+                  )}
                 </div>
-              </aside>
-            )}
+                <div>
+                  <h3 className="text-gray-800 dark:text-[#F3F3F5] mb-1">{event.organizer?.name ?? 'Self'}</h3>
+                  <p className="text-gray-600 dark:text-[#A0A0A5] text-sm">Event Organizer</p>
+                </div>
+              </div>
+            </aside>
           </article>
 
           <aside className="space-y-6 md:space-y-8 pt-16 md:pt-20" aria-label="Sidebar">

@@ -286,6 +286,7 @@ export class EventsService extends BaseCrudService {
         slug,
         status: ContentStatus.REVIEW,
         categoryId: dto.categoryId,
+        organizerId: dto.organizerId,
         bannerImageId: dto.bannerImageId,
       },
       include: DETAIL_INCLUDE,

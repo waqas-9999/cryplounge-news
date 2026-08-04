@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, MapPin, Clock, ExternalLink, TrendingUp, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Clock, ExternalLink, TrendingUp, Loader2, Users } from 'lucide-react';
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
 import { useEvents } from '@/contexts/EventsContext';
@@ -39,12 +39,6 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
       Workshop: 'bg-pink-100 dark:bg-pink-500/20 text-pink-700 dark:text-pink-400 border-pink-200 dark:border-pink-500/30'
     };
     return colors[category as keyof typeof colors] || colors.Conference;
-  };
-
-  const getLocationTypeIcon = (type: string) => {
-    if (type === 'online') return '🌐';
-    if (type === 'offline') return '📍';
-    return '🔄';
   };
 
   // Filter logic
@@ -209,9 +203,11 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                   
                   <div className="flex items-center gap-1 sm:gap-2">
                     <MapPin className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                    <span className="text-xs sm:text-sm md:text-base">
-                      {getLocationTypeIcon(featuredEvent.locationType)} {featuredEvent.location}
-                    </span>
+                    <span className="text-xs sm:text-sm md:text-base">{featuredEvent.location}</span>
+                  </div>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                    <span className="text-xs sm:text-sm md:text-base">{featuredEvent.organizer?.name ?? 'Self'}</span>
                   </div>
                 </div>
                 
@@ -284,9 +280,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                       </div>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-600 dark:text-gray-400">
                         <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
-                        <span className="truncate">
-                          {getLocationTypeIcon(event.locationType)} {event.location}
-                        </span>
+                        <span className="truncate">{event.location}</span>
                       </div>
                     </div>
                     
@@ -364,9 +358,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
                         <MapPin className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate">
-                          {getLocationTypeIcon(event.locationType)} {event.location}
-                        </span>
+                        <span className="truncate">{event.location}</span>
                       </div>
                     </div>
                     
@@ -440,9 +432,7 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
                       </div>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
-                        <span className="truncate">
-                          {getLocationTypeIcon(event.locationType)} {event.location}
-                        </span>
+                        <span className="truncate">{event.location}</span>
                       </div>
                     </div>
                     
