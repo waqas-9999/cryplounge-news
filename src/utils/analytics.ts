@@ -3,6 +3,66 @@
  * AI-optimized user behavior tracking and performance monitoring
  */
 
+import { apiClient } from '@/lib/api-client';
+
+const SESSION_KEY = 'cryplounge_session_id';
+const VISITOR_KEY = 'cryplounge_visitor_id';
+
+function randomId(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Anonymous session id, one per tab session (sessionStorage). */
+function getSessionId(): string {
+  if (typeof window === 'undefined') return randomId();
+  let id = window.sessionStorage.getItem(SESSION_KEY);
+  if (!id) {
+    id = randomId();
+    window.sessionStorage.setItem(SESSION_KEY, id);
+  }
+  return id;
+}
+
+/** Anonymous visitor id, persists across sessions (localStorage). No PII. */
+function getVisitorId(): string {
+  if (typeof window === 'undefined') return randomId();
+  let id = window.localStorage.getItem(VISITOR_KEY);
+  if (!id) {
+    id = randomId();
+    window.localStorage.setItem(VISITOR_KEY, id);
+  }
+  return id;
+}
+
+/** Queues a raw event for the backend's batch tracking endpoint. Fire-and-forget. */
+function sendEventToBackend(type: string, extra: Record<string, unknown> = {}) {
+  if (typeof window === 'undefined') return;
+  apiClient
+    .post('analytics/track', {
+      events: [
+        {
+          type,
+          sessionId: getSessionId(),
+          visitorId: getVisitorId(),
+          path: window.location.pathname,
+          referrer: document.referrer || undefined,
+          language: navigator.language,
+          timestamp: new Date().toISOString(),
+          ...extra,
+        },
+      ],
+    })
+    .catch(() => {
+      // Analytics must never break the page.
+    });
+}
+
+/** Records one view of a piece of content (article, event, founder, …) for top-content reports. */
+export function recordContentView(entity: string, entityId: string) {
+  if (typeof window === 'undefined') return;
+  apiClient.post('analytics/view', { entity, entityId }).catch(() => {});
+}
+
 export interface PageViewEvent {
   page: string;
   title: string;
@@ -194,12 +254,8 @@ class Analytics {
       (window as any).gtag('event', eventType, data);
     }
 
-    // Example: Custom analytics endpoint
-    // fetch('/api/analytics', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ eventType, data }),
-    // });
+    const type = eventType === 'pageview' ? 'page_view' : 'external_link_click';
+    sendEventToBackend(type, { meta: data });
   }
 
   /**

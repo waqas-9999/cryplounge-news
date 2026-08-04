@@ -126,6 +126,18 @@ export class TrackBatchDto {
   events!: TrackedEventDto[];
 }
 
+/** A single view of a piece of content, recorded by the public tracking endpoint. */
+export class RecordViewDto {
+  @ApiProperty({ enum: TRACKED_ENTITIES })
+  @IsIn(TRACKED_ENTITIES)
+  entity!: TrackedEntity;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(128)
+  entityId!: string;
+}
+
 /** Shared date-range + cross-cutting filters for every admin report. */
 export class AnalyticsRangeQueryDto {
   @ApiPropertyOptional({ description: 'Inclusive lower bound; defaults to 30 days ago' })
@@ -184,6 +196,4 @@ export class ExportQueryDto extends AnalyticsRangeQueryDto {
   type!: ExportReport;
 
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(128) entityId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(128) authorId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(128) categoryId?: string;
 }

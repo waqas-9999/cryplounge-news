@@ -3,7 +3,7 @@
 import { ArrowLeft, Heart, MessageCircle, Twitter, Facebook, Instagram, Share2, ChevronLeft, ChevronRight, Link2, Printer, Bookmark, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useState, useEffect, useRef } from 'react';
-import { trackEvent } from '@/utils/analytics';
+import { trackEvent, recordContentView } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
@@ -77,6 +77,7 @@ export function ArticleDetailPage({
       articleSlug,
       articleTitle
     });
+    recordContentView('Article', articleSlug);
 
     return () => {
       // Track read time on unmount

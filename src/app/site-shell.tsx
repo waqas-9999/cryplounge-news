@@ -1,10 +1,11 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { useAppNavigate, useCurrentPageKey } from '@/lib/navigation';
+import { analytics } from '@/utils/analytics';
 
 const AUTH_ROUTES = ['/login', '/signup', '/forgot-password'];
 
@@ -20,6 +21,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const isAuthRoute = AUTH_ROUTES.includes(pathname);
   const isAdminRoute = pathname.startsWith('/admin');
   const showChrome = !isAuthRoute && !isAdminRoute;
+
+  useEffect(() => {
+    if (isAdminRoute) return;
+    analytics.trackPageView(currentPage, document.title, pathname);
+  }, [pathname, currentPage, isAdminRoute]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors">

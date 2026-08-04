@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Paginated } from '@/common/dto/api-response.dto';
-import type { TrackedEntity } from './dto/analytics.dto';
-import { TRACKED_ENTITIES } from './dto/analytics.dto';
+import type {
+  AnalyticsRangeQueryDto,
+  RecordViewDto,
+  TopContentQueryDto,
+  TrackBatchDto,
+  TrackedEntity,
+} from './dto/analytics.dto';
 
 const MAX_ROWS = 20000;
 
@@ -46,7 +50,7 @@ export class AnalyticsService {
 
   /* ---------------------------------------------------------- collection -- */
 
-  async track(dto: { events: Array<Record<string, unknown>> }): Promise<void> {
+  async track(dto: TrackBatchDto): Promise<void> {
     const list = (dto.events ?? []).slice(0, 50);
     if (!list.length) return;
 
@@ -79,22 +83,53 @@ export class AnalyticsService {
     await this.prisma.analyticsEvent.createMany({ data: rows, skipDuplicates: true });
   }
 
+  /**
+   * Record one view of a piece of content: bumps the daily `ViewCount`
+   * rollup (used by top-content reports and the homepage's "most read"
+   * sections) and logs an `AnalyticsEvent` so it also counts toward
+   * traffic/overview totals.
+   */
+  async recordView(dto: RecordViewDto): Promise<void> {
+    const day = startOfUtcDay(new Date());
+    await Promise.all([
+      this.prisma.viewCount.upsert({
+        where: { entity_entityId_day: { entity: dto.entity, entityId: dto.entityId, day } },
+        create: { entity: dto.entity, entityId: dto.entityId, day, count: 1 },
+        update: { count: { increment: 1 } },
+      }),
+      this.prisma.analyticsEvent.create({
+        data: {
+          type: 'article_view',
+          sessionId: `view:${dto.entity}:${dto.entityId}:${Date.now()}`,
+          entity: dto.entity,
+          entityId: dto.entityId,
+        },
+      }),
+    ]);
+  }
+
   /* ------------------------------------------------------------- overview -- */
 
-  async overview(query: Record<string, unknown>) {
-    const span = innerRange(query.from as Date, query.to as Date);
+  async overview(query: AnalyticsRangeQueryDto) {
+    const span = innerRange(query.from, query.to);
     const duration = span.lte.getTime() - span.gte.getTime();
     const previous = { gte: new Date(span.gte.getTime() - duration), lte: span.gte };
     const dims = this.dims(query);
+    const viewWhere: Prisma.ViewCountWhereInput = query.entity ? { entity: query.entity } : {};
 
-    const [cur, prev] = await Promise.all([
+    const [cur, prev, totalViews] = await Promise.all([
       this.aggregateOverview({ ...dims, timestamp: { gte: span.gte, lte: span.lte } }),
       this.aggregateOverview({ ...dims, timestamp: { gte: previous.gte, lte: previous.lte } }),
+      this.prisma.viewCount.aggregate({
+        where: { ...viewWhere, day: { gte: startOfUtcDay(span.gte), lte: span.lte } },
+        _sum: { count: true },
+      }),
     ]);
 
     return {
       from: span.gte,
       to: span.lte,
+      totalViews: totalViews._sum.count ?? 0,
       current: cur,
       previous: prev,
       deltas: {
@@ -110,7 +145,104 @@ export class AnalyticsService {
     };
   }
 
-  private dims(query: Record<string, unknown>): Prisma.AnalyticsEventWhereInput {
+  /* --------------------------------------------------------------- trend -- */
+
+  /** Daily view totals (from `ViewCount`) across the range, for simple line charts. */
+  async trend(query: AnalyticsRangeQueryDto) {
+    const { gte, lte } = innerRange(query.from, query.to);
+    const rows = await this.prisma.viewCount.findMany({
+      where: {
+        day: { gte: startOfUtcDay(gte), lte },
+        ...(query.entity ? { entity: query.entity } : {}),
+      },
+      select: { day: true, count: true },
+    });
+
+    const byDay = new Map<string, number>();
+    for (const row of rows) {
+      const key = row.day.toISOString().slice(0, 10);
+      byDay.set(key, (byDay.get(key) ?? 0) + row.count);
+    }
+
+    return [...byDay.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([date, views]) => ({ date, views }));
+  }
+
+  /* ---------------------------------------------------------- top content -- */
+
+  /** Best-viewed content of one type in range, joined against its title/slug. */
+  async topContent(query: TopContentQueryDto) {
+    const { gte, lte } = innerRange(query.from, query.to);
+    const entity = query.entity ?? 'Article';
+    const limit = query.limit ?? 10;
+
+    const grouped = await this.prisma.viewCount.groupBy({
+      by: ['entityId'],
+      where: { entity, day: { gte: startOfUtcDay(gte), lte } },
+      _sum: { count: true },
+      orderBy: { _sum: { count: 'desc' } },
+      take: limit,
+    });
+    if (!grouped.length) return [];
+
+    const model = (this.prisma as unknown as Record<string, { findMany: (args: unknown) => Promise<Array<{ id: string; slug: string; title: string }>> }>)[
+      this.delegateOf(entity)
+    ];
+    const ids = grouped.map(g => g.entityId);
+    const rows = model
+      ? await model.findMany({
+          where: { OR: [{ id: { in: ids } }, { slug: { in: ids } }] },
+          select: { id: true, slug: true, title: true },
+        })
+      : [];
+    const byIdOrSlug = new Map(rows.flatMap(r => [[r.id, r], [r.slug, r]] as const));
+
+    return grouped
+      .map(g => {
+        const content = byIdOrSlug.get(g.entityId);
+        return content
+          ? { id: content.id, slug: content.slug, title: content.title, views: g._sum.count ?? 0 }
+          : null;
+      })
+      .filter((x): x is { id: string; slug: string; title: string; views: number } => x !== null);
+  }
+
+  /* --------------------------------------------------------------- search -- */
+
+  /** Top and zero-result search terms in range, from the `SearchQuery` log. */
+  async search(query: AnalyticsRangeQueryDto) {
+    const { gte, lte } = innerRange(query.from, query.to);
+    const where: Prisma.SearchQueryWhereInput = { createdAt: { gte, lte } };
+
+    const [totalSearches, rows] = await Promise.all([
+      this.prisma.searchQuery.count({ where }),
+      this.prisma.searchQuery.findMany({ where, select: { term: true, resultCount: true }, take: MAX_ROWS }),
+    ]);
+
+    const withResults = new Map<string, number>();
+    const zeroResults = new Map<string, number>();
+    for (const row of rows) {
+      const term = row.term.trim().toLowerCase();
+      if (!term) continue;
+      const bucket = row.resultCount > 0 ? withResults : zeroResults;
+      bucket.set(term, (bucket.get(term) ?? 0) + 1);
+    }
+
+    const toTop = (m: Map<string, number>) =>
+      [...m.entries()]
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([term, count]) => ({ term, count }));
+
+    return {
+      totalSearches,
+      topTerms: toTop(withResults),
+      zeroResultTerms: toTop(zeroResults),
+    };
+  }
+
+  private dims(query: AnalyticsRangeQueryDto): Prisma.AnalyticsEventWhereInput {
     return {
       ...(query.entity ? { entity: String(query.entity) } : {}),
       ...(query.country ? { country: String(query.country) } : {}),
@@ -177,8 +309,8 @@ export class AnalyticsService {
 
   /* ------------------------------------------------------------- traffic -- */
 
-  async traffic(query: Record<string, unknown>) {
-    const { gte, lte } = innerRange(query.from as Date, query.to as Date);
+  async traffic(query: AnalyticsRangeQueryDto) {
+    const { gte, lte } = innerRange(query.from, query.to);
     const granularity = this.pickGranularity(gte, lte);
     const where: Prisma.AnalyticsEventWhereInput = { timestamp: { gte, lte }, ...this.dims(query) };
 
