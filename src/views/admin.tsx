@@ -20,6 +20,10 @@ import { UsersListPage } from '@/components/pages/admin/UsersListPage';
 import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsPage';
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
 import { LogsPage } from '@/components/pages/admin/LogsPage';
+import { AnalyticsPage } from '@/components/pages/admin/AnalyticsPage';
+import { ArticleAnalyticsPage } from '@/components/pages/admin/ArticleAnalyticsPage';
+import { EventsAnalyticsPage } from '@/components/pages/admin/EventsAnalyticsPage';
+import { FoundersAnalyticsPage } from '@/components/pages/admin/FoundersAnalyticsPage';
 
 import { NewsListPage } from '@/components/pages/admin/NewsListPage';
 import { NewsCreatePage } from '@/components/pages/admin/NewsCreatePage';
@@ -109,6 +113,25 @@ export function AdminNewsCreateView() {
 
 export function AdminNewsEditView({ articleId }: { articleId: string }) {
   return <NewsEditPage {...useAdminChrome()} articleId={articleId} />;
+}
+
+/** The detailed analytics workspace. The dashboard keeps its own summary. */
+export function AdminAnalyticsView() {
+  return <AnalyticsPage {...useAdminChrome()} />;
+}
+
+export function AdminArticleAnalyticsView({ articleId }: { articleId: string }) {
+  return <ArticleAnalyticsPage {...useAdminChrome()} articleId={articleId} />;
+}
+
+/** Events → Analytics & Reports. Independent of the global analytics page. */
+export function AdminEventsAnalyticsView() {
+  return <EventsAnalyticsPage {...useAdminChrome()} />;
+}
+
+/** Founders → Analytics & Reports. Independent of the events module. */
+export function AdminFoundersAnalyticsView() {
+  return <FoundersAnalyticsPage {...useAdminChrome()} />;
 }
 
 export function AdminNewsAnalyticsView() {

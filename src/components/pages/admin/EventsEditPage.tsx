@@ -51,6 +51,7 @@ interface BackendEventDetail {
   registerUrl: string | null;
   telegramChannel: string | null;
   language: string | null;
+  chains: string[];
   isFree: boolean;
   ticketPrice: string | null;
   status: 'DRAFT' | 'REVIEW' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED';
@@ -87,6 +88,7 @@ export function EventsEditPage({ currentPage, onNavigate, onLogout, eventId }: E
     registerUrl: '',
     telegramChannel: '',
     language: '',
+    chains: '',
     isFree: true,
     ticketPrice: '',
     categoryId: '',
@@ -136,6 +138,7 @@ export function EventsEditPage({ currentPage, onNavigate, onLogout, eventId }: E
           registerUrl: event.registerUrl ?? '',
           telegramChannel: event.telegramChannel ?? '',
           language: event.language ?? '',
+          chains: (event.chains ?? []).join(', '),
           isFree: event.isFree,
           ticketPrice: event.ticketPrice ?? '',
           categoryId: event.category?.id ?? '',
@@ -186,6 +189,7 @@ export function EventsEditPage({ currentPage, onNavigate, onLogout, eventId }: E
         registerUrl: formData.registerUrl || undefined,
         telegramChannel: formData.telegramChannel || undefined,
         language: formData.language || undefined,
+        chains: formData.chains.split(',').map(c => c.trim()).filter(Boolean),
         isFree: formData.isFree,
         ticketPrice: formData.isFree ? undefined : formData.ticketPrice || undefined,
         status: status === 'published' ? 'PUBLISHED' : 'DRAFT',
@@ -400,6 +404,17 @@ export function EventsEditPage({ currentPage, onNavigate, onLogout, eventId }: E
                         onChange={e => setFormData({ ...formData, telegramChannel: e.target.value })}
                         className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Blockchain Ecosystems</label>
+                      <input
+                        type="text"
+                        value={formData.chains}
+                        onChange={e => setFormData({ ...formData, chains: e.target.value })}
+                        placeholder="Ethereum, Solana, Base"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Comma separated. Drives the ecosystem breakdown in Events Analytics.</p>
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Language</label>

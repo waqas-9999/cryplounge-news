@@ -8,6 +8,7 @@ import type {
   TrackBatchDto,
   TrackedEntity,
 } from './dto/analytics.dto';
+import type { RequestContext } from './request-context';
 
 const MAX_ROWS = 20000;
 
@@ -50,7 +51,12 @@ export class AnalyticsService {
 
   /* ---------------------------------------------------------- collection -- */
 
-  async track(dto: TrackBatchDto): Promise<void> {
+  /**
+   * `context` is resolved server-side (geography from edge headers, device
+   * from the User-Agent) and always wins over anything the client sent —
+   * a browser must not be able to declare which country it is in.
+   */
+  async track(dto: TrackBatchDto, context: RequestContext = {}): Promise<void> {
     const list = (dto.events ?? []).slice(0, 50);
     if (!list.length) return;
 
@@ -62,12 +68,12 @@ export class AnalyticsService {
         visitorId: e.visitorId ? String(e.visitorId) : null,
         path: e.path ? String(e.path) : null,
         referrer: e.referrer ? String(e.referrer) : null,
-        country: e.country ? String(e.country) : null,
-        region: e.region ? String(e.region) : null,
-        city: e.city ? String(e.city) : null,
-        deviceType: e.deviceType ? String(e.deviceType) : null,
-        browser: e.browser ? String(e.browser) : null,
-        os: e.os ? String(e.os) : null,
+        country: context.country ?? null,
+        region: context.region ?? null,
+        city: context.city ?? null,
+        deviceType: context.deviceType ?? null,
+        browser: context.browser ?? null,
+        os: context.os ?? null,
         screenResolution: e.screenResolution ? String(e.screenResolution) : null,
         language: e.language ? String(e.language) : null,
         entity: e.entity ? String(e.entity) : null,
@@ -89,7 +95,7 @@ export class AnalyticsService {
    * sections) and logs an `AnalyticsEvent` so it also counts toward
    * traffic/overview totals.
    */
-  async recordView(dto: RecordViewDto): Promise<void> {
+  async recordView(dto: RecordViewDto, context: RequestContext = {}): Promise<void> {
     const day = startOfUtcDay(new Date());
     await Promise.all([
       this.prisma.viewCount.upsert({
@@ -100,9 +106,19 @@ export class AnalyticsService {
       this.prisma.analyticsEvent.create({
         data: {
           type: 'article_view',
-          sessionId: `view:${dto.entity}:${dto.entityId}:${Date.now()}`,
+          // The client sends its real sessionId when it has one, so this view
+          // joins the rest of that session's events rather than inventing a
+          // one-event session that would skew bounce rate.
+          sessionId: dto.sessionId ?? `view:${dto.entity}:${dto.entityId}:${Date.now()}`,
+          visitorId: dto.visitorId ?? null,
           entity: dto.entity,
           entityId: dto.entityId,
+          country: context.country ?? null,
+          region: context.region ?? null,
+          city: context.city ?? null,
+          deviceType: context.deviceType ?? null,
+          browser: context.browser ?? null,
+          os: context.os ?? null,
         },
       }),
     ]);

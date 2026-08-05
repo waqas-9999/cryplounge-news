@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  ArrowUpRight,
   Eye,
   FileText,
   Loader2,
@@ -185,7 +186,17 @@ export function AdminDashboardPage({ currentPage, onNavigate, onLogout }: AdminD
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
                 {/* Top Articles */}
                 <div className="lg:col-span-2 bg-white dark:bg-[#1A1A1C] rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-800">
-                  <h3 className="text-gray-900 dark:text-gray-100 mb-4 md:mb-6">Top Viewed Articles (30d)</h3>
+                  <div className="flex items-center justify-between gap-3 mb-4 md:mb-6">
+                    <h3 className="text-gray-900 dark:text-gray-100">Top Viewed Articles (30d)</h3>
+                    {/* This panel stays the summary; the detail lives at /admin/analytics. */}
+                    <button
+                      onClick={() => onNavigate('admin/analytics')}
+                      className="inline-flex items-center gap-1.5 shrink-0 px-3 py-1.5 text-xs md:text-sm rounded-lg border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors"
+                    >
+                      View Detailed Analytics
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   {data.topArticles.length === 0 ? (
                     <p className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">No view data yet</p>
                   ) : (

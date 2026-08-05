@@ -1,12 +1,41 @@
 /**
- * Analytics & Performance Tracking Utility
- * AI-optimized user behavior tracking and performance monitoring
+ * First-party analytics tracking.
+ *
+ * Events are posted to the backend's `POST /analytics/track`, which enriches
+ * them server-side with geography (from edge headers) and device/browser/OS
+ * (from the User-Agent) before storing them — see
+ * `server/src/modules/analytics/request-context.ts`. The client therefore
+ * sends only what the server cannot determine for itself.
+ *
+ * Privacy: no personal data is collected. The session and visitor ids are
+ * random, contain nothing derived from the user, and never leave first-party
+ * storage. No IP address is transmitted or stored.
  */
 
 import { apiClient } from '@/lib/api-client';
 
 const SESSION_KEY = 'cryplounge_session_id';
 const VISITOR_KEY = 'cryplounge_visitor_id';
+
+/**
+ * Event types the backend accepts. Kept in sync with `EVENT_TYPES` in
+ * `server/src/modules/analytics/dto/analytics.dto.ts` — the backend rejects
+ * anything outside this set, so an unmapped name would be silently dropped.
+ */
+export type BackendEventType =
+  | 'page_view'
+  | 'article_view'
+  | 'article_scroll'
+  | 'article_complete'
+  | 'search'
+  | 'category_view'
+  | 'author_view'
+  | 'event_view'
+  | 'share'
+  | 'bookmark'
+  | 'comment'
+  | 'newsletter_signup'
+  | 'external_link_click';
 
 function randomId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
@@ -34,9 +63,24 @@ function getVisitorId(): string {
   return id;
 }
 
-/** Queues a raw event for the backend's batch tracking endpoint. Fire-and-forget. */
-function sendEventToBackend(type: string, extra: Record<string, unknown> = {}) {
+/** Extra fields an event can carry beyond the automatic session context. */
+export interface EventContext {
+  entity?: string;
+  entityId?: string;
+  categoryId?: string;
+  authorId?: string;
+  /** 0–100, for `article_scroll` milestones. */
+  scrollDepth?: number;
+  meta?: Record<string, unknown>;
+}
+
+/**
+ * Posts one event. Fire-and-forget by design: a failed analytics call must
+ * never surface to the reader or block rendering.
+ */
+export function track(type: BackendEventType, context: EventContext = {}): void {
   if (typeof window === 'undefined') return;
+
   apiClient
     .post('analytics/track', {
       events: [
@@ -47,8 +91,9 @@ function sendEventToBackend(type: string, extra: Record<string, unknown> = {}) {
           path: window.location.pathname,
           referrer: document.referrer || undefined,
           language: navigator.language,
+          screenResolution: `${window.screen.width}x${window.screen.height}`,
           timestamp: new Date().toISOString(),
-          ...extra,
+          ...context,
         },
       ],
     })
@@ -57,318 +102,185 @@ function sendEventToBackend(type: string, extra: Record<string, unknown> = {}) {
     });
 }
 
-/** Records one view of a piece of content (article, event, founder, …) for top-content reports. */
-export function recordContentView(entity: string, entityId: string) {
-  if (typeof window === 'undefined') return;
-  apiClient.post('analytics/view', { entity, entityId }).catch(() => {});
-}
-
-export interface PageViewEvent {
-  page: string;
-  title: string;
-  path: string;
-  timestamp: number;
-  referrer?: string;
-  userAgent?: string;
-}
-
-export interface UserInteractionEvent {
-  type: 'click' | 'scroll' | 'hover' | 'search' | 'filter' | 'navigation';
-  target: string;
-  value?: string;
-  timestamp: number;
-}
-
-export interface PerformanceMetrics {
-  loadTime: number;
-  domContentLoaded: number;
-  firstContentfulPaint?: number;
-  largestContentfulPaint?: number;
-  timeToInteractive?: number;
-}
-
-class Analytics {
-  private events: Array<PageViewEvent | UserInteractionEvent> = [];
-  private sessionStart: number;
-
-  constructor() {
-    this.sessionStart = Date.now();
-    this.initPerformanceObserver();
-  }
-
-  /**
-   * Initialize Performance Observer for Web Vitals
-   */
-  private initPerformanceObserver() {
-    if (typeof window === 'undefined') return;
-
-    // First Contentful Paint (FCP)
-    try {
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (entry.entryType === 'paint' && entry.name === 'first-contentful-paint') {
-            console.log('[Analytics] FCP:', entry.startTime, 'ms');
-          }
-        }
-      });
-      observer.observe({ entryTypes: ['paint'] });
-    } catch (e) {
-      // Performance Observer not supported
-    }
-
-    // Largest Contentful Paint (LCP)
-    try {
-      const observer = new PerformanceObserver((list) => {
-        const entries = list.getEntries();
-        const lastEntry = entries[entries.length - 1];
-        console.log('[Analytics] LCP:', lastEntry.startTime, 'ms');
-      });
-      observer.observe({ entryTypes: ['largest-contentful-paint'] });
-    } catch (e) {
-      // LCP not supported
-    }
-
-    // First Input Delay (FID)
-    try {
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          const fid = (entry as any).processingStart - entry.startTime;
-          console.log('[Analytics] FID:', fid, 'ms');
-        }
-      });
-      observer.observe({ entryTypes: ['first-input'] });
-    } catch (e) {
-      // FID not supported
-    }
-  }
-
-  /**
-   * Track page view
-   */
-  trackPageView(page: string, title: string, path: string) {
-    const event: PageViewEvent = {
-      page,
-      title,
-      path,
-      timestamp: Date.now(),
-      referrer: document.referrer,
-      userAgent: navigator.userAgent,
-    };
-
-    this.events.push(event);
-    console.log('[Analytics] Page View:', event);
-
-    // Send to analytics service (Google Analytics, Mixpanel, etc.)
-    this.sendToAnalytics('pageview', event);
-  }
-
-  /**
-   * Track user interaction
-   */
-  trackInteraction(type: UserInteractionEvent['type'], target: string, value?: string) {
-    const event: UserInteractionEvent = {
-      type,
-      target,
-      value,
-      timestamp: Date.now(),
-    };
-
-    this.events.push(event);
-    console.log('[Analytics] Interaction:', event);
-
-    this.sendToAnalytics('interaction', event);
-  }
-
-  /**
-   * Track search query
-   */
-  trackSearch(query: string, resultsCount: number) {
-    this.trackInteraction('search', 'search-bar', `${query} (${resultsCount} results)`);
-  }
-
-  /**
-   * Track filter usage
-   */
-  trackFilter(filterType: string, filterValue: string) {
-    this.trackInteraction('filter', filterType, filterValue);
-  }
-
-  /**
-   * Track navigation
-   */
-  trackNavigation(from: string, to: string) {
-    this.trackInteraction('navigation', `${from} -> ${to}`);
-  }
-
-  /**
-   * Track scroll depth
-   */
-  trackScrollDepth(depth: number) {
-    this.trackInteraction('scroll', 'page-scroll', `${depth}%`);
-  }
-
-  /**
-   * Get performance metrics
-   */
-  getPerformanceMetrics(): PerformanceMetrics | null {
-    if (typeof window === 'undefined' || !window.performance) return null;
-
-    const perfData = window.performance.timing;
-    const loadTime = perfData.loadEventEnd - perfData.navigationStart;
-    const domContentLoaded = perfData.domContentLoadedEventEnd - perfData.navigationStart;
-
-    return {
-      loadTime,
-      domContentLoaded,
-    };
-  }
-
-  /**
-   * Get session duration
-   */
-  getSessionDuration(): number {
-    return Date.now() - this.sessionStart;
-  }
-
-  /**
-   * Get all events
-   */
-  getEvents() {
-    return this.events;
-  }
-
-  /**
-   * Clear events
-   */
-  clearEvents() {
-    this.events = [];
-  }
-
-  /**
-   * Send data to analytics service
-   * Replace with actual analytics service integration (Google Analytics, etc.)
-   */
-  private sendToAnalytics(eventType: string, data: any) {
-    // Example: Google Analytics 4
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', eventType, data);
-    }
-
-    const type = eventType === 'pageview' ? 'page_view' : 'external_link_click';
-    sendEventToBackend(type, { meta: data });
-  }
-
-  /**
-   * Track conversion event
-   */
-  trackConversion(conversionType: string, value?: number) {
-    console.log('[Analytics] Conversion:', conversionType, value);
-    this.sendToAnalytics('conversion', { type: conversionType, value });
-  }
-
-  /**
-   * Track XP earned (for gamification)
-   */
-  trackXPEarned(action: string, xpAmount: number) {
-    console.log('[Analytics] XP Earned:', action, xpAmount);
-    this.sendToAnalytics('xp_earned', { action, amount: xpAmount });
-  }
-
-  /**
-   * Track course enrollment
-   */
-  trackCourseEnrollment(courseId: string, courseName: string) {
-    console.log('[Analytics] Course Enrollment:', courseName);
-    this.sendToAnalytics('course_enrollment', { courseId, courseName });
-  }
-
-  /**
-   * Track course completion
-   */
-  trackCourseCompletion(courseId: string, courseName: string, duration: number) {
-    console.log('[Analytics] Course Completion:', courseName, duration);
-    this.sendToAnalytics('course_completion', { courseId, courseName, duration });
-  }
-}
-
-// Export singleton instance
-export const analytics = new Analytics();
-
 /**
- * Simplified trackEvent function for convenience
- * Tracks custom events with event name and optional data
+ * Records one view of a piece of content, bumping the daily rollup that powers
+ * the top-content reports. The session ids travel with it so the view joins the
+ * rest of the session rather than looking like a one-event bounce.
  */
-export function trackEvent(eventName: string, eventData?: Record<string, any>) {
-  console.log('[Analytics] Custom Event:', eventName, eventData);
-  analytics.trackInteraction('click', eventName, eventData ? JSON.stringify(eventData) : undefined);
+export function recordContentView(entity: string, entityId: string): void {
+  if (typeof window === 'undefined') return;
+  apiClient
+    .post('analytics/view', {
+      entity,
+      entityId,
+      sessionId: getSessionId(),
+      visitorId: getVisitorId(),
+    })
+    .catch(() => {});
+}
+
+/* ------------------------------------------------------- named trackers --- */
+
+export function trackPageView(context: EventContext = {}): void {
+  track('page_view', context);
+}
+
+export function trackShare(platform: string, context: EventContext = {}): void {
+  track('share', { ...context, meta: { ...context.meta, platform } });
+}
+
+export function trackBookmark(context: EventContext = {}): void {
+  track('bookmark', context);
+}
+
+export function trackSearch(term: string, resultCount: number): void {
+  track('search', { meta: { term, resultCount } });
+}
+
+export function trackNewsletterSignup(): void {
+  track('newsletter_signup');
+}
+
+export function trackOutboundLink(href: string): void {
+  track('external_link_click', { meta: { href } });
 }
 
 /**
- * Setup scroll depth tracking
+ * The engagement actions the event and founder analytics count.
+ *
+ * A closed set rather than free text: these become chart categories, and one
+ * typo at a call site would silently split a metric into two.
  */
-export function setupScrollTracking() {
-  if (typeof window === 'undefined') return;
+export type EngagementAction =
+  | 'register'
+  | 'website'
+  | 'telegram'
+  | 'x'
+  | 'linkedin'
+  | 'github'
+  | 'online_url'
+  | 'organizer'
+  | 'copy_link'
+  | 'related_project'
+  | 'related_event'
+  | 'related_article'
+  | 'related_research';
 
+/**
+ * Records a meaningful click on an event or founder page — the actions that
+ * indicate real interest, as opposed to a page view.
+ *
+ * Stored as `external_link_click` with the action in `meta` so no new event
+ * type is needed; the reports group on `meta.action`.
+ */
+export function trackEngagement(
+  action: EngagementAction,
+  entity: 'Event' | 'Founder',
+  entityId: string
+): void {
+  track('external_link_click', { entity, entityId, meta: { action } });
+}
+
+/**
+ * App-level event names mapped onto the backend's vocabulary.
+ *
+ * Call sites use domain language ("article_share"); the backend stores a small
+ * fixed set of types so the reports can aggregate them. Anything unmapped is
+ * dropped rather than mislabelled — a wrong type corrupts every report that
+ * counts it.
+ */
+const EVENT_NAME_MAP: Record<string, BackendEventType> = {
+  article_view: 'article_view',
+  article_share: 'share',
+  article_save: 'bookmark',
+  article_bookmark: 'bookmark',
+  article_copy_link: 'share',
+  article_comment: 'comment',
+  category_view: 'category_view',
+  author_view: 'author_view',
+  event_view: 'event_view',
+  newsletter_signup: 'newsletter_signup',
+  related_article_click: 'external_link_click',
+  search: 'search',
+};
+
+/** Generic escape hatch for call sites that already use domain event names. */
+export function trackEvent(eventName: string, eventData?: Record<string, unknown>): void {
+  const type = EVENT_NAME_MAP[eventName];
+  if (!type) return;
+  track(type, { meta: eventData });
+}
+
+/* ----------------------------------------------------- scroll / reading --- */
+
+/** Milestones the reading-depth funnel is built from. */
+const DEPTH_MILESTONES = [25, 50, 75, 90, 100];
+
+/**
+ * Reading-depth tracking for a single article.
+ *
+ * Emits an `article_scroll` event carrying `scrollDepth` the first time each
+ * milestone is crossed, plus one `article_complete` at 100%. Each milestone
+ * fires at most once per mount, so the funnel counts readers rather than
+ * scroll oscillations.
+ *
+ * Returns a cleanup function; call it on unmount.
+ */
+export function trackReadingDepth(entity: string, entityId: string): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const reached = new Set<number>();
   let ticking = false;
-  const milestones = [25, 50, 75, 100];
-  const reached: Set<number> = new Set();
 
-  const trackScroll = () => {
-    const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-    const scrolled = window.scrollY;
-    const percentage = Math.round((scrolled / scrollHeight) * 100);
-
-    milestones.forEach(milestone => {
-      if (percentage >= milestone && !reached.has(milestone)) {
-        reached.add(milestone);
-        analytics.trackScrollDepth(milestone);
-      }
-    });
-
+  const measure = () => {
     ticking = false;
+    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+    // A page shorter than the viewport is fully read the moment it renders.
+    const percentage = scrollable <= 0 ? 100 : Math.round((window.scrollY / scrollable) * 100);
+
+    for (const milestone of DEPTH_MILESTONES) {
+      if (percentage < milestone || reached.has(milestone)) continue;
+      reached.add(milestone);
+      track('article_scroll', { entity, entityId, scrollDepth: milestone });
+      if (milestone === 100) track('article_complete', { entity, entityId });
+    }
   };
 
   const onScroll = () => {
-    if (!ticking) {
-      window.requestAnimationFrame(trackScroll);
-      ticking = true;
-    }
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(measure);
   };
 
   window.addEventListener('scroll', onScroll, { passive: true });
+  // Fire once immediately so short articles register at all.
+  measure();
 
-  // Return cleanup function
-  return () => {
-    window.removeEventListener('scroll', onScroll);
-  };
+  return () => window.removeEventListener('scroll', onScroll);
 }
 
-/**
- * Setup click tracking
- */
-export function setupClickTracking() {
-  if (typeof window === 'undefined') return;
+/* ------------------------------------------------------------- outbound --- */
 
-  const onClick = (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    
-    // Track button clicks
-    if (target.tagName === 'BUTTON' || target.closest('button')) {
-      const button = target.tagName === 'BUTTON' ? target : target.closest('button');
-      analytics.trackInteraction('click', `button: ${button?.textContent?.trim() || 'unknown'}`);
-    }
-    
-    // Track link clicks
-    if (target.tagName === 'A' || target.closest('a')) {
-      const link = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
-      analytics.trackInteraction('click', `link: ${link?.href || 'unknown'}`);
+/**
+ * Tracks clicks on links leaving the site. Attached once at the app shell.
+ * Returns a cleanup function.
+ */
+export function setupOutboundLinkTracking(): () => void {
+  if (typeof window === 'undefined') return () => {};
+
+  const onClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    const link = target?.closest('a');
+    if (!link?.href) return;
+    try {
+      if (new URL(link.href).hostname !== window.location.hostname) {
+        trackOutboundLink(link.href);
+      }
+    } catch {
+      // Not an absolute URL — nothing to attribute.
     }
   };
 
   document.addEventListener('click', onClick);
-
-  // Return cleanup function
-  return () => {
-    document.removeEventListener('click', onClick);
-  };
+  return () => document.removeEventListener('click', onClick);
 }

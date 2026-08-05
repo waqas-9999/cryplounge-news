@@ -14,7 +14,7 @@
 import { useEffect } from 'react';
 import { useAppNavigate } from '@/lib/navigation';
 import { images } from '@/lib/images';
-import { recordContentView } from '@/utils/analytics';
+import { recordContentView, trackReadingDepth } from '@/utils/analytics';
 import type { Project } from '@/types/project';
 import type { Article } from '@/types/article';
 import type { EventSummary, EventDetail } from '@/services/events';
@@ -126,6 +126,8 @@ export function SubmitEventView() {
 export function EventDetailView({ event }: { event: EventDetail }) {
   useEffect(() => {
     recordContentView('Event', event.slug);
+    // Feeds scroll-depth and exit-rate in the event analytics module.
+    return trackReadingDepth('Event', event.slug);
   }, [event.slug]);
   return <EventDetailPage event={event} onNavigate={useAppNavigate()} />;
 }
@@ -133,6 +135,7 @@ export function EventDetailView({ event }: { event: EventDetail }) {
 export function FounderDetailView({ founder }: { founder: FounderDetail }) {
   useEffect(() => {
     recordContentView('Founder', founder.slug);
+    return trackReadingDepth('Founder', founder.slug);
   }, [founder.slug]);
   return <FounderDetailPage founder={founder} onNavigate={useAppNavigate()} />;
 }

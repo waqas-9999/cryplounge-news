@@ -456,6 +456,11 @@ model Event {
   speakers EventSpeaker[]
   sponsors String[]
 
+  /// Blockchain ecosystems the event covers, e.g. ["Ethereum", "Solana"].
+  /// A list rather than a relation: these are a small, slowly-changing
+  /// vocabulary used for filtering and analytics, not editable content.
+  chains String[]
+
   tags        Tag[]
   articles    Article[]
   projects    Project[]
@@ -544,9 +549,14 @@ model Founder {
   github   String?
 
   region    String?
+  /// Sector the founder works in, e.g. "DeFi", "Infrastructure", "Gaming".
+  /// Drives the industry breakdown in founder analytics.
+  industry  String?
   status    ContentStatus @default(DRAFT)
   publishedAt DateTime?
   featured  Boolean       @default(false)
+  /// Editorially confirmed identity. Mirrors `Organizer.verified`.
+  verified  Boolean       @default(false)
 
   /// Set only on public "submit your story" submissions.
   submittedByName  String?

@@ -3,7 +3,7 @@
 import { ArrowLeft, Heart, MessageCircle, Twitter, Facebook, Instagram, Share2, ChevronLeft, ChevronRight, Link2, Printer, Bookmark, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { useState, useEffect, useRef } from 'react';
-import { trackEvent, recordContentView } from '@/utils/analytics';
+import { trackEvent, recordContentView, trackReadingDepth, trackShare, trackBookmark } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
@@ -79,7 +79,12 @@ export function ArticleDetailPage({
     });
     recordContentView('Article', articleSlug);
 
+    // Feeds the reading-depth funnel in the admin analytics: emits
+    // `article_scroll` at each milestone plus `article_complete` at the end.
+    const stopDepthTracking = trackReadingDepth('Article', articleSlug);
+
     return () => {
+      stopDepthTracking();
       // Track read time on unmount
       const readTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
       trackEvent('article_read_time', {
@@ -125,12 +130,13 @@ export function ArticleDetailPage({
   };
 
   const toggleSave = () => {
-    setIsSaved(!isSaved);
-    trackEvent('article_save', {
-      category,
-      articleSlug,
-      action: !isSaved ? 'save' : 'unsave'
-    });
+    const nowSaved = !isSaved;
+    setIsSaved(nowSaved);
+    // Only the save is tracked — un-saving is not a bookmark, and counting it
+    // would inflate the bookmark totals in the content reports.
+    if (nowSaved) {
+      trackBookmark({ entity: 'Article', entityId: articleSlug, meta: { category } });
+    }
   };
 
   const handleBack = () => {
@@ -159,11 +165,7 @@ export function ArticleDetailPage({
     
     if (shareUrl) {
       window.open(shareUrl, '_blank', 'width=600,height=400');
-      trackEvent('article_share', {
-        category,
-        articleSlug,
-        platform
-      });
+      trackShare(platform, { entity: 'Article', entityId: articleSlug, meta: { category } });
     }
   };
 

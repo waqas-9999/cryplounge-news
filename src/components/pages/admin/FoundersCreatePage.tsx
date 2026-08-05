@@ -43,9 +43,11 @@ export function FoundersCreatePage({ currentPage, onNavigate, onLogout }: Founde
     linkedin: '',
     github: '',
     region: '',
+    industry: '',
     tagIds: [] as string[],
     photoId: '',
     featured: false,
+    verified: false,
     seoTitle: '',
     seoDescription: '',
   });
@@ -121,8 +123,10 @@ export function FoundersCreatePage({ currentPage, onNavigate, onLogout }: Founde
         linkedin: formData.linkedin || undefined,
         github: formData.github || undefined,
         region: formData.region || undefined,
+        industry: formData.industry || undefined,
         status: status === 'published' ? 'PUBLISHED' : 'DRAFT',
         featured: formData.featured,
+        verified: formData.verified,
         photoId: formData.photoId || undefined,
         tagIds: formData.tagIds.length ? formData.tagIds : undefined,
         seoTitle: formData.seoTitle || undefined,
@@ -290,6 +294,17 @@ export function FoundersCreatePage({ currentPage, onNavigate, onLogout }: Founde
                       />
                     </div>
                     <div className="sm:col-span-2">
+                      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Industry</label>
+                      <input
+                        type="text"
+                        value={formData.industry}
+                        onChange={e => setFormData({ ...formData, industry: e.target.value })}
+                        placeholder="e.g. DeFi, Infrastructure, Gaming"
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Drives the industry breakdown in Founder Analytics.</p>
+                    </div>
+                    <div className="sm:col-span-2">
                       <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Region</label>
                       <input
                         type="text"
@@ -340,6 +355,18 @@ export function FoundersCreatePage({ currentPage, onNavigate, onLogout }: Founde
                   </label>
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     Featured stories appear in the hero and highlights sections on the Yellow Page.
+                  </p>
+
+                  <label className="mt-4 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={formData.verified}
+                      onChange={e => setFormData({ ...formData, verified: e.target.checked })}
+                    />
+                    Verified founder
+                  </label>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Mark once the founder&apos;s identity has been editorially confirmed.
                   </p>
                 </div>
 

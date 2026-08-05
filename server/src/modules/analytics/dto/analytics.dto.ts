@@ -136,6 +136,14 @@ export class RecordViewDto {
   @IsString()
   @MaxLength(128)
   entityId!: string;
+
+  @ApiPropertyOptional({ description: 'Anonymous session id, so this view joins the rest of the session' })
+  @IsOptional() @IsString() @MaxLength(80)
+  sessionId?: string;
+
+  @ApiPropertyOptional({ description: 'Hashed anonymous visitor id' })
+  @IsOptional() @IsString() @MaxLength(120)
+  visitorId?: string;
 }
 
 /** Shared date-range + cross-cutting filters for every admin report. */

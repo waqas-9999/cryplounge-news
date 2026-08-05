@@ -5,6 +5,7 @@ import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
+import { trackEngagement } from '@/utils/analytics';
 import type { FounderDetail } from '@/services/founders';
 
 interface FounderDetailPageProps {
@@ -84,22 +85,22 @@ export function FounderDetailPage({ founder, onNavigate }: FounderDetailPageProp
 
               <div className="flex items-center gap-3 flex-wrap" role="group" aria-label="Social links">
                 {founder.x && (
-                  <a href={founder.x} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="X profile">
+                  <a href={founder.x} onClick={() => trackEngagement('x', 'Founder', founder.slug)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="X profile">
                     <Twitter className="w-4 h-4 text-blue-500" />
                   </a>
                 )}
                 {founder.linkedin && (
-                  <a href={founder.linkedin} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="LinkedIn profile">
+                  <a href={founder.linkedin} onClick={() => trackEngagement('linkedin', 'Founder', founder.slug)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="LinkedIn profile">
                     <Linkedin className="w-4 h-4 text-blue-700" />
                   </a>
                 )}
                 {founder.github && (
-                  <a href={founder.github} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="GitHub profile">
+                  <a href={founder.github} onClick={() => trackEngagement('github', 'Founder', founder.slug)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="GitHub profile">
                     <Github className="w-4 h-4 text-gray-700 dark:text-[#A0A0A5]" />
                   </a>
                 )}
                 {founder.website && (
-                  <a href={founder.website} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="Website">
+                  <a href={founder.website} onClick={() => trackEngagement('website', 'Founder', founder.slug)} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-lg border border-gray-200 dark:border-gray-800 hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:border-[#EFB81A] transition-colors flex items-center justify-center" aria-label="Website">
                     <Globe className="w-4 h-4 text-gray-700 dark:text-[#A0A0A5]" />
                   </a>
                 )}
@@ -129,7 +130,10 @@ export function FounderDetailPage({ founder, onNavigate }: FounderDetailPageProp
                   {founder.projects.map(project => (
                     <button
                       key={project.id}
-                      onClick={() => safeNavigate(`ecosystem/${project.slug}`)}
+                      onClick={() => {
+                        trackEngagement('related_project', 'Founder', founder.slug);
+                        safeNavigate(`ecosystem/${project.slug}`);
+                      }}
                       className="px-3 py-1.5 rounded-lg bg-[#F4F4F4] dark:bg-[#1A1A1A] text-gray-700 dark:text-[#C0C0C5] text-xs hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:text-black dark:hover:text-[#EFB81A] transition-colors border border-gray-200 dark:border-gray-800"
                     >
                       {project.name}
@@ -148,7 +152,10 @@ export function FounderDetailPage({ founder, onNavigate }: FounderDetailPageProp
                   {founder.events.map(event => (
                     <button
                       key={event.id}
-                      onClick={() => safeNavigate(`events/${event.slug}`)}
+                      onClick={() => {
+                        trackEngagement('related_event', 'Founder', founder.slug);
+                        safeNavigate(`events/${event.slug}`);
+                      }}
                       className="w-full text-left flex items-center justify-between p-2 -m-2 rounded-lg hover:bg-[#F4F4F4] dark:hover:bg-[#1A1A1A] transition-colors"
                     >
                       <span className="text-gray-800 dark:text-[#F3F3F5] text-sm">{event.name}</span>

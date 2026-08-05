@@ -65,12 +65,21 @@ export class CreateFounderDto {
   @MaxLength(120)
   region?: string;
 
+  @ApiPropertyOptional({ example: 'DeFi' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  industry?: string;
+
   @ApiPropertyOptional({ enum: ContentStatus, default: ContentStatus.DRAFT })
   @IsOptional()
   @IsEnum(ContentStatus)
   status?: ContentStatus;
 
   @ApiPropertyOptional() @IsOptional() @IsBoolean() featured?: boolean;
+
+  @ApiPropertyOptional({ description: 'Editorially confirmed identity' })
+  @IsOptional() @IsBoolean() verified?: boolean;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()

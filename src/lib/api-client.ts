@@ -291,8 +291,39 @@ async function requestPaginated<T>(
   };
 }
 
+/**
+ * Fetches a file endpoint (CSV export, etc) and returns it as a Blob.
+ *
+ * Separate from `request` because these endpoints deliberately bypass the JSON
+ * envelope — parsing the body as JSON would destroy the file.
+ */
+async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const { query, auth = true, skipAuthRetry = false, signal } = options;
+
+  const headers: Record<string, string> = {};
+  if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
+  const response = await fetch(buildUrl(path, query), { method: 'GET', headers, signal });
+
+  if (response.status === 401 && auth && !skipAuthRetry && hasStoredSession()) {
+    const refreshed = await refreshSession();
+    if (refreshed) return requestBlob(path, { ...options, skipAuthRetry: true });
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      `Download failed with status ${response.status}`,
+      response.status,
+      'DOWNLOAD_FAILED'
+    );
+  }
+
+  return response.blob();
+}
+
 export const apiClient = {
   get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, undefined, options),
+  download: (path: string, options?: RequestOptions) => requestBlob(path, options),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     request<T>('POST', path, body, options),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>

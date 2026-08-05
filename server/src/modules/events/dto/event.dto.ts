@@ -139,6 +139,12 @@ export class CreateEventDto {
   @IsString({ each: true })
   sponsors?: string[];
 
+  @ApiPropertyOptional({ type: [String], example: ['Ethereum', 'Solana'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  chains?: string[];
+
   @ApiPropertyOptional({ type: [EventSpeakerDto] })
   @IsOptional()
   @IsArray()

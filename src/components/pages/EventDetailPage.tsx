@@ -5,6 +5,7 @@ import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
+import { trackEngagement } from '@/utils/analytics';
 import type { EventDetail } from '@/services/events';
 
 interface EventDetailPageProps {
@@ -144,6 +145,7 @@ export function EventDetailPage({ event, onNavigate }: EventDetailPageProps) {
                   href={event.registerUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => trackEngagement('register', 'Event', event.slug)}
                   className="inline-flex items-center gap-2 bg-[#EFB81A] hover:bg-[#F9D96A] text-black px-5 py-2.5 md:px-6 md:py-3 rounded-lg text-sm md:text-base transition-colors font-medium"
                 >
                   {event.isFree ? 'Register Free' : `Register (${event.ticketPrice ?? 'Paid'})`}

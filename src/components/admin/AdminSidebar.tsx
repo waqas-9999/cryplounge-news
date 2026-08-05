@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  BarChart3,
   LayoutDashboard,
   Newspaper,
   Users,
@@ -62,6 +63,12 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       page: 'admin/dashboard'
     },
     {
+      id: 'analytics',
+      label: 'Analytics',
+      icon: BarChart3,
+      page: 'admin/analytics'
+    },
+    {
       id: 'news',
       label: 'News Management',
       icon: Newspaper,
@@ -80,7 +87,8 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       submenu: [
         { label: 'All Events', page: 'admin/events' },
         { label: 'Create New', page: 'admin/events/create' },
-        { label: 'Organizers', page: 'admin/organizers' }
+        { label: 'Organizers', page: 'admin/organizers' },
+        { label: 'Analytics & Reports', page: 'admin/events/analytics' }
       ]
     },
     {
@@ -89,7 +97,8 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       icon: BookUser,
       submenu: [
         { label: 'All Stories', page: 'admin/founders' },
-        { label: 'Create New', page: 'admin/founders/create' }
+        { label: 'Create New', page: 'admin/founders/create' },
+        { label: 'Analytics & Reports', page: 'admin/founders/analytics' }
       ]
     },
     {
