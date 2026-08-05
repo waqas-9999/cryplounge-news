@@ -2,8 +2,6 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, Briefcase, MapPin, Clock, DollarSign, Users, Zap, Heart, Trophy } from 'lucide-react';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
 
 interface CareersPageProps {
@@ -111,7 +109,6 @@ export default function CareersPage({ onNavigate }: CareersPageProps) {
         canonical="/careers"
       />
       
-      <Header onNavigate={onNavigate} />
       
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-[#F9D96A]/20 to-white dark:from-[#EFB81A]/10 dark:to-[#0D0D0D] border-b border-gray-200 dark:border-gray-800">
@@ -261,7 +258,6 @@ export default function CareersPage({ onNavigate }: CareersPageProps) {
         </div>
       </section>
 
-      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

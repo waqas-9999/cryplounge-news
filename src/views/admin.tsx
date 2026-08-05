@@ -20,6 +20,7 @@ import { UsersListPage } from '@/components/pages/admin/UsersListPage';
 import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsPage';
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
 import { LogsPage } from '@/components/pages/admin/LogsPage';
+import { ContactMessagesPage } from '@/components/pages/admin/ContactMessagesPage';
 import { AnalyticsPage } from '@/components/pages/admin/AnalyticsPage';
 import { ArticleAnalyticsPage } from '@/components/pages/admin/ArticleAnalyticsPage';
 import { EventsAnalyticsPage } from '@/components/pages/admin/EventsAnalyticsPage';
@@ -99,6 +100,10 @@ export function AdminSystemSettingsView() {
 
 export function AdminLogsView() {
   return <LogsPage {...useAdminChrome()} />;
+}
+
+export function AdminContactView() {
+  return <ContactMessagesPage {...useAdminChrome()} />;
 }
 
 /* ---------------------------------------------------------------- news --- */

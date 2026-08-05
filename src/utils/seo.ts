@@ -344,7 +344,7 @@ export function generateOrganizationStructuredData(): StructuredDataOrganization
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'Customer Support',
-      email: 'support@cryplounge.com',
+      email: 'cryploungeofficial@gmail.com',
     },
   };
 }

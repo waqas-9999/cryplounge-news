@@ -35,6 +35,28 @@ export const authConfig = registerAs('auth', () => {
   };
 });
 
+export const mailConfig = registerAs('mail', () => {
+  const env = process.env as unknown as Env;
+  const port = Number(env.SMTP_PORT ?? 587);
+
+  return {
+    /** Everything downstream branches on this rather than probing for a host. */
+    enabled: Boolean(env.SMTP_HOST),
+    host: env.SMTP_HOST,
+    port,
+    // Port 465 is implicit TLS; 587 and 25 negotiate STARTTLS after connecting.
+    secure: env.SMTP_SECURE ? String(env.SMTP_SECURE) === 'true' : port === 465,
+    user: env.SMTP_USER,
+    password: env.SMTP_PASSWORD,
+    from: env.MAIL_FROM,
+    fromName: env.MAIL_FROM_NAME ?? 'CrypLounge',
+    contactRecipients: String(env.CONTACT_NOTIFY_EMAILS ?? '')
+      .split(',')
+      .map(address => address.trim())
+      .filter(Boolean),
+  };
+});
+
 export const storageConfig = registerAs('storage', () => {
   const env = process.env as unknown as Env;
   return {
@@ -78,4 +100,4 @@ export const throttleConfig = registerAs('throttle', () => {
   };
 });
 
-export const configNamespaces = [appConfig, authConfig, storageConfig, throttleConfig];
+export const configNamespaces = [appConfig, authConfig, storageConfig, throttleConfig, mailConfig];

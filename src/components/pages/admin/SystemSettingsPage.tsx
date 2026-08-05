@@ -445,7 +445,7 @@ export function SystemSettingsPage({ currentPage, onNavigate, onLogout }: System
                       type="email"
                       value={fromEmail}
                       onChange={(e) => setFromEmail(e.target.value)}
-                      placeholder="noreply@cryplounge.com"
+                      placeholder="cryploungeofficial@gmail.com"
                       className="w-full px-4 py-2 bg-white dark:bg-[#0F0F10] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#EFB81A]"
                     />
                   </div>

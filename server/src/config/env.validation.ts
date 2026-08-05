@@ -45,6 +45,26 @@ const envSchema = z.object({
   THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
 
+  /**
+   * Outbound mail (SMTP). Entirely optional: with `SMTP_HOST` unset the mail
+   * service is inert and the features that use it degrade quietly rather than
+   * erroring — a contact message is still stored, it just isn't emailed.
+   *
+   * Credentials live here rather than in the database so that a password is
+   * never readable through an admin screen or a database dump.
+   */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  /** Force TLS-on-connect. Defaults to true for port 465, false otherwise. */
+  SMTP_SECURE: z.enum(['true', 'false']).optional(),
+  /** Envelope sender. Must be an address the SMTP account is allowed to send as. */
+  MAIL_FROM: z.string().email().optional(),
+  MAIL_FROM_NAME: z.string().default('CrypLounge'),
+  /** Comma-separated staff addresses that receive contact-form notifications. */
+  CONTACT_NOTIFY_EMAILS: z.string().optional(),
+
   SWAGGER_ENABLED: z
     .enum(['true', 'false'])
     .default('true')
@@ -94,6 +114,17 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     );
     if (missing.length > 0) {
       throw new Error(`Cloudinary storage is selected but missing: ${missing.join(', ')}`);
+    }
+  }
+
+  // Mail is optional, but a half-configured transport is worse than none: it
+  // looks enabled and fails on every send. Either configure it or leave it out.
+  if (result.data.SMTP_HOST) {
+    const missing = (['SMTP_USER', 'SMTP_PASSWORD', 'MAIL_FROM'] as const).filter(
+      key => !result.data[key]
+    );
+    if (missing.length > 0) {
+      throw new Error(`SMTP_HOST is set but mail is incomplete, missing: ${missing.join(', ')}`);
     }
   }
 

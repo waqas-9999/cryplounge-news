@@ -2,8 +2,6 @@
 
 import React from 'react';
 import { ArrowLeft, TrendingUp, Users, Globe, Target, BarChart3, Zap } from 'lucide-react';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
 
 interface AdvertisePageProps {
@@ -53,7 +51,6 @@ export default function AdvertisePage({ onNavigate }: AdvertisePageProps) {
         canonical="/advertise"
       />
       
-      <Header onNavigate={onNavigate} />
       
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-[#F9D96A]/20 to-white dark:from-[#EFB81A]/10 dark:to-[#0D0D0D] border-b border-gray-200 dark:border-gray-800">
@@ -272,7 +269,6 @@ export default function AdvertisePage({ onNavigate }: AdvertisePageProps) {
         </div>
       </section>
 
-      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

@@ -10,6 +10,8 @@ export const siteConfig = {
   url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge.com',
   description:
     'Independent crypto journalism: news, project discovery, research, regulation, events and the people building the industry.',
+  /** The one address CrypLounge is reachable at, for every inquiry type. */
+  email: 'cryploungeofficial@gmail.com',
   locale: 'en',
   social: {
     x: 'https://twitter.com/cryplounge',

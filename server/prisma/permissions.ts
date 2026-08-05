@@ -44,6 +44,8 @@ export const PERMISSIONS: PermissionDefinition[] = [
 
   { key: 'analytics.read', module: 'Analytics', description: 'View analytics and reports' },
   { key: 'audit.read', module: 'Audit', description: 'Read the audit log' },
+  { key: 'contact.read', module: 'Contact', description: 'View Contact Us submissions' },
+  { key: 'contact.manage', module: 'Contact', description: 'Mark Contact Us submissions read or delete them' },
   { key: 'agents.manage', module: 'AI Agents', description: 'Manage AI agent credentials and permissions' },
   { key: 'webhooks.manage', module: 'AI Agents', description: 'Manage webhook subscriptions' },
 ];

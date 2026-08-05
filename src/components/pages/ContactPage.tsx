@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Mail, MessageSquare, Phone, MapPin, Send } from 'lucide-react';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
+import { ArrowLeft, Mail, MapPin, Send } from 'lucide-react';
 import { SEOHead } from '@/components/SEOHead';
+import { apiClient } from '@/lib/api-client';
+import { siteConfig } from '@/config/site';
 
 interface ContactPageProps {
   onNavigate: (path: string) => void;
@@ -18,15 +18,23 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiClient.post('contact', formData);
+      setSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
-    }, 3000);
+      setTimeout(() => setSubmitted(false), 5000);
+    } catch {
+      setError("Couldn't send your message. Please try again in a moment.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -44,7 +52,6 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
         canonical="/contact"
       />
       
-      <Header onNavigate={onNavigate} />
       
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-[#F9D96A]/20 to-white dark:from-[#EFB81A]/10 dark:to-[#0D0D0D] border-b border-gray-200 dark:border-gray-800">
@@ -85,6 +92,11 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {error && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-sm text-red-700 dark:text-red-400">
+                      {error}
+                    </div>
+                  )}
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
                       <label htmlFor="name" className="block text-sm text-gray-700 dark:text-gray-300 mb-2">
@@ -160,10 +172,11 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
 
                   <button
                     type="submit"
-                    className="w-full px-6 py-4 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] transition-colors flex items-center justify-center gap-2"
+                    disabled={submitting}
+                    className="w-full px-6 py-4 bg-[#EFB81A] text-black rounded-lg hover:bg-black hover:text-[#EFB81A] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <Send className="w-5 h-5" />
-                    Send Message
+                    {submitting ? 'Sending…' : 'Send Message'}
                   </button>
                 </form>
               )}
@@ -182,32 +195,8 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
                   </div>
                   <div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Email</div>
-                    <a href="mailto:contact@cryplounge.com" className="text-gray-900 dark:text-white hover:text-[#EFB81A] transition-colors">
-                      contact@cryplounge.com
-                    </a>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#F9D96A]/20 dark:bg-[#EFB81A]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-5 h-5 text-[#EFB81A]" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Press Inquiries</div>
-                    <a href="mailto:press@cryplounge.com" className="text-gray-900 dark:text-white hover:text-[#EFB81A] transition-colors">
-                      press@cryplounge.com
-                    </a>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 bg-[#F9D96A]/20 dark:bg-[#EFB81A]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-5 h-5 text-[#EFB81A]" />
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Advertising</div>
-                    <a href="mailto:ads@cryplounge.com" className="text-gray-900 dark:text-white hover:text-[#EFB81A] transition-colors">
-                      ads@cryplounge.com
+                    <a href={`mailto:${siteConfig.email}`} className="text-gray-900 dark:text-white hover:text-[#EFB81A] transition-colors">
+                      {siteConfig.email}
                     </a>
                   </div>
                 </div>
@@ -279,7 +268,6 @@ export default function ContactPage({ onNavigate }: ContactPageProps) {
         </div>
       </section>
 
-      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

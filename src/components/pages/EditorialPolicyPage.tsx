@@ -83,8 +83,8 @@ export default function EditorialPolicyPage({ onNavigate }: EditorialPolicyPageP
             <h2 className="text-gray-900 dark:text-white mb-4">Contact</h2>
             <p className="text-gray-600 dark:text-gray-400">
               For questions about our editorial policy or to report concerns, please contact our editorial team at{' '}
-              <a href="mailto:editorial@cryplounge.com" className="text-[#EFB81A] hover:underline">
-                editorial@cryplounge.com
+              <a href="mailto:cryploungeofficial@gmail.com" className="text-[#EFB81A] hover:underline">
+                cryploungeofficial@gmail.com
               </a>
             </p>
           </section>

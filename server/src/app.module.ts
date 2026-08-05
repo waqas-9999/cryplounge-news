@@ -33,6 +33,8 @@ import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AgentsModule } from './modules/agents/agents.module';
+import { ContactModule } from './modules/contact/contact.module';
+import { MailModule } from './modules/mail/mail.module';
 
 /**
  * Application root.
@@ -91,6 +93,8 @@ import { AgentsModule } from './modules/agents/agents.module';
     AnalyticsModule,
     WebhooksModule,
     AgentsModule,
+    ContactModule,
+    MailModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

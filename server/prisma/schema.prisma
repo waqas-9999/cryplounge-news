@@ -1006,3 +1006,19 @@ model AnalyticsEvent {
   @@index([country, timestamp])
   @@index([visitorId, timestamp])
 }
+
+/// A message submitted through the public Contact Us form. Read in the admin
+/// panel — the site sends no outbound mail, so this is the only record of it.
+model ContactMessage {
+  id      String @id @default(cuid())
+  name    String
+  email   String
+  subject String
+  message String @db.Text
+
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([read, createdAt])
+  @@index([email])
+}

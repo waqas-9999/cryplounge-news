@@ -108,7 +108,7 @@ export function AdminLoginPage({ onNavigate, onAdminLogin }: AdminLoginPageProps
                   setEmail(e.target.value);
                   if (error) setError(''); // Clear error on input change
                 }}
-                placeholder="admin@cryplounge.com"
+                placeholder="cryploungeofficial@gmail.com"
                 required
                 className="w-full px-4 py-3 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 dark:focus:ring-yellow-500 focus:border-transparent transition-all"
               />

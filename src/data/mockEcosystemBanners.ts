@@ -23,7 +23,7 @@ export const mockEcosystemBanners: EcosystemBanner[] = [
     isActive: true,
     uploadedAt: '2025-11-10T10:00:00Z',
     updatedAt: '2025-11-10T10:00:00Z',
-    uploadedBy: 'admin@cryplounge.com'
+    uploadedBy: 'cryploungeofficial@gmail.com'
   },
   {
     id: '2',
@@ -34,7 +34,7 @@ export const mockEcosystemBanners: EcosystemBanner[] = [
     isActive: true,
     uploadedAt: '2025-11-11T10:00:00Z',
     updatedAt: '2025-11-11T10:00:00Z',
-    uploadedBy: 'admin@cryplounge.com'
+    uploadedBy: 'cryploungeofficial@gmail.com'
   },
   {
     id: '3',
@@ -45,7 +45,7 @@ export const mockEcosystemBanners: EcosystemBanner[] = [
     isActive: true,
     uploadedAt: '2025-11-12T10:00:00Z',
     updatedAt: '2025-11-12T10:00:00Z',
-    uploadedBy: 'admin@cryplounge.com'
+    uploadedBy: 'cryploungeofficial@gmail.com'
   },
   {
     id: '4',
@@ -56,7 +56,7 @@ export const mockEcosystemBanners: EcosystemBanner[] = [
     isActive: true,
     uploadedAt: '2025-11-13T10:00:00Z',
     updatedAt: '2025-11-13T10:00:00Z',
-    uploadedBy: 'admin@cryplounge.com'
+    uploadedBy: 'cryploungeofficial@gmail.com'
   }
 ];
 

@@ -2,8 +2,6 @@
 
 import React from 'react';
 import { ArrowLeft, Shield, Lock, Eye, Database, Cookie, UserCheck } from 'lucide-react';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
 
 interface PrivacyPageProps {
@@ -19,7 +17,6 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
         canonical="/privacy"
       />
       
-      <Header onNavigate={onNavigate} />
       
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-[#F9D96A]/20 to-white dark:from-[#EFB81A]/10 dark:to-[#0D0D0D] border-b border-gray-200 dark:border-gray-800">
@@ -239,7 +236,7 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
             </p>
             <div className="bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-gray-800 rounded-lg p-6">
               <p className="text-gray-600 dark:text-gray-400 mb-2">
-                Email: <a href="mailto:privacy@cryplounge.com" className="text-[#EFB81A] hover:underline">privacy@cryplounge.com</a>
+                Email: <a href="mailto:cryploungeofficial@gmail.com" className="text-[#EFB81A] hover:underline">cryploungeofficial@gmail.com</a>
               </p>
               <p className="text-gray-600 dark:text-gray-400">
                 Or visit our{' '}
@@ -277,7 +274,6 @@ export default function PrivacyPage({ onNavigate }: PrivacyPageProps) {
         </div>
       </section>
 
-      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

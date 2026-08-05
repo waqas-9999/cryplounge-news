@@ -94,8 +94,8 @@ export default function FactCheckPolicyPage({ onNavigate }: FactCheckPolicyPageP
             <h2 className="text-gray-900 dark:text-white mb-4">Reader Contributions</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               We encourage readers to alert us to potential errors or questionable claims. Reports can be submitted to{' '}
-              <a href="mailto:factcheck@cryplounge.com" className="text-[#EFB81A] hover:underline">
-                factcheck@cryplounge.com
+              <a href="mailto:cryploungeofficial@gmail.com" className="text-[#EFB81A] hover:underline">
+                cryploungeofficial@gmail.com
               </a>
             </p>
           </section>
@@ -104,8 +104,8 @@ export default function FactCheckPolicyPage({ onNavigate }: FactCheckPolicyPageP
             <h2 className="text-gray-900 dark:text-white mb-4">Contact</h2>
             <p className="text-gray-600 dark:text-gray-400">
               For questions about our fact-checking process, please contact{' '}
-              <a href="mailto:factcheck@cryplounge.com" className="text-[#EFB81A] hover:underline">
-                factcheck@cryplounge.com
+              <a href="mailto:cryploungeofficial@gmail.com" className="text-[#EFB81A] hover:underline">
+                cryploungeofficial@gmail.com
               </a>
             </p>
           </section>

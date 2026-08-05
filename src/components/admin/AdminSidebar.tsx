@@ -12,9 +12,10 @@ import {
   ScrollText,
   CalendarDays,
   BookUser,
+  Mail,
   X
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface AdminSidebarProps {
   currentPage: string;
@@ -48,12 +49,45 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
   }, [currentPage]);
 
   const toggleSection = (section: string) => {
-    setExpandedSections(prev => 
-      prev.includes(section) 
+    setExpandedSections(prev =>
+      prev.includes(section)
         ? prev.filter(s => s !== section)
         : [...prev, section]
     );
   };
+
+  /* ------------------------------------------------------- scroll affordance -- */
+
+  const navRef = useRef<HTMLElement>(null);
+  const [edges, setEdges] = useState({ top: false, bottom: false });
+
+  /**
+   * Tracks whether the nav is scrolled away from either end, so the fade masks
+   * below only appear on the side that actually has content hidden. Without
+   * this the list just gets clipped mid-item and looks like it ends there.
+   */
+  const measureEdges = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    setEdges({
+      top: scrollTop > 4,
+      // A 4px tolerance avoids the mask flickering on sub-pixel scroll heights.
+      bottom: scrollTop + clientHeight < scrollHeight - 4,
+    });
+  }, []);
+
+  // Re-measure when the menu height changes (a section expanding or collapsing
+  // is the most common cause) as well as on scroll and viewport resize.
+  useEffect(() => {
+    measureEdges();
+    const el = navRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measureEdges);
+    observer.observe(el);
+    for (const child of Array.from(el.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [measureEdges, expandedSections]);
 
   const menuItems = [
     {
@@ -109,6 +143,12 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'Users', page: 'admin/users' },
         { label: 'Roles & Permissions', page: 'admin/roles-permissions' }
       ]
+    },
+    {
+      id: 'contact',
+      label: 'Contact Messages',
+      icon: Mail,
+      page: 'admin/contact'
     },
     {
       id: 'logs',
@@ -178,8 +218,34 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
             )}
           </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:hover:bg-gray-600">
+        {/* Navigation. The wrapper is the positioning context for the scroll
+            fades; the nav itself is the scroll container. */}
+        <div className="relative flex-1 min-h-0">
+          {/* Fade masks. Purely decorative and never interactive, so they are
+              pointer-events-none and hidden from assistive tech. */}
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute top-0 inset-x-0 h-6 z-10 bg-gradient-to-b from-white dark:from-[#1A1A1C] to-transparent transition-opacity duration-200 ${
+              edges.top ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute bottom-0 inset-x-0 h-8 z-10 bg-gradient-to-t from-white dark:from-[#1A1A1C] to-transparent transition-opacity duration-200 ${
+              edges.bottom ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+
+          <nav
+            ref={navRef}
+            onScroll={measureEdges}
+            /* `overscroll-contain` stops a scroll that reaches the end of the
+               menu from continuing into the page behind it.
+               `scrollbar-gutter: stable` reserves the track's width so the menu
+               does not shift sideways when the scrollbar appears. */
+            style={{ scrollbarGutter: 'stable' }}
+            className="h-full overflow-y-auto overscroll-contain px-4 py-4 space-y-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300/70 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700/70 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-clip-content [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:hover:bg-gray-600 [scrollbar-width:thin] [scrollbar-color:#D1D5DB_transparent] dark:[scrollbar-color:#374151_transparent]"
+          >
           {menuItems.map((item) => (
             <div key={item.id}>
               {item.submenu ? (
@@ -231,10 +297,12 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
               )}
             </div>
           ))}
-        </nav>
+          </nav>
+        </div>
 
-        {/* Profile & Logout */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+        {/* Profile & Logout. `shrink-0` keeps it pinned at full height however
+            long the menu above grows. */}
+        <div className="shrink-0 p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
           <button
             onClick={() => handleNavigate('admin/profile')}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"

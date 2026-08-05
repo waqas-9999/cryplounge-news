@@ -2,8 +2,6 @@
 
 import React from 'react';
 import { ArrowLeft, Users, Target, Heart, Zap } from 'lucide-react';
-import { Header } from '@/components/Header';
-import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
 
 interface AboutPageProps {
@@ -18,8 +16,6 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
         description="Learn about CrypLounge's mission to deliver accurate, timely cryptocurrency news, market data, and educational content to the global crypto community."
         canonical="/about"
       />
-      
-      <Header onNavigate={onNavigate} />
       
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-[#F9D96A]/20 to-white dark:from-[#EFB81A]/10 dark:to-[#0D0D0D] border-b border-gray-200 dark:border-gray-800">
@@ -202,8 +198,6 @@ export default function AboutPage({ onNavigate }: AboutPageProps) {
           </div>
         </div>
       </section>
-
-      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

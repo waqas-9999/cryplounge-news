@@ -111,7 +111,7 @@ export default function CorrectionsPolicyPage({ onNavigate }: CorrectionsPolicyP
               If you notice an error in our coverage, please report it to us:
             </p>
             <ul className="list-disc pl-6 text-gray-600 dark:text-gray-400 space-y-2">
-              <li>Email: <a href="mailto:corrections@cryplounge.com" className="text-[#EFB81A] hover:underline">corrections@cryplounge.com</a></li>
+              <li>Email: <a href="mailto:cryploungeofficial@gmail.com" className="text-[#EFB81A] hover:underline">cryploungeofficial@gmail.com</a></li>
               <li>Include the article URL, description of the error, and supporting information</li>
               <li>We review all submissions and respond within 24-48 hours</li>
             </ul>
@@ -128,8 +128,8 @@ export default function CorrectionsPolicyPage({ onNavigate }: CorrectionsPolicyP
             <h2 className="text-gray-900 dark:text-white mb-4">Contact</h2>
             <p className="text-gray-600 dark:text-gray-400">
               For questions about our corrections policy, please contact{' '}
-              <a href="mailto:corrections@cryplounge.com" className="text-[#EFB81A] hover:underline">
-                corrections@cryplounge.com
+              <a href="mailto:cryploungeofficial@gmail.com" className="text-[#EFB81A] hover:underline">
+                cryploungeofficial@gmail.com
               </a>
             </p>
           </section>
