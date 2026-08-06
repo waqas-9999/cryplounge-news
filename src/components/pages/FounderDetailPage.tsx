@@ -1,11 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ArrowLeft, Twitter, Linkedin, Github, Globe, Calendar } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
-import { trackEngagement } from '@/utils/analytics';
+import { recordContentView, trackReadingDepth, trackEngagement } from '@/utils/analytics';
 import type { FounderDetail } from '@/services/founders';
 
 interface FounderDetailPageProps {
@@ -16,6 +17,12 @@ interface FounderDetailPageProps {
 const FALLBACK_IMAGE = '/images/founder-placeholder.jpg';
 
 export function FounderDetailPage({ founder, onNavigate }: FounderDetailPageProps) {
+  useEffect(() => {
+    recordContentView('Founder', founder.slug);
+    const stopDepthTracking = trackReadingDepth('Founder', founder.slug);
+    return () => stopDepthTracking();
+  }, [founder.slug]);
+
   const handleBack = () => {
     onNavigate?.('founders');
   };

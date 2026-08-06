@@ -1,11 +1,12 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ArrowLeft, Calendar, MapPin, Clock, ExternalLink, Users, Globe } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
-import { trackEngagement } from '@/utils/analytics';
+import { recordContentView, trackReadingDepth, trackEngagement } from '@/utils/analytics';
 import type { EventDetail } from '@/services/events';
 
 interface EventDetailPageProps {
@@ -27,6 +28,12 @@ function formatDateTime(iso: string, timezone: string): string {
 }
 
 export function EventDetailPage({ event, onNavigate }: EventDetailPageProps) {
+  useEffect(() => {
+    recordContentView('Event', event.slug);
+    const stopDepthTracking = trackReadingDepth('Event', event.slug);
+    return () => stopDepthTracking();
+  }, [event.slug]);
+
   const handleBack = () => {
     onNavigate?.('events');
   };
