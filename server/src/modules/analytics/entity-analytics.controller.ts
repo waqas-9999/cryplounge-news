@@ -5,7 +5,7 @@ import { ResponseMessage } from '@/common/decorators/response-message.decorator'
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { AnalyticsReportsService } from './analytics-reports.service';
 import { EntityAnalyticsService, type ContentEntity } from './entity-analytics.service';
-import type { AnalyticsRangeQueryDto } from './dto/analytics.dto';
+import { AnalyticsRangeQueryDto } from './dto/analytics.dto';
 
 /**
  * Dedicated analytics surfaces for the Events and Founders admin modules.
