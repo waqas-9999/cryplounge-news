@@ -117,6 +117,11 @@ export class CreateProjectDto extends ProjectLinksDto {
   @IsBoolean()
   featured?: boolean;
 
+  @ApiPropertyOptional({ description: 'Curated for the Ecosystem homepage "Trending Projects" rail' })
+  @IsOptional()
+  @IsBoolean()
+  trending?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
@@ -205,6 +210,18 @@ export class ProjectQueryDto extends PaginationQueryDto {
   @IsBoolean()
   @Type(() => Boolean)
   featured?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  trending?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  editorsPick?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()

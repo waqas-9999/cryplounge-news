@@ -10,8 +10,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -19,13 +22,52 @@ import { auditContext } from '../articles/articles.controller';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { MediaService } from '../media/media.service';
 import { CreateProjectDto, ProjectQueryDto, UpdateProjectDto } from './dto/project.dto';
+import { SubmitProjectDto } from './dto/submit-project.dto';
 import { ProjectsService } from './projects.service';
 
 @ApiTags('Ecosystem')
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(
+    private readonly projects: ProjectsService,
+    private readonly media: MediaService
+  ) {}
+
+  @Public()
+  @Post('submit/logo')
+  @ResponseMessage('Logo uploaded')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a logo image for a public project submission' })
+  @ApiBody({
+    schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSubmissionLogo(@UploadedFile() file: Express.Multer.File) {
+    return this.media.uploadAnonymous(file, { folder: 'project-submissions' });
+  }
+
+  @Public()
+  @Post('submit/cover')
+  @ResponseMessage('Cover uploaded')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a cover image for a public project submission' })
+  @ApiBody({
+    schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  uploadSubmissionCover(@UploadedFile() file: Express.Multer.File) {
+    return this.media.uploadAnonymous(file, { folder: 'project-submissions' });
+  }
+
+  @Public()
+  @Post('submit')
+  @ResponseMessage('Project submitted for review')
+  @ApiOperation({ summary: 'Public project submission; always lands in PENDING' })
+  submit(@Body() dto: SubmitProjectDto) {
+    return this.projects.submit(dto);
+  }
 
   @Public()
   @Get()
@@ -33,6 +75,15 @@ export class ProjectsController {
   @ApiOperation({ summary: 'List directory projects with filters' })
   list(@Query() query: ProjectQueryDto) {
     return this.projects.list(query);
+  }
+
+  @Get('admin')
+  @ApiBearerAuth()
+  @RequirePermissions('projects.read')
+  @ResponseMessage('Projects')
+  @ApiOperation({ summary: 'List all projects for admin, including pending submissions' })
+  listForAdmin(@Query() query: ProjectQueryDto) {
+    return this.projects.list(query, true);
   }
 
   @Public()
@@ -56,6 +107,14 @@ export class ProjectsController {
   @ResponseMessage('Similar projects')
   similar(@Param('slug') slug: string) {
     return this.projects.similar(slug);
+  }
+
+  @Public()
+  @Get('collections')
+  @ResponseMessage('Project collections')
+  @ApiOperation({ summary: 'Curated project collections for the Ecosystem homepage' })
+  collections() {
+    return this.projects.collections();
   }
 
   @Get(':id')

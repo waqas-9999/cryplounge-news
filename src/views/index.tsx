@@ -34,6 +34,7 @@ import { ArticleDetailPage } from '@/components/pages/ArticleDetailPage';
 
 import { EventsPage } from '@/components/pages/EventsPage';
 import { SubmitEventPage } from '@/components/pages/SubmitEventPage';
+import { SubmitProjectPage } from '@/components/pages/SubmitProjectPage';
 import { FoundersPage } from '@/components/pages/FoundersPage';
 
 import AboutPage from '@/components/pages/AboutPage';
@@ -121,6 +122,10 @@ export function EventsView() {
 
 export function SubmitEventView() {
   return <SubmitEventPage onNavigate={useAppNavigate()} />;
+}
+
+export function SubmitProjectView() {
+  return <SubmitProjectPage onNavigate={useAppNavigate()} />;
 }
 
 export function EventDetailView({ event }: { event: EventDetail }) {

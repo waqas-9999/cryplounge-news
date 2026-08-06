@@ -71,6 +71,18 @@ export default async function Page() {
         breadcrumbs={[{ label: 'Ecosystem' }]}
       />
 
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-[#F9D96A] dark:bg-[#EFB81A]/10 border border-[#EFB81A]/30 rounded-xl px-5 py-4">
+        <p className="text-sm text-black dark:text-gray-200">
+          Building something in crypto? Get it listed in the directory.
+        </p>
+        <Link
+          href="/ecosystem/submit"
+          className="inline-flex items-center justify-center px-5 py-2.5 bg-black text-[#EFB81A] dark:bg-[#EFB81A] dark:text-black rounded-lg text-sm font-medium hover:opacity-90 transition-opacity shrink-0"
+        >
+          Submit Your Project
+        </Link>
+      </div>
+
       <section aria-labelledby="featured-projects">
         <h2 id="featured-projects" className="sr-only">
           Featured Projects
@@ -151,20 +163,22 @@ export default async function Page() {
         </div>
       </section>
 
-      <section aria-labelledby="collections" className="space-y-8">
-        <h2
-          id="collections"
-          className="text-lg md:text-xl font-medium text-gray-900 dark:text-white"
-        >
-          Featured Collections
-        </h2>
-        {collectionsWithProjects.map(collection => (
-          <div key={collection.slug}>
-            <SectionHeader as="h3" title={collection.title} description={collection.description} />
-            <ProjectGrid projects={collection.projects} columns={4} compact />
-          </div>
-        ))}
-      </section>
+      {collectionsWithProjects.length > 0 && (
+        <section aria-labelledby="collections" className="space-y-8">
+          <h2
+            id="collections"
+            className="text-lg md:text-xl font-medium text-gray-900 dark:text-white"
+          >
+            Featured Collections
+          </h2>
+          {collectionsWithProjects.map(collection => (
+            <div key={collection.slug}>
+              <SectionHeader as="h3" title={collection.title} description={collection.description} />
+              <ProjectGrid projects={collection.projects} columns={4} compact />
+            </div>
+          ))}
+        </section>
+      )}
 
       <section aria-labelledby="editors-picks">
         <h2 id="editors-picks" className="sr-only">

@@ -236,6 +236,8 @@ model ArticleVersion {
 }
 
 enum ProjectStatus {
+  /// Public submission awaiting editor approval. Hidden from public listings.
+  PENDING
   LIVE
   BETA
   TESTNET
@@ -262,6 +264,9 @@ model Project {
   verified   Boolean       @default(false)
   openSource Boolean       @default(false)
   featured   Boolean       @default(false)
+  /// Curated for the Ecosystem homepage "Trending Projects" rail. Editorial,
+  /// not derived from any traffic metric.
+  trending    Boolean      @default(false)
   editorsPick Boolean      @default(false)
 
   /// Emoji mark and brand colour, used until real logo assets exist.
@@ -300,6 +305,11 @@ model Project {
   seoDescription String?
   noindex        Boolean @default(false)
 
+  /// Set on public submissions (no user account required to submit). Null for
+  /// projects created directly by an editor.
+  submittedByName  String?
+  submittedByEmail String?
+
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
   deletedAt DateTime?
@@ -312,7 +322,28 @@ model Project {
   @@index([categoryId])
   @@index([featured])
   @@index([blockchain])
+  @@index([status])
   @@index([deletedAt])
+}
+
+/// A hand-curated grouping of projects shown on the Ecosystem homepage. The
+/// grouping lives in the database (not frontend seed data) so it is editable
+/// and reorderable later from the admin panel; `projectSlugs` lists the slugs
+/// of the `Project` rows it contains.
+model ProjectCollection {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  title        String
+  description  String?
+  projectSlugs String[]
+  /// Lower numbers render first.
+  position     Int      @default(0)
+  active       Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, position])
 }
 
 model Research {

@@ -14,6 +14,7 @@ import {
   BookUser,
   Mail,
   Send,
+  Layers,
   X
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -34,6 +35,7 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
     if (currentPage.startsWith('admin/news')) sections.push('news');
     if (currentPage.startsWith('admin/events') || currentPage.startsWith('admin/organizers')) sections.push('events');
     if (currentPage.startsWith('admin/founders')) sections.push('founders');
+    if (currentPage.startsWith('admin/projects')) sections.push('projects');
     if (currentPage.startsWith('admin/newsletter')) sections.push('newsletter');
     if (currentPage.startsWith('admin/settings')) sections.push('settings');
     
@@ -125,6 +127,15 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'Create New', page: 'admin/events/create' },
         { label: 'Organizers', page: 'admin/organizers' },
         { label: 'Analytics & Reports', page: 'admin/events/analytics' }
+      ]
+    },
+    {
+      id: 'projects',
+      label: 'Ecosystem Projects',
+      icon: Layers,
+      submenu: [
+        { label: 'All Projects', page: 'admin/projects' },
+        { label: 'Create New', page: 'admin/projects/create' }
       ]
     },
     {

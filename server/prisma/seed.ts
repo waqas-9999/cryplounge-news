@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Seeds the database from the existing in-repo content.
  *
  * Idempotent: every write is an upsert keyed on a natural key, so running it
@@ -277,6 +277,62 @@ async function seedFounders() {
   console.log(`  founders: ${await db.founder.count()}`);
 }
 
+/**
+ * Project collections shown on the Ecosystem homepage. Additive and
+ * non-destructive: it only upserts rows into the ProjectCollection table and
+ * never touches existing Project records.
+ */
+async function seedProjectCollections() {
+  const collections = [
+    {
+      slug: 'ethereum-scaling',
+      title: 'Ethereum Scaling',
+      description: 'The rollups and proving systems carrying Ethereum activity off mainnet.',
+      projectSlugs: ['arbitrum', 'base', 'starknet', 'immutable'],
+    },
+    {
+      slug: 'defi-blue-chips',
+      title: 'DeFi Blue Chips',
+      description: 'Long-running protocols that most of on-chain finance is built on top of.',
+      projectSlugs: ['uniswap', 'aave', 'lido', 'usdc'],
+    },
+    {
+      slug: 'developer-stack',
+      title: 'The Developer Stack',
+      description: 'What teams actually reach for when building and shipping on-chain.',
+      projectSlugs: ['foundry', 'the-graph', 'ipfs', 'chainlink'],
+    },
+    {
+      slug: 'beyond-finance',
+      title: 'Beyond Finance',
+      description: 'Identity, social, physical infrastructure and AI — crypto outside trading.',
+      projectSlugs: ['ens', 'farcaster', 'helium', 'bittensor'],
+    },
+  ];
+
+  for (const [position, collection] of collections.entries()) {
+    await db.projectCollection.upsert({
+      where: { slug: collection.slug },
+      update: {
+        title: collection.title,
+        description: collection.description,
+        projectSlugs: collection.projectSlugs,
+        position,
+        active: true,
+      },
+      create: {
+        slug: collection.slug,
+        title: collection.title,
+        description: collection.description,
+        projectSlugs: collection.projectSlugs,
+        position,
+        active: true,
+      },
+    });
+  }
+  console.log(`  project collections: ${await db.projectCollection.count()}`);
+}
+
 async function seedHomepageSections() {
   const sections = [
     { key: 'featured', title: 'Featured' },
@@ -314,7 +370,7 @@ async function seedLanguages() {
 }
 
 async function main() {
-  console.log('Seeding CrypLounge…');
+  console.log('Seeding CrypLoungeâ€¦');
   await seedPermissions();
   const owner = await seedUsers();
   await seedCategories();
@@ -322,6 +378,7 @@ async function main() {
   await seedProjectDirectory();
   await seedEvents();
   await seedFounders();
+  await seedProjectCollections();
   await seedHomepageSections();
   await seedLanguages();
   console.log('Done.');

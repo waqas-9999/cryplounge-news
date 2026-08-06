@@ -1,15 +1,17 @@
-import type { Project, ProjectCollection } from '../types/project';
+import type { Project } from '../types/project';
 
 /**
  * Seed content for the Ecosystem directory.
+ *
+ * No longer used by the frontend — the `/ecosystem` pages read from the
+ * backend API (`src/services/projects.ts`). This file is kept as the seed
+ * source the backend `server/prisma/seed.ts` upserts into the `Project` table
+ * on first load.
  *
  * Descriptions cover what each project does and which chains it runs on —
  * facts that do not go stale. Deliberately absent: TVL, market cap, user
  * counts, token prices and rankings. CrypLounge is an editorial directory, not
  * a market data site, and stale numbers are worse than no numbers.
- *
- * Replaced by `GET /api/projects` once the backend lands; the shape is the
- * contract. See `src/services/projects.ts`.
  */
 export const projects: Project[] = [
   {
@@ -922,33 +924,5 @@ export const projects: Project[] = [
     featured: false,
     editorsPick: false,
     addedAt: '2026-06-17T00:00:00Z',
-  },
-];
-
-/** Hand-curated groupings surfaced on the Ecosystem homepage. */
-export const projectCollections: ProjectCollection[] = [
-  {
-    slug: 'ethereum-scaling',
-    title: 'Ethereum Scaling',
-    description: 'The rollups and proving systems carrying Ethereum activity off mainnet.',
-    projectSlugs: ['arbitrum', 'base', 'starknet', 'immutable'],
-  },
-  {
-    slug: 'defi-blue-chips',
-    title: 'DeFi Blue Chips',
-    description: 'Long-running protocols that most of on-chain finance is built on top of.',
-    projectSlugs: ['uniswap', 'aave', 'lido', 'usdc'],
-  },
-  {
-    slug: 'developer-stack',
-    title: 'The Developer Stack',
-    description: 'What teams actually reach for when building and shipping on-chain.',
-    projectSlugs: ['foundry', 'the-graph', 'ipfs', 'chainlink'],
-  },
-  {
-    slug: 'beyond-finance',
-    title: 'Beyond Finance',
-    description: 'Identity, social, physical infrastructure and AI — crypto outside trading.',
-    projectSlugs: ['ens', 'farcaster', 'helium', 'bittensor'],
   },
 ];

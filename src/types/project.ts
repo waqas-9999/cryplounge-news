@@ -57,6 +57,7 @@ export interface Project {
   tags: string[];
 
   featured: boolean;
+  trending?: boolean;
   editorsPick: boolean;
   /** ISO date the project was added to the directory. */
   addedAt: string;

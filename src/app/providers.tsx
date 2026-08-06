@@ -3,8 +3,6 @@
 import { ReactNode } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { CategoriesProvider } from '@/contexts/CategoriesContext';
-import { EcosystemsProvider } from '@/contexts/EcosystemsContext';
-import { EcosystemBannersProvider } from '@/contexts/EcosystemBannersContext';
 import { EventsProvider } from '@/contexts/EventsContext';
 import { FoundersProvider } from '@/contexts/FoundersContext';
 
@@ -18,13 +16,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <CategoriesProvider>
-        <EcosystemsProvider>
-          <EcosystemBannersProvider>
-            <FoundersProvider>
-              <EventsProvider>{children}</EventsProvider>
-            </FoundersProvider>
-          </EcosystemBannersProvider>
-        </EcosystemsProvider>
+        <FoundersProvider>
+          <EventsProvider>{children}</EventsProvider>
+        </FoundersProvider>
       </CategoriesProvider>
     </ThemeProvider>
   );

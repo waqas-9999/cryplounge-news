@@ -8,6 +8,7 @@ import { RelationsService } from '../content-core/relations.service';
 import { SlugService } from '../content-core/slug.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import type { CreateProjectDto, ProjectQueryDto, UpdateProjectDto } from './dto/project.dto';
+import type { SubmitProjectDto } from './dto/submit-project.dto';
 
 const LIST_SELECT = {
   id: true,
@@ -21,6 +22,7 @@ const LIST_SELECT = {
   status: true,
   verified: true,
   featured: true,
+  trending: true,
   editorsPick: true,
   website: true,
   x: true,
@@ -62,15 +64,22 @@ export class ProjectsService extends BaseCrudService {
     super(prisma.project, 'Project');
   }
 
-  async list(query: ProjectQueryDto): Promise<Paginated<unknown>> {
+  async list(query: ProjectQueryDto, includePending = false): Promise<Paginated<unknown>> {
     const where: Prisma.ProjectWhereInput = {
       ...(query.category ? { category: { slug: query.category } } : {}),
       // `has` matches the array column, so a project surfaces under every
       // chain it supports, not only its primary one.
       ...(query.network ? { supportedNetworks: { has: query.network } } : {}),
       ...(query.tag ? { tags: { some: { slug: query.tag } } } : {}),
-      ...(query.status ? { status: query.status } : {}),
+      // Pending (unapproved) submissions never surface on the public directory.
+      ...(query.status
+        ? { status: query.status }
+        : includePending
+          ? {}
+          : { status: { not: 'PENDING' } }),
       ...(query.featured !== undefined ? { featured: query.featured } : {}),
+      ...(query.trending !== undefined ? { trending: query.trending } : {}),
+      ...(query.editorsPick !== undefined ? { editorsPick: query.editorsPick } : {}),
       ...(query.verified !== undefined ? { verified: query.verified } : {}),
     };
 
@@ -119,6 +128,59 @@ export class ProjectsService extends BaseCrudService {
       orderBy: [{ featured: 'desc' }, { createdAt: 'desc' }],
       take: limit,
     });
+  }
+
+  /**
+   * Public, unauthenticated submission. Always lands in PENDING so an editor
+   * has to approve before it's visible to anyone else.
+   */
+  async submit(dto: SubmitProjectDto) {
+    const slug = await this.slugs.unique('project', dto.name);
+
+    const project = await this.prisma.project.create({
+      data: {
+        name: dto.name,
+        tagline: dto.tagline,
+        about: dto.about,
+        keyFeatures: dto.keyFeatures ?? [],
+        categoryId: dto.categoryId,
+        blockchain: dto.blockchain,
+        supportedNetworks: dto.supportedNetworks ?? [],
+        nativeToken: dto.nativeToken,
+        launchYear: dto.launchYear,
+        logo: dto.logo,
+        accent: dto.accent,
+        logoImageId: dto.logoImageId,
+        coverImageId: dto.coverImageId,
+        website: dto.website,
+        x: dto.x,
+        github: dto.github,
+        discord: dto.discord,
+        telegram: dto.telegram,
+        linkedin: dto.linkedin,
+        youtube: dto.youtube,
+        medium: dto.medium,
+        blog: dto.blog,
+        docs: dto.docs,
+        whitepaper: dto.whitepaper,
+        explorer: dto.explorer,
+        api: dto.api,
+        submittedByName: dto.submittedByName,
+        submittedByEmail: dto.submittedByEmail,
+        slug,
+        status: 'PENDING',
+      },
+      include: DETAIL_INCLUDE,
+    });
+
+    await this.audit.record({
+      action: AuditAction.CREATE,
+      entity: 'Project',
+      entityId: project.id,
+      summary: `"${project.name}" submitted for review by ${dto.submittedByEmail}`,
+    });
+
+    return project;
   }
 
   async create(dto: CreateProjectDto, user: AuthenticatedUser, context: AuditContext) {
@@ -248,6 +310,24 @@ export class ProjectsService extends BaseCrudService {
     };
   }
 
+  /**
+   * Hand-curated groupings for the Ecosystem homepage, from the database.
+   * Returns only active collections in display order.
+   */
+  async collections() {
+    const rows = await this.prisma.projectCollection.findMany({
+      where: { active: true },
+      orderBy: [{ position: 'asc' }, { title: 'asc' }],
+    });
+    return rows.map(({ id, slug, title, description, projectSlugs }) => ({
+      id,
+      slug,
+      title,
+      description,
+      projectSlugs,
+    }));
+  }
+
   /** Scalar columns shared by create and update. */
   private scalars(dto: CreateProjectDto | UpdateProjectDto) {
     const keys = [
@@ -260,6 +340,7 @@ export class ProjectsService extends BaseCrudService {
       'verified',
       'openSource',
       'featured',
+      'trending',
       'editorsPick',
       'accent',
       'logoImageId',

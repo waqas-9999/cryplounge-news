@@ -1,5 +1,4 @@
 import type { Project, ProjectCollection, ProjectLinks, ProjectStatus } from '@/types/project';
-import { projectCollections } from '@/data/projects';
 import { PROJECT_CATEGORIES, type ProjectCategory } from '@/lib/taxonomy';
 import { apiClient } from '@/lib/api-client';
 
@@ -9,10 +8,6 @@ import { apiClient } from '@/lib/api-client';
  * Backed by the real NestJS `projects` endpoints. Every list function stays
  * async and paginated so no caller needed to change when this stopped being
  * a static seed import.
- *
- * `ProjectCollection`s (hand-curated groupings) have no backend equivalent —
- * there is no content module for them — so they still come from the local
- * seed. Everything else goes through the API.
  */
 
 export type ProjectSort = 'newest' | 'oldest' | 'name';
@@ -73,6 +68,7 @@ interface BackendProject {
   verified: boolean;
   openSource?: boolean;
   featured: boolean;
+  trending: boolean;
   editorsPick: boolean;
   website?: string | null;
   x?: string | null;
@@ -123,6 +119,7 @@ function toProject(p: BackendProject): Project {
     links,
     tags: p.tags.map(t => t.name),
     featured: p.featured,
+    trending: p.trending,
     editorsPick: p.editorsPick,
     addedAt: p.createdAt,
   };
@@ -224,24 +221,14 @@ export async function getFeaturedProjects(limit = 4): Promise<Project[]> {
   }
 }
 
-/**
- * Newsroom-curated selection.
- *
- * There is no pageview data on the client yet, so "trending" is editorial:
- * featured or editor's-pick entries, most recent first. This still filters
- * client-side after fetching a page of results since the backend has no
- * combined featured-OR-editorsPick filter.
- */
+/** Newsroom-curated selection for the Ecosystem homepage "Trending Projects" rail. */
 export async function getTrendingProjects(limit = 6): Promise<Project[]> {
   try {
     const { items } = await apiClient.getPaginated<BackendProject>('projects', {
-      query: { page: 1, perPage: Math.max(limit * 4, 24) },
+      query: { page: 1, perPage: limit, trending: true },
       auth: false,
     });
-    return items
-      .filter(p => p.featured || p.editorsPick)
-      .slice(0, limit)
-      .map(toProject);
+    return items.map(toProject);
   } catch {
     return [];
   }
@@ -262,13 +249,10 @@ export async function getRecentProjects(limit = 6): Promise<Project[]> {
 export async function getEditorsPicks(limit = 4): Promise<Project[]> {
   try {
     const { items } = await apiClient.getPaginated<BackendProject>('projects', {
-      query: { page: 1, perPage: Math.max(limit * 4, 24) },
+      query: { page: 1, perPage: limit, editorsPick: true },
       auth: false,
     });
-    return items
-      .filter(p => p.editorsPick)
-      .slice(0, limit)
-      .map(toProject);
+    return items.map(toProject);
   } catch {
     return [];
   }
@@ -295,6 +279,13 @@ export interface CategorySummary {
 interface BackendFacets {
   categories: { id: string; slug: string; name: string; count: number }[];
   networks: { value: string; count: number }[];
+}
+
+interface BackendCollection {
+  slug: string;
+  title: string;
+  description: string | null;
+  projectSlugs: string[];
 }
 
 /** Category list with counts, empty categories excluded. */
@@ -344,7 +335,21 @@ export async function getTagSummaries(tags: readonly string[]): Promise<FacetSum
 }
 
 export async function getCollections(): Promise<ProjectCollection[]> {
-  return projectCollections;
+  try {
+    const collections = await apiClient.get<BackendCollection[]>('projects/collections', {
+      auth: false,
+    });
+    return collections
+      .filter(collection => collection.projectSlugs.length > 0)
+      .map(collection => ({
+        slug: collection.slug,
+        title: collection.title,
+        description: collection.description ?? '',
+        projectSlugs: collection.projectSlugs,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getProjectsBySlugs(slugs: string[]): Promise<Project[]> {

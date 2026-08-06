@@ -38,6 +38,8 @@ import { NewsDetailAnalyticsPage } from '@/components/pages/admin/NewsDetailAnal
 import { NewsCategoriesPage } from '@/components/pages/admin/NewsCategoriesPage';
 
 import { EventsListPage } from '@/components/pages/admin/EventsListPage';
+import { ProjectsListPage } from '@/components/pages/admin/ProjectsListPage';
+import { ProjectFormPage } from '@/components/pages/admin/ProjectFormPage';
 import { EventsCreatePage } from '@/components/pages/admin/EventsCreatePage';
 import { EventsEditPage } from '@/components/pages/admin/EventsEditPage';
 import { OrganizersListPage } from '@/components/pages/admin/OrganizersListPage';
@@ -179,6 +181,20 @@ export function AdminNewsCategoriesView() {
 
 export function AdminEventsListView() {
   return <EventsListPage {...useAdminChrome()} />;
+}
+
+/* ------------------------------------------------------------ projects --- */
+
+export function AdminProjectsListView() {
+  return <ProjectsListPage {...useAdminChrome()} />;
+}
+
+export function AdminProjectsCreateView() {
+  return <ProjectFormPage {...useAdminChrome()} />;
+}
+
+export function AdminProjectsEditView({ projectId }: { projectId: string }) {
+  return <ProjectFormPage {...useAdminChrome()} projectId={projectId} />;
 }
 
 export function AdminEventsCreateView() {
