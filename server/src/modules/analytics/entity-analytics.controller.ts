@@ -145,6 +145,10 @@ abstract class BaseEntityAnalyticsController {
 export class EventAnalyticsController extends BaseEntityAnalyticsController {
   protected readonly entity: ContentEntity = 'Event';
 
+  constructor(entities: EntityAnalyticsService, reports: AnalyticsReportsService) {
+    super(entities, reports);
+  }
+
   @Get('overview')
   @ApiBearerAuth()
   @RequirePermissions('analytics.read')
@@ -186,6 +190,10 @@ export class EventAnalyticsController extends BaseEntityAnalyticsController {
 @Controller('admin/founders/analytics')
 export class FounderAnalyticsController extends BaseEntityAnalyticsController {
   protected readonly entity: ContentEntity = 'Founder';
+
+  constructor(entities: EntityAnalyticsService, reports: AnalyticsReportsService) {
+    super(entities, reports);
+  }
 
   @Get('overview')
   @ApiBearerAuth()
