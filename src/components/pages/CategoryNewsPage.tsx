@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import { TrendingCard } from '@/components/TrendingCard';
 import { LatestNewsCard } from '@/components/LatestNewsCard';
 import { ArrowRight, ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { listArticles, articleHref } from '@/services/news';
+import { subscribeToNewsletter } from '@/services/newsletter';
+import { trackNewsletterSignup } from '@/utils/analytics';
 import type { Article } from '@/types/article';
 
 /**
@@ -66,6 +69,39 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
   const [more, setMore] = useState<Article[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = newsletterEmail.trim();
+    if (!email) {
+      toast.error('Email required', { description: 'Please enter your email address' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error('Invalid email', { description: 'Please enter a valid email address' });
+      return;
+    }
+
+    setNewsletterSubmitting(true);
+    try {
+      const result = await subscribeToNewsletter(email);
+      if (result.alreadySubscribed) {
+        toast.info('Already subscribed', { description: 'This email is already on our list.' });
+      } else {
+        trackNewsletterSignup();
+        toast.success('Subscribed!', { description: 'Check your inbox for confirmation.' });
+      }
+      setNewsletterEmail('');
+    } catch {
+      toast.error('Subscription failed', {
+        description: 'Could not subscribe right now. Please try again in a moment.',
+      });
+    } finally {
+      setNewsletterSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -195,9 +231,22 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
           <div className="bg-[#FFD200] rounded-xl md:rounded-2xl p-4 md:p-6">
             <h3 className="text-black text-base md:text-lg font-semibold mb-2">{displayTitle} Newsletter</h3>
             <p className="text-black/70 text-sm mb-4">Get the latest {displayTitle.toLowerCase()} news delivered daily.</p>
-            <form onSubmit={e => e.preventDefault()} className="space-y-2">
-              <input type="email" placeholder="Your email" className="w-full px-3 py-2.5 bg-white/80 rounded-lg text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20" />
-              <button type="submit" className="w-full py-2.5 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors">Subscribe</button>
+            <form onSubmit={handleNewsletterSubmit} className="space-y-2">
+              <input
+                type="email"
+                value={newsletterEmail}
+                onChange={e => setNewsletterEmail(e.target.value)}
+                placeholder="Your email"
+                aria-label={`Email address to subscribe to the ${displayTitle} newsletter`}
+                className="w-full px-3 py-2.5 bg-white/80 rounded-lg text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black/20"
+              />
+              <button
+                type="submit"
+                disabled={newsletterSubmitting}
+                className="w-full py-2.5 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {newsletterSubmitting ? 'Subscribing…' : 'Subscribe'}
+              </button>
             </form>
           </div>
         </div>

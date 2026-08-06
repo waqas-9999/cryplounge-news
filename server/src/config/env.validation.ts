@@ -38,7 +38,7 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
 
   /** Public base URL of the frontend, used to build canonical URLs. */
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().url().default('https://cryplounge-news-two.vercel.app'),
   /** Shared secret for the cache revalidation webhook the frontend exposes. */
   REVALIDATE_SECRET: z.string().min(16).optional(),
 
@@ -59,6 +59,12 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   /** Force TLS-on-connect. Defaults to true for port 465, false otherwise. */
   SMTP_SECURE: z.enum(['true', 'false']).optional(),
+  /**
+   * Verify the SMTP server certificate. Defaults to true (strict). Set to
+   * "false" only behind a TLS-intercepting proxy/firewall where the local
+   * network presents its own certificate — production should keep it strict.
+   */
+  SMTP_REJECT_UNAUTHORIZED: z.enum(['true', 'false']).optional(),
   /** Envelope sender. Must be an address the SMTP account is allowed to send as. */
   MAIL_FROM: z.string().email().optional(),
   MAIL_FROM_NAME: z.string().default('CrypLounge'),

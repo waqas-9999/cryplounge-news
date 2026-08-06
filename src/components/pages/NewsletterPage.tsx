@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { Mail, CheckCircle, AlertCircle, Loader2, Zap, TrendingUp, BookOpen, Globe } from 'lucide-react';
 import { toast } from 'sonner';
+import { subscribeToNewsletter } from '@/services/newsletter';
+import { trackNewsletterSignup } from '@/utils/analytics';
+import { errorMessage } from '@/lib/api-client';
 
 interface NewsletterPageProps {
   onNavigate: (page: string) => void;
@@ -22,25 +25,34 @@ export default function NewsletterPage({ onNavigate }: NewsletterPageProps) {
   const [name, setName] = useState('');
   const [state, setState] = useState<State>('idle');
   const [touched, setTouched] = useState({ email: false, name: false });
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const emailError = touched.email && !email ? 'Email is required' : touched.email && !isValidEmail ? 'Enter a valid email address' : '';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ email: true, name: true });
     if (!isValidEmail) return;
 
     setState('loading');
-    setTimeout(() => {
-      // Simulate already-subscribed for demo
-      if (email.toLowerCase().includes('test@')) {
+    setErrorMsg(null);
+    try {
+      const result = await subscribeToNewsletter(email, name.trim() || undefined);
+      if (result.alreadySubscribed) {
         setState('already-subscribed');
+        toast.info('Already subscribed', {
+          description: 'This email is already on our list.',
+        });
       } else {
+        trackNewsletterSignup();
         setState('success');
         toast.success('Subscribed!', { description: "You're on the list. Check your inbox for confirmation." });
       }
-    }, 1400);
+    } catch (err) {
+      setState('error');
+      setErrorMsg(errorMessage(err, 'Could not subscribe right now. Please try again in a moment.'));
+    }
   };
 
   if (state === 'success') {
@@ -109,6 +121,16 @@ export default function NewsletterPage({ onNavigate }: NewsletterPageProps) {
               <div>
                 <p className="text-amber-800 dark:text-amber-300 text-sm font-medium">Already subscribed</p>
                 <p className="text-amber-700 dark:text-amber-400 text-xs mt-0.5">This email is already on our list. Check your inbox for past issues.</p>
+              </div>
+            </div>
+          )}
+
+          {state === 'error' && (
+            <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl mb-6">
+              <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-800 dark:text-red-300 text-sm font-medium">Subscription failed</p>
+                <p className="text-red-700 dark:text-red-400 text-xs mt-0.5">{errorMsg}</p>
               </div>
             </div>
           )}

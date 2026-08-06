@@ -309,8 +309,8 @@ analytics.trackXPEarned('course-completion', 100);
 ### SEO Constants (utils/seo.ts):
 ```typescript
 SITE_NAME = 'CrypLounge'
-SITE_URL = 'https://cryplounge.com'
-SITE_LOGO = 'https://cryplounge.com/logo.png'
+SITE_URL = 'https://cryplounge-news-two.vercel.app'
+SITE_LOGO = 'https://cryplounge-news-two.vercel.app/logo.png'
 TWITTER_HANDLE = '@CrypLounge'
 ```
 

@@ -18,7 +18,7 @@ export function GeneralSettingsPage({ currentPage, onNavigate, onLogout }: Gener
   const [isSaving, setIsSaving] = useState(false);
   const [siteName, setSiteName] = useState('CrypLounge');
   const [siteTagline, setSiteTagline] = useState('Your Global Cryptocurrency News Platform');
-  const [siteUrl, setSiteUrl] = useState('https://cryplounge.com');
+  const [siteUrl, setSiteUrl] = useState('https://cryplounge-news-two.vercel.app');
   const [timezone, setTimezone] = useState('UTC');
   const [language, setLanguage] = useState('en');
   const [dateFormat, setDateFormat] = useState('MM/DD/YYYY');

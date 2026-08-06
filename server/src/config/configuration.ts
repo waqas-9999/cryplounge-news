@@ -46,6 +46,11 @@ export const mailConfig = registerAs('mail', () => {
     port,
     // Port 465 is implicit TLS; 587 and 25 negotiate STARTTLS after connecting.
     secure: env.SMTP_SECURE ? String(env.SMTP_SECURE) === 'true' : port === 465,
+    // Strict certificate verification by default. Only disable behind a
+    // TLS-intercepting proxy, where the local chain is what fails.
+    rejectUnauthorized: env.SMTP_REJECT_UNAUTHORIZED
+      ? String(env.SMTP_REJECT_UNAUTHORIZED) === 'true'
+      : true,
     user: env.SMTP_USER,
     password: env.SMTP_PASSWORD,
     from: env.MAIL_FROM,

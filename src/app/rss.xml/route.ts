@@ -1,7 +1,7 @@
 import { articleSlug } from '@/types/article';
 import { listArticles } from '@/services/news';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge-news-two.vercel.app';
 
 function escapeXml(value: string): string {
   return value

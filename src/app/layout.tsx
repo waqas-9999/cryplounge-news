@@ -5,7 +5,7 @@ import { SiteShell } from './site-shell';
 import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge-news-two.vercel.app'),
   title: {
     default: 'CrypLounge — Crypto News, Markets, Research and Education',
     template: '%s | CrypLounge',

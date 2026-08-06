@@ -148,7 +148,7 @@ export interface StructuredDataBreadcrumb {
 // Site-wide constants
 export const SITE_NAME = 'CrypLounge';
 export const SITE_DESCRIPTION = 'Your comprehensive cryptocurrency news and learning platform. Stay updated with the latest crypto news, market insights, blockchain education, and web3 innovations.';
-export const SITE_URL = 'https://cryplounge.com';
+export const SITE_URL = 'https://cryplounge-news-two.vercel.app';
 export const SITE_LOGO = `${SITE_URL}/logo.png`;
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.jpg`;
 export const TWITTER_HANDLE = '@CrypLounge';

@@ -5,6 +5,9 @@ import {
   Eye,
   FileText,
   Loader2,
+  MailCheck,
+  Send,
+  Users,
 } from 'lucide-react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
@@ -62,8 +65,20 @@ export function AdminDashboardPage({ currentPage, onNavigate, onLogout }: AdminD
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [data, setData] = useState<DashboardData | null>(null);
+  const [newsletterStats, setNewsletterStats] = useState<{
+    total: number;
+    totalCampaigns: number;
+    sentCampaigns: number;
+  } | null>(null);
 
   useEffect(() => {
+    // Newsletter stats are fetched independently of the main payload: a user
+    // without `newsletter.read` must still see the rest of the dashboard.
+    apiClient
+      .get<{ total: number; totalCampaigns: number; sentCampaigns: number }>('admin/newsletter/stats')
+      .then(result => setNewsletterStats(result))
+      .catch(() => setNewsletterStats(null));
+
     Promise.all([
       apiClient.get<{ totalViews: number }>('admin/analytics/overview'),
       apiClient.get<TopArticle[]>('admin/analytics/content', { query: { entity: 'Article', limit: 10 } }),
@@ -110,6 +125,13 @@ export function AdminDashboardPage({ currentPage, onNavigate, onLogout }: AdminD
     ? [
         { label: 'Total Views (30d)', value: data.totalViews.toLocaleString(), icon: Eye, color: 'yellow' },
         { label: 'Total Articles', value: data.totalArticles.toString(), icon: FileText, color: 'blue' },
+        ...(newsletterStats
+          ? [
+              { label: 'Newsletter Subscribers', value: newsletterStats.total.toLocaleString(), icon: Users, color: 'green' },
+              { label: 'Newsletter Campaigns', value: newsletterStats.totalCampaigns.toLocaleString(), icon: Send, color: 'yellow' },
+              { label: 'Newsletters Sent', value: newsletterStats.sentCampaigns.toLocaleString(), icon: MailCheck, color: 'blue' },
+            ]
+          : []),
       ]
     : [];
 

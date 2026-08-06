@@ -7,7 +7,7 @@
  */
 export const siteConfig = {
   name: 'CrypLounge',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge.com',
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge-news-two.vercel.app',
   description:
     'Independent crypto journalism: news, project discovery, research, regulation, events and the people building the industry.',
   /** The one address CrypLounge is reachable at, for every inquiry type. */

@@ -50,6 +50,7 @@ model User {
   refreshTokens RefreshToken[]
   auditLogs AuditLog[]
   articles  Article[]  @relation("ArticleCreatedBy")
+  newsletterCampaigns NewsletterCampaign[] @relation("NewsletterCampaignCreatedBy")
   uploads   Media[]
 
   createdAt DateTime @default(now())
@@ -1021,4 +1022,84 @@ model ContactMessage {
 
   @@index([read, createdAt])
   @@index([email])
+}
+
+enum NewsletterStatus {
+  ACTIVE
+  UNSUBSCRIBED
+}
+
+/// A newsletter subscriber. Created through the public subscribe form and
+/// managed in the admin panel. The email is stored lowercased and unique, so
+/// duplicate subscriptions are impossible at the database level.
+model NewsletterSubscriber {
+  id    String           @id @default(cuid())
+  email String           @unique
+  /// Optional first name collected by the public subscribe form.
+  name  String?
+
+  status NewsletterStatus @default(ACTIVE)
+
+  /// When the address was (last) subscribed; reset when a subscriber who
+  /// unsubscribed re-subscribes.
+  subscribedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([subscribedAt])
+}
+
+enum NewsletterCampaignStatus {
+  DRAFT
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum NewsletterRecipientType {
+  ALL_ACTIVE
+  SELECTED
+}
+
+/// A newsletter campaign created and sent from the admin panel. Drafts are
+/// stored like any other campaign and simply never reach the send step.
+model NewsletterCampaign {
+  id      String @id @default(cuid())
+  /// Email subject line.
+  subject String
+  /// Banner title shown at the top of the message body.
+  title   String
+  /// Sanitized HTML body authored in the admin editor.
+  content String @db.Text
+
+  status        NewsletterCampaignStatus  @default(DRAFT)
+  recipientType NewsletterRecipientType   @default(ALL_ACTIVE)
+  /// Snapshot of chosen addresses when recipientType = SELECTED. Stored so a
+  /// later change to the subscriber table cannot alter who actually got it.
+  recipientEmails String[]
+
+  /// Number of addresses the send targeted (computed when sending starts).
+  recipientCount Int @default(0)
+  sentCount      Int @default(0)
+  failedCount    Int @default(0)
+
+  /// Optional call-to-action rendered below the content.
+  ctaLabel String?
+  ctaUrl   String?
+
+  createdById String?
+  createdBy   User?   @relation("NewsletterCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  /// Set when the send finishes (or the campaign is cancelled).
+  sentAt      DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdById])
 }

@@ -34,6 +34,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { ContactModule } from './modules/contact/contact.module';
+import { NewsletterModule } from './modules/newsletter/newsletter.module';
 import { MailModule } from './modules/mail/mail.module';
 
 /**
@@ -95,6 +96,7 @@ import { MailModule } from './modules/mail/mail.module';
     AgentsModule,
     ContactModule,
     MailModule,
+    NewsletterModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

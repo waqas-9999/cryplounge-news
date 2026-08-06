@@ -1,8 +1,10 @@
 'use client';
 
-import { Twitter, Shield, Send, Rss } from 'lucide-react';
+import { Twitter, Shield, Send, Rss, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { subscribeToNewsletter } from '@/services/newsletter';
+import { trackNewsletterSignup } from '@/utils/analytics';
 
 interface FooterProps {
   onNavigate?: (page: string) => void;
@@ -12,7 +14,7 @@ export function Footer({ onNavigate }: FooterProps = {}) {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validate email
@@ -34,16 +36,29 @@ export function Footer({ onNavigate }: FooterProps = {}) {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      toast.success('Successfully subscribed!', {
-        description: 'Welcome to CrypLounge newsletter. Check your inbox for confirmation.',
+    try {
+      const result = await subscribeToNewsletter(email);
+      if (result.alreadySubscribed) {
+        toast.info('Already subscribed', {
+          description: 'This email is already on our list.',
+          duration: 5000,
+        });
+      } else {
+        trackNewsletterSignup();
+        toast.success('Successfully subscribed!', {
+          description: 'Welcome to CrypLounge newsletter. Check your inbox for confirmation.',
+          duration: 5000,
+        });
+      }
+      setEmail('');
+    } catch {
+      toast.error('Subscription failed', {
+        description: 'Could not subscribe right now. Please try again in a moment.',
         duration: 5000,
       });
-
-      setEmail('');
+    } finally {
       setIsSubmitting(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -159,11 +174,17 @@ export function Footer({ onNavigate }: FooterProps = {}) {
                   className="w-full px-4 py-3 bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-gray-800 rounded-lg text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none focus:ring-2 focus:ring-[#FFD200] pr-12 transition-all"
                   aria-label="Enter your email address to subscribe to our newsletter"
                 />
-                <button 
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#FFD200] rounded-lg flex items-center justify-center hover:bg-black dark:hover:bg-white transition-colors group"
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-[#FFD200] rounded-lg flex items-center justify-center hover:bg-black dark:hover:bg-white transition-colors group disabled:opacity-60 disabled:cursor-not-allowed"
                   aria-label="Submit newsletter subscription"
                 >
-                  <span className="text-black group-hover:text-[#FFD200] text-sm">→</span>
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-black group-hover:text-[#FFD200]" />
+                  ) : (
+                    <span className="text-black group-hover:text-[#FFD200] text-sm">→</span>
+                  )}
                 </button>
               </div>
             </form>

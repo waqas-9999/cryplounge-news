@@ -21,6 +21,10 @@ import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsP
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
 import { LogsPage } from '@/components/pages/admin/LogsPage';
 import { ContactMessagesPage } from '@/components/pages/admin/ContactMessagesPage';
+import { NewsletterListPage } from '@/components/pages/admin/NewsletterListPage';
+import { CampaignsListPage } from '@/components/pages/admin/CampaignsListPage';
+import { CampaignEditorPage } from '@/components/pages/admin/CampaignEditorPage';
+import { CampaignDetailPage } from '@/components/pages/admin/CampaignDetailPage';
 import { AnalyticsPage } from '@/components/pages/admin/AnalyticsPage';
 import { ArticleAnalyticsPage } from '@/components/pages/admin/ArticleAnalyticsPage';
 import { EventsAnalyticsPage } from '@/components/pages/admin/EventsAnalyticsPage';
@@ -104,6 +108,26 @@ export function AdminLogsView() {
 
 export function AdminContactView() {
   return <ContactMessagesPage {...useAdminChrome()} />;
+}
+
+export function AdminNewsletterView() {
+  return <NewsletterListPage {...useAdminChrome()} />;
+}
+
+export function AdminNewsletterCampaignsView() {
+  return <CampaignsListPage {...useAdminChrome()} />;
+}
+
+export function AdminNewsletterCampaignNewView() {
+  return <CampaignEditorPage {...useAdminChrome()} />;
+}
+
+export function AdminNewsletterCampaignEditView({ campaignId }: { campaignId: string }) {
+  return <CampaignEditorPage {...useAdminChrome()} campaignId={campaignId} />;
+}
+
+export function AdminNewsletterCampaignDetailView({ campaignId }: { campaignId: string }) {
+  return <CampaignDetailPage {...useAdminChrome()} campaignId={campaignId} />;
 }
 
 /* ---------------------------------------------------------------- news --- */

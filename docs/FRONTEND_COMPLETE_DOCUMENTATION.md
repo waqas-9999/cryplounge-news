@@ -530,7 +530,7 @@ components/
 ### Frontend (.env)
 ```env
 VITE_API_URL=http://localhost:3000/api
-VITE_SITE_URL=https://cryplounge.com
+VITE_SITE_URL=https://cryplounge-news-two.vercel.app
 VITE_CDN_URL=https://cdn.cryplounge.com
 ```
 
@@ -561,7 +561,7 @@ SENDGRID_API_KEY=your-sendgrid-key
 # App
 NODE_ENV=production
 PORT=3000
-CORS_ORIGIN=https://cryplounge.com
+CORS_ORIGIN=https://cryplounge-news-two.vercel.app
 ```
 
 ---

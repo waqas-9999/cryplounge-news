@@ -65,6 +65,7 @@ export class MailService {
       port: this.config.port,
       secure: this.config.secure,
       auth: { user: this.config.user!, pass: this.config.password! },
+      tls: { rejectUnauthorized: this.config.rejectUnauthorized },
     });
 
     return this.transporter;
@@ -96,6 +97,7 @@ export class MailService {
     html: string;
     text: string;
     replyTo?: string;
+    headers?: Record<string, string>;
   }): Promise<boolean> {
     const transport = this.transport();
     if (!transport) {
@@ -117,6 +119,7 @@ export class MailService {
         text: message.text,
         html: message.html,
         replyTo: message.replyTo,
+        headers: message.headers,
       });
       this.logger.log(
         `Sent "${message.subject}" to ${recipients.join(', ')} (messageId: ${info.messageId})`
