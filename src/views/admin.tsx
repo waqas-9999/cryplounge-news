@@ -14,6 +14,7 @@ import { useAppNavigate, useCurrentPageKey } from '@/lib/navigation';
 import { AdminAuthService } from '@/utils/adminAuth';
 
 import { AdminLoginPage } from '@/components/pages/admin/AdminLoginPage';
+import { AdminAcceptInvitePage } from '@/components/pages/admin/AdminAcceptInvitePage';
 import { AdminDashboardPage } from '@/components/pages/admin/AdminDashboardPage';
 import { AdminProfilePage } from '@/components/pages/admin/AdminProfilePage';
 import { UsersListPage } from '@/components/pages/admin/UsersListPage';
@@ -80,6 +81,11 @@ export function AdminLoginView() {
       onAdminLogin={() => router.replace('/admin/dashboard')}
     />
   );
+}
+
+export function AdminAcceptInviteView() {
+  const onNavigate = useAppNavigate();
+  return <AdminAcceptInvitePage onNavigate={onNavigate} />;
 }
 
 /* ----------------------------------------------------------- dashboard --- */

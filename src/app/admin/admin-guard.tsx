@@ -20,7 +20,7 @@ import { AdminAuthService } from '@/utils/adminAuth';
 export function AdminGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() ?? '';
-  const isLoginRoute = pathname === '/admin/login';
+  const isLoginRoute = pathname === '/admin/login' || pathname === '/admin/accept-invite';
 
   const [state, setState] = useState<'checking' | 'allowed' | 'denied'>('checking');
 

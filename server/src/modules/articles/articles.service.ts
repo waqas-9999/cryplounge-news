@@ -172,6 +172,7 @@ export class ArticlesService extends BaseCrudService {
     if (!current) await this.findByIdOrFail(id);
 
     const existing = current!;
+    this.assertMayEdit(existing, user);
     if (dto.content !== undefined) dto.content = this.sanitizer.sanitize(dto.content);
     const status = dto.status ?? existing.status;
 
@@ -302,6 +303,22 @@ export class ArticlesService extends BaseCrudService {
   }
 
   /* ------------------------------------------------------------ helpers --- */
+
+  /**
+   * AUTHOR holds `news.update` so it can edit its own drafts, but that grant
+   * is not scoped to ownership at the permission-guard level — enforce it
+   * here instead. Every other role with `news.update` (editors, moderators,
+   * admins) edits across the board by design.
+   */
+  private assertMayEdit(existing: { createdById: string | null }, user: AuthenticatedUser): void {
+    if (user.role !== 'AUTHOR') return;
+    if (existing.createdById === user.id) return;
+
+    throw new ForbiddenException({
+      message: 'You can only edit your own articles',
+      code: 'FORBIDDEN',
+    });
+  }
 
   private assertMayPublish(status: ContentStatus, user: AuthenticatedUser): void {
     if (!this.publishing.requiresPublishPermission(status)) return;
