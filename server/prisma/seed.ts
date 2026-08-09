@@ -455,6 +455,11 @@ async function seedLegalPages(ownerId: string) {
         <h2>3. Cookies and Tracking</h2>
         <p>We use cookies and similar tracking technologies to enhance your experience. Cookies help us remember your preferences, keep you signed in, analyze site traffic, and serve relevant advertisements.</p>
         <p>You can control cookies through your browser settings. Note that disabling cookies may limit some functionality of the Platform.</p>
+        <h3>3.1 Third-Party Advertising</h3>
+        <p>We use third-party advertising companies, including Google, to serve ads when you visit the Platform. These companies may use cookies and similar technologies to serve ads based on your prior visits to this and other websites.</p>
+        <p>Google's use of advertising cookies enables it and its partners to serve ads to you based on your visit to our Platform and other sites on the internet. Google uses the DoubleClick cookie for this purpose.</p>
+        <p>You may opt out of personalised advertising by visiting <a href="https://www.google.com/settings/ads" rel="noopener noreferrer" target="_blank">Google Ads Settings</a>. You can also opt out of third-party vendors' use of cookies for personalised advertising at <a href="https://www.aboutads.info/choices/" rel="noopener noreferrer" target="_blank">aboutads.info</a> or <a href="https://www.youronlinechoices.com/" rel="noopener noreferrer" target="_blank">youronlinechoices.com</a>.</p>
+        <p>If you are located in the European Economic Area, the United Kingdom or Switzerland, we ask for your consent before any advertising or analytics cookies are set, and you can change or withdraw that consent at any time through the consent settings on this site.</p>
         <h2>4. Information Sharing</h2>
         <p>We do not sell your personal information. We may share your information only with service providers, for legal compliance, in connection with business transfers, or with your consent.</p>
         <h2>5. Data Security</h2>

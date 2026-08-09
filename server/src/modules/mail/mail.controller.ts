@@ -29,7 +29,7 @@ export class MailController {
   @Post('test')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @RequirePermissions('settings.update')
+  @RequirePermissions('settings.manage')
   @ResponseMessage('Test email')
   @ApiOperation({ summary: 'Verify SMTP credentials and send a test to the signed-in user' })
   async test(@CurrentUser() user: AuthenticatedUser) {

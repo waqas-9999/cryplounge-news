@@ -12,7 +12,10 @@ export default function NotFoundPage({ onNavigate }: NotFoundPageProps) {
     { label: 'Markets', page: 'news/market' },
     { label: 'Ecosystem', page: 'ecosystem' },
     { label: 'Research', page: 'research' },
-    { label: 'Learn', page: 'learn' },
+    // Was 'Learn', which points at a section that no longer exists — a 404
+    // page linking to another 404.
+    { label: 'Regulation', page: 'regulation' },
+    { label: 'Events', page: 'events' },
   ];
 
   return (
