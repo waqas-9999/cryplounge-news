@@ -41,11 +41,7 @@ import AboutPage from '@/components/pages/AboutPage';
 import ContactPage from '@/components/pages/ContactPage';
 import AdvertisePage from '@/components/pages/AdvertisePage';
 import CareersPage from '@/components/pages/CareersPage';
-import PrivacyPage from '@/components/pages/PrivacyPage';
-import TermsPage from '@/components/pages/TermsPage';
-import EditorialPolicyPage from '@/components/pages/EditorialPolicyPage';
-import FactCheckPolicyPage from '@/components/pages/FactCheckPolicyPage';
-import CorrectionsPolicyPage from '@/components/pages/CorrectionsPolicyPage';
+import LegalPage from '@/components/pages/LegalPage';
 import NewsletterPage from '@/components/pages/NewsletterPage';
 import AuthorPage from '@/components/pages/AuthorPage';
 import SearchPage from '@/components/pages/SearchPage';
@@ -184,23 +180,23 @@ export function CareersView() {
 }
 
 export function PrivacyView() {
-  return <PrivacyPage onNavigate={useAppNavigate()} />;
+  return <LegalPage slug="privacy" onNavigate={useAppNavigate()} />;
 }
 
 export function TermsView() {
-  return <TermsPage onNavigate={useAppNavigate()} />;
+  return <LegalPage slug="terms" onNavigate={useAppNavigate()} />;
 }
 
 export function EditorialPolicyView() {
-  return <EditorialPolicyPage onNavigate={useAppNavigate()} />;
+  return <LegalPage slug="editorial-policy" onNavigate={useAppNavigate()} />;
 }
 
 export function FactCheckPolicyView() {
-  return <FactCheckPolicyPage onNavigate={useAppNavigate()} />;
+  return <LegalPage slug="fact-check-policy" onNavigate={useAppNavigate()} />;
 }
 
 export function CorrectionsPolicyView() {
-  return <CorrectionsPolicyPage onNavigate={useAppNavigate()} />;
+  return <LegalPage slug="corrections-policy" onNavigate={useAppNavigate()} />;
 }
 
 export function NewsletterView() {

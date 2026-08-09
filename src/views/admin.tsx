@@ -49,6 +49,9 @@ import { FoundersListPage } from '@/components/pages/admin/FoundersListPage';
 import { FoundersCreatePage } from '@/components/pages/admin/FoundersCreatePage';
 import { FoundersEditPage } from '@/components/pages/admin/FoundersEditPage';
 
+import { LegalPagesListPage } from '@/components/pages/admin/LegalPagesListPage';
+import { LegalPageFormPage } from '@/components/pages/admin/LegalPageFormPage';
+
 import { GeneralSettingsPage } from '@/components/pages/admin/settings/GeneralSettingsPage';
 import { AppearanceSettingsPage } from '@/components/pages/admin/settings/AppearanceSettingsPage';
 import { EmailSettingsPage } from '@/components/pages/admin/settings/EmailSettingsPage';
@@ -227,6 +230,20 @@ export function AdminFoundersCreateView() {
 
 export function AdminFoundersEditView({ founderId }: { founderId: string }) {
   return <FoundersEditPage {...useAdminChrome()} founderId={founderId} />;
+}
+
+/* -------------------------------------------------------------- pages --- */
+
+export function AdminLegalPagesListView() {
+  return <LegalPagesListPage {...useAdminChrome()} />;
+}
+
+export function AdminLegalPagesCreateView() {
+  return <LegalPageFormPage {...useAdminChrome()} />;
+}
+
+export function AdminLegalPagesEditView({ pageId }: { pageId: string }) {
+  return <LegalPageFormPage {...useAdminChrome()} pageId={pageId} />;
 }
 
 /* ------------------------------------------------------------ settings --- */

@@ -360,6 +360,231 @@ async function seedHomepageSections() {
   console.log(`  homepage sections: ${await db.homepageSection.count()}`);
 }
 
+/**
+ * Legal/policy pages, migrated from the formerly-hardcoded frontend
+ * components so an admin can edit them without a deploy going forward.
+ */
+async function seedLegalPages(ownerId: string) {
+  const pages: { slug: string; title: string; seoDescription: string; content: string }[] = [
+    {
+      slug: 'terms',
+      title: 'Terms of Service',
+      seoDescription: "Read CrypLounge's Terms of Service. Learn about user responsibilities, content guidelines, and platform usage terms.",
+      content: `
+        <h2>1. Agreement to Terms</h2>
+        <p>By accessing or using CrypLounge ("the Platform"), you agree to be bound by these Terms of Service. If you disagree with any part of these terms, you may not access the Platform.</p>
+        <p><strong>Important:</strong> These terms constitute a legally binding agreement between you and CrypLounge.</p>
+        <h2>2. Use of Platform</h2>
+        <h3>2.1 Permitted Use</h3>
+        <p>You may use the Platform to:</p>
+        <ul>
+          <li>Read and access news articles and educational content</li>
+          <li>View market data and cryptocurrency information</li>
+          <li>Create an account and manage your profile</li>
+          <li>Submit content subject to our editorial review</li>
+          <li>Participate in community discussions</li>
+        </ul>
+        <h3>2.2 Prohibited Use</h3>
+        <p>You agree NOT to:</p>
+        <ul>
+          <li>Violate any applicable laws or regulations</li>
+          <li>Infringe on intellectual property rights</li>
+          <li>Submit false, misleading, or defamatory content</li>
+          <li>Attempt to hack, disrupt, or damage the Platform</li>
+          <li>Use automated systems to scrape or harvest data</li>
+          <li>Impersonate other users or entities</li>
+          <li>Share your account credentials with others</li>
+        </ul>
+        <h2>3. User Accounts</h2>
+        <p>When you create an account with us, you must provide accurate, complete, and current information. You are responsible for safeguarding your password and for any activities or actions under your account.</p>
+        <p>We reserve the right to suspend or terminate your account if any information provided proves to be inaccurate, false, or violates these Terms of Service.</p>
+        <h2>4. Content</h2>
+        <h3>4.1 Our Content</h3>
+        <p>All content published on CrypLounge, including but not limited to text, graphics, logos, images, and software, is the property of CrypLounge or its content suppliers and is protected by copyright laws.</p>
+        <h3>4.2 User-Generated Content</h3>
+        <p>By submitting content to CrypLounge, you grant us a worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and publish your content. You retain ownership of your content but give us permission to use it on our Platform.</p>
+        <h3>4.3 Content Standards</h3>
+        <p>All user-generated content must be accurate, respectful, and comply with applicable laws. We reserve the right to remove any content that violates these standards.</p>
+        <h2>5. Disclaimer</h2>
+        <p><strong>NOT FINANCIAL ADVICE:</strong> The information provided on CrypLounge is for informational and educational purposes only. Nothing on this Platform constitutes financial, investment, legal, or tax advice.</p>
+        <p>Cryptocurrency investments are highly volatile and risky. You should conduct your own research and consult with qualified professionals before making any investment decisions.</p>
+        <p>CrypLounge and its contributors are not responsible for any losses or damages resulting from your use of information on this Platform.</p>
+        <h2>6. Limitation of Liability</h2>
+        <p>To the maximum extent permitted by law, CrypLounge shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses.</p>
+        <h2>7. Changes to Terms</h2>
+        <p>We reserve the right to modify or replace these Terms at any time. We will provide notice of any changes by updating the page. Your continued use of the Platform after any changes constitutes acceptance of the new Terms.</p>
+        <h2>8. Governing Law</h2>
+        <p>These Terms shall be governed by and construed in accordance with international laws, without regard to its conflict of law provisions.</p>
+        <h2>9. Contact Us</h2>
+        <p>If you have any questions about these Terms of Service, please contact us at <a href="mailto:cryploungeofficial@gmail.com">cryploungeofficial@gmail.com</a>.</p>
+      `,
+    },
+    {
+      slug: 'privacy',
+      title: 'Privacy Policy',
+      seoDescription: 'Learn how CrypLounge collects, uses, and protects your personal information. Read our comprehensive privacy policy and data protection practices.',
+      content: `
+        <h2>Your Privacy Matters</h2>
+        <p>At CrypLounge, we are committed to protecting your privacy and ensuring the security of your personal information. This policy explains how we collect, use, and safeguard your data.</p>
+        <h2>1. Information We Collect</h2>
+        <h3>1.1 Information You Provide</h3>
+        <ul>
+          <li>Name and email address</li>
+          <li>Username and password</li>
+          <li>Profile information (optional)</li>
+          <li>Content you submit (articles, comments, submissions)</li>
+          <li>Communication preferences</li>
+        </ul>
+        <h3>1.2 Automatically Collected Information</h3>
+        <ul>
+          <li>Device information (browser type, operating system)</li>
+          <li>IP address and location data</li>
+          <li>Pages viewed and links clicked</li>
+          <li>Time and date of visits</li>
+          <li>Referring website addresses</li>
+        </ul>
+        <h2>2. How We Use Your Information</h2>
+        <ul>
+          <li><strong>Service Delivery:</strong> To provide and maintain our Platform</li>
+          <li><strong>Personalization:</strong> To customize content and recommendations</li>
+          <li><strong>Communication:</strong> To send newsletters, updates, and notifications</li>
+          <li><strong>Analytics:</strong> To understand how users interact with our Platform</li>
+          <li><strong>Security:</strong> To detect and prevent fraud and abuse</li>
+          <li><strong>Improvement:</strong> To enhance and optimize our services</li>
+        </ul>
+        <h2>3. Cookies and Tracking</h2>
+        <p>We use cookies and similar tracking technologies to enhance your experience. Cookies help us remember your preferences, keep you signed in, analyze site traffic, and serve relevant advertisements.</p>
+        <p>You can control cookies through your browser settings. Note that disabling cookies may limit some functionality of the Platform.</p>
+        <h2>4. Information Sharing</h2>
+        <p>We do not sell your personal information. We may share your information only with service providers, for legal compliance, in connection with business transfers, or with your consent.</p>
+        <h2>5. Data Security</h2>
+        <p>We implement industry-standard security measures, including encryption in transit and at rest, regular security audits, restricted access, and secure password hashing.</p>
+        <p><strong>Note:</strong> While we strive to protect your information, no method of transmission over the internet is 100% secure. We cannot guarantee absolute security.</p>
+        <h2>6. Your Rights</h2>
+        <ul>
+          <li><strong>Access:</strong> Request a copy of your personal data</li>
+          <li><strong>Correction:</strong> Update or correct inaccurate information</li>
+          <li><strong>Deletion:</strong> Request deletion of your account and data</li>
+          <li><strong>Opt-Out:</strong> Unsubscribe from marketing communications</li>
+          <li><strong>Portability:</strong> Request your data in a portable format</li>
+          <li><strong>Object:</strong> Object to processing of your data for certain purposes</li>
+        </ul>
+        <h2>7. Data Retention</h2>
+        <p>We retain your personal information for as long as necessary to provide our services. When you delete your account, we will delete or anonymize your personal information within 30 days, except where required to retain it for legal or regulatory purposes.</p>
+        <h2>8. Children's Privacy</h2>
+        <p>CrypLounge is not intended for users under the age of 18. We do not knowingly collect personal information from children.</p>
+        <h2>9. International Data Transfers</h2>
+        <p>Your information may be transferred to and processed in countries other than your country of residence. We ensure appropriate safeguards are in place to protect your information.</p>
+        <h2>10. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. We encourage you to review this policy periodically.</p>
+        <h2>11. Contact Us</h2>
+        <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:cryploungeofficial@gmail.com">cryploungeofficial@gmail.com</a>.</p>
+      `,
+    },
+    {
+      slug: 'editorial-policy',
+      title: 'Editorial Policy',
+      seoDescription: "How CrypLounge sources, verifies, and publishes cryptocurrency and blockchain news.",
+      content: `
+        <h2>Our Mission</h2>
+        <p>CrypLounge is committed to delivering accurate, timely, and unbiased cryptocurrency and blockchain news to our readers. Our editorial policy ensures that all content meets the highest standards of journalism while serving the crypto community's need for reliable information.</p>
+        <h2>Editorial Independence</h2>
+        <p>Our editorial team operates independently from our business and advertising departments. No advertiser, sponsor, or external party influences our editorial decisions, story selection, or content presentation.</p>
+        <h2>Accuracy and Verification</h2>
+        <ul>
+          <li>All facts are verified through multiple credible sources before publication</li>
+          <li>We cite sources and provide links to original documents when possible</li>
+          <li>Financial data and statistics are cross-referenced with reliable industry sources</li>
+          <li>Technical claims are reviewed by subject matter experts</li>
+        </ul>
+        <h2>Conflicts of Interest</h2>
+        <p>We maintain strict policies regarding conflicts of interest:</p>
+        <ul>
+          <li>Writers must disclose any financial holdings in cryptocurrencies or projects they cover</li>
+          <li>Staff members are prohibited from trading based on non-public information</li>
+          <li>Sponsored content is clearly labeled and separated from editorial content</li>
+        </ul>
+        <h2>Editorial Standards</h2>
+        <ul>
+          <li>Clear distinction between news reporting, analysis, and opinion</li>
+          <li>Balanced coverage that presents multiple perspectives</li>
+          <li>Respectful and professional tone in all communications</li>
+          <li>Proper attribution of sources and quotes</li>
+          <li>Regular updates to developing stories</li>
+        </ul>
+        <h2>User-Generated Content</h2>
+        <p>Comments and user submissions are moderated to ensure quality discourse. We reserve the right to remove content that violates our community guidelines, including spam, harassment, or misinformation.</p>
+        <h2>Contact</h2>
+        <p>For questions about our editorial policy or to report concerns, please contact our editorial team at <a href="mailto:cryploungeofficial@gmail.com">cryploungeofficial@gmail.com</a>.</p>
+      `,
+    },
+    {
+      slug: 'fact-check-policy',
+      title: 'Fact-Check Policy',
+      seoDescription: 'How CrypLounge verifies facts, evaluates sources, and handles corrections.',
+      content: `
+        <h2>Our Commitment to Accuracy</h2>
+        <p>CrypLounge is dedicated to providing accurate and reliable information to our readers. Every article undergoes a rigorous fact-checking process before publication.</p>
+        <h2>Verification Process</h2>
+        <p>Our team cross-references claims against primary sources, official statements, and reputable industry data before a story is published.</p>
+        <h2>Source Evaluation</h2>
+        <p>We prioritize primary sources — official announcements, on-chain data, and verified statements — over secondary reporting.</p>
+        <h2>Handling Uncertainty</h2>
+        <p>Where facts are disputed or unconfirmed, we clearly label the uncertainty rather than presenting speculation as established fact.</p>
+        <h2>Price and Market Data</h2>
+        <p>Market figures are sourced from established data providers and are timestamped; prices are volatile and may change between writing and publication.</p>
+        <h2>Correcting Errors</h2>
+        <p>When an error is identified, we correct it promptly and transparently. See our <a href="/corrections-policy">Corrections Policy</a> for details.</p>
+        <h2>Reader Contributions</h2>
+        <p>Readers who spot an inaccuracy are encouraged to report it so we can investigate and correct it if warranted.</p>
+        <h2>Contact</h2>
+        <p>To flag a factual concern, contact us at <a href="mailto:cryploungeofficial@gmail.com">cryploungeofficial@gmail.com</a>.</p>
+      `,
+    },
+    {
+      slug: 'corrections-policy',
+      title: 'Corrections Policy',
+      seoDescription: 'How CrypLounge issues corrections and clarifications to published content.',
+      content: `
+        <h2>Our Commitment to Transparency</h2>
+        <p>When we get something wrong, we correct it openly. This policy explains how we handle corrections and clarifications.</p>
+        <h2>Types of Corrections</h2>
+        <p>Corrections range from minor factual fixes to substantial changes affecting the meaning of an article. Each is handled proportionately to its significance.</p>
+        <h2>Correction Process</h2>
+        <p>Once an error is confirmed, the article is updated, and a correction note is appended describing what changed and when.</p>
+        <h2>Correction Notation</h2>
+        <p>Corrections are marked inline, for example: <em>"Correction: an earlier version of this article misstated the launch date."</em></p>
+        <h2>Clarifications vs. Corrections</h2>
+        <p>Clarifications add context without indicating a factual error; corrections indicate that published information was incorrect.</p>
+        <h2>Reporting Errors</h2>
+        <p>Readers can report suspected errors to our editorial team for review.</p>
+        <h2>Archive Access</h2>
+        <p>Original versions of corrected articles remain available in our version history for transparency.</p>
+        <h2>Contact</h2>
+        <p>To report an error, contact us at <a href="mailto:cryploungeofficial@gmail.com">cryploungeofficial@gmail.com</a>.</p>
+      `,
+    },
+  ];
+
+  for (const page of pages) {
+    await db.legalPage.upsert({
+      where: { slug: page.slug },
+      update: {},
+      create: {
+        slug: page.slug,
+        title: page.title,
+        content: page.content.trim(),
+        status: ContentStatus.PUBLISHED,
+        publishedAt: new Date(),
+        seoTitle: `${page.title} - CrypLounge`,
+        seoDescription: page.seoDescription,
+        updatedById: ownerId,
+      },
+    });
+  }
+  console.log(`  legal pages: ${await db.legalPage.count()}`);
+}
+
 async function seedLanguages() {
   await db.language.upsert({
     where: { code: 'en' },
@@ -380,6 +605,7 @@ async function main() {
   await seedFounders();
   await seedProjectCollections();
   await seedHomepageSections();
+  await seedLegalPages(owner.id);
   await seedLanguages();
   console.log('Done.');
 }

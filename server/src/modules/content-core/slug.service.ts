@@ -9,7 +9,8 @@ export type SluggableModel =
   | 'regulation'
   | 'event'
   | 'founder'
-  | 'author';
+  | 'author'
+  | 'legalPage';
 
 /**
  * Slug generation and uniqueness.

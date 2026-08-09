@@ -15,6 +15,7 @@ import {
   Mail,
   Send,
   Layers,
+  FileText,
   X
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -178,6 +179,15 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       label: 'Logs',
       icon: ScrollText,
       page: 'admin/logs'
+    },
+    {
+      id: 'legal-pages',
+      label: 'Legal Pages',
+      icon: FileText,
+      submenu: [
+        { label: 'All Pages', page: 'admin/pages' },
+        { label: 'Create New', page: 'admin/pages/create' }
+      ]
     },
     {
       id: 'settings',

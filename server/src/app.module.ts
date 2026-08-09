@@ -27,6 +27,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { AuthorsModule } from './modules/authors/authors.module';
 import { MediaModule } from './modules/media/media.module';
 import { SiteModule } from './modules/site/site.module';
+import { LegalPagesModule } from './modules/legal-pages/legal-pages.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
@@ -88,6 +89,7 @@ import { MailModule } from './modules/mail/mail.module';
     AuthorsModule,
     MediaModule,
     SiteModule,
+    LegalPagesModule,
     AuditModule,
     SearchModule,
     DiscoveryModule,

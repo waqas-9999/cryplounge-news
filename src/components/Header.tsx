@@ -45,8 +45,6 @@ const NAV_ITEMS = [
     ],
   },
   { name: 'Ecosystem', slug: 'ecosystem', page: 'ecosystem' },
-  { name: 'Research', slug: 'research', page: 'research' },
-  { name: 'Regulation', slug: 'regulation', page: 'regulation' },
   { name: 'Events', slug: 'events', page: 'events' },
   { name: 'Founders', slug: 'founders', page: 'founders' },
 ];

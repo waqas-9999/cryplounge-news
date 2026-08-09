@@ -115,8 +115,6 @@ export function Footer({ onNavigate }: FooterProps = {}) {
               {[
                 { label: 'News', page: 'news' },
                 { label: 'Ecosystem', page: 'ecosystem' },
-                { label: 'Research', page: 'research' },
-                { label: 'Regulation', page: 'regulation' },
                 { label: 'Events', page: 'events' },
                 { label: 'Founders', page: 'founders' },
                 { label: 'Newsletter', page: 'newsletter' },
