@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface SidebarArticle {
@@ -43,9 +44,9 @@ export function FeaturedNewsSection({
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Left - Large Image with Content Overlay */}
-        <div 
-          onClick={() => onNavigate && onNavigate(`news/${mainCategorySlug}/${mainArticleSlug}`)}
-          className="lg:col-span-2 bg-white dark:bg-[#1E1E20] rounded-2xl md:rounded-3xl overflow-hidden relative border border-gray-100 dark:border-white/[0.08] transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
+        <Link
+          href={`/news/${mainCategorySlug}/${mainArticleSlug}`}
+          className="block lg:col-span-2 bg-white dark:bg-[#1E1E20] rounded-2xl md:rounded-3xl overflow-hidden relative border border-gray-100 dark:border-white/[0.08] transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
         >
           <div className="relative h-[300px] md:h-[400px] lg:h-[500px]">
             <ImageWithFallback 
@@ -73,16 +74,16 @@ export function FeaturedNewsSection({
               </div>
             </div>
           </div>
-        </div>
+        </Link>
         
         {/* Right - Yellow Gradient Sidebar - SAME GRADIENT IN BOTH MODES */}
         <div className="bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 rounded-2xl md:rounded-3xl p-5 md:p-6 text-white border border-yellow-300 dark:border-yellow-500/30 transition-colors shadow-lg dark:shadow-yellow-500/10">
           <div className="space-y-4 md:space-y-6">
             {sidebarArticles.map((article, idx) => (
-              <div 
-                key={idx} 
-                onClick={() => onNavigate && onNavigate(`news/${article.categorySlug}/${article.articleSlug}`)}
-                className="pb-4 md:pb-6 border-b border-white/20 last:border-0 cursor-pointer hover:opacity-90 transition-opacity"
+              <Link
+                key={idx}
+                href={`/news/${article.categorySlug}/${article.articleSlug}`}
+                className="block pb-4 md:pb-6 border-b border-white/20 last:border-0 cursor-pointer hover:opacity-90 transition-opacity"
               >
                 <div className="mb-2 text-xs md:text-sm opacity-90">
                   {article.category} • {article.time}
@@ -90,7 +91,7 @@ export function FeaturedNewsSection({
                 <h4 className="leading-snug text-sm md:text-base">
                   {article.title}
                 </h4>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

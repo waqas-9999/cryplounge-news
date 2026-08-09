@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { TrendingCard } from '@/components/TrendingCard';
 import { LatestNewsCard } from '@/components/LatestNewsCard';
@@ -45,6 +46,12 @@ interface CategoryNewsPageProps {
   displayTitle: string;
   images: CategoryNewsPageImages;
   onNavigate?: (page: string) => void;
+  /**
+   * Page 1 of the listing, fetched on the server so headlines and article
+   * links are in the initial HTML rather than appearing only after JS runs.
+   */
+  initialArticles?: Article[];
+  initialTotalPages?: number;
 }
 
 function fallbackImage(images: CategoryNewsPageImages, index: number): string {
@@ -62,13 +69,16 @@ function timeAgo(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-export function CategoryNewsPage({ category, displayTitle, images, onNavigate }: CategoryNewsPageProps) {
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [featured, setFeatured] = useState<Article | null>(null);
-  const [latest, setLatest] = useState<Article[]>([]);
-  const [more, setMore] = useState<Article[]>([]);
+export function CategoryNewsPage({ category, displayTitle, images, onNavigate, initialArticles, initialTotalPages }: CategoryNewsPageProps) {
+  // Server-rendered first page. Without this the listing shipped an empty
+  // shell and a spinner, so crawlers saw no articles and no internal links.
+  const seeded = (initialArticles?.length ?? 0) > 0;
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>(seeded ? 'ready' : 'loading');
+  const [featured, setFeatured] = useState<Article | null>(initialArticles?.[0] ?? null);
+  const [latest, setLatest] = useState<Article[]>(initialArticles?.slice(1, 6) ?? []);
+  const [more, setMore] = useState<Article[]>(initialArticles?.slice(6, 14) ?? []);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [totalPages, setTotalPages] = useState(initialTotalPages ?? 1);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
 
@@ -104,6 +114,9 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
   };
 
   useEffect(() => {
+    // Page 1 is already rendered from server data; only paginate on demand.
+    if (seeded && page === 1) return;
+
     let cancelled = false;
     setState('loading');
 
@@ -123,7 +136,7 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
     return () => {
       cancelled = true;
     };
-  }, [category, page]);
+  }, [category, page, seeded]);
 
   if (state === 'loading') {
     return (
@@ -163,9 +176,9 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-2">
-          <div
-            onClick={() => onNavigate?.(articleHref(featured))}
-            className="bg-white dark:bg-[#1A1A1A] rounded-2xl md:rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
+          <Link
+            href={articleHref(featured)}
+            className="block bg-white dark:bg-[#1A1A1A] rounded-2xl md:rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
           >
             <div className="mb-3 md:mb-4">
               <span className="text-[#EFB81A] text-xs md:text-sm">{displayTitle}</span>
@@ -173,9 +186,9 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
                 {timeAgo(featured.publishedAt)}
               </span>
             </div>
-            <h2 className="text-gray-800 dark:text-[#F3F3F5] text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
+            <h1 className="text-gray-800 dark:text-[#F3F3F5] text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
               {featured.title}
-            </h2>
+            </h1>
             <div className="flex gap-2 md:gap-3 mb-6 md:mb-8">
               {featured.tags.slice(0, 3).map(tag => (
                 <span key={tag} className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm">
@@ -199,7 +212,7 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate }:
                 </div>
               )}
             </div>
-          </div>
+          </Link>
 
           <div>
             <div className="flex items-center justify-between mb-4 md:mb-6">

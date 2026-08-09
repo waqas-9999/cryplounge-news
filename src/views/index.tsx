@@ -50,36 +50,111 @@ import NotFoundPage from '@/components/pages/NotFoundPage';
 
 /* ---------------------------------------------------------------- news --- */
 
-export function HomeView({ spotlightProjects }: { spotlightProjects: Project[] }) {
+export function HomeView({
+  spotlightProjects,
+  initialArticles,
+}: {
+  spotlightProjects: Project[];
+  initialArticles?: Article[];
+}) {
   return (
     <HomePage
       images={images}
       onNavigate={useAppNavigate()}
       spotlightProjects={spotlightProjects}
+      initialArticles={initialArticles}
     />
   );
 }
 
 /** "All News" — the landing page of the News section. */
-export function AllNewsView() {
-  return <LatestPage images={images} onNavigate={useAppNavigate()} />;
+export function AllNewsView({
+  initialArticles,
+  initialTotalPages,
+}: {
+  initialArticles?: Article[];
+  initialTotalPages?: number;
+} = {}) {
+  return (
+    <LatestPage
+      images={images}
+      onNavigate={useAppNavigate()}
+      initialArticles={initialArticles}
+      initialTotalPages={initialTotalPages}
+    />
+  );
 }
 
 /** Market *news* — deliberately editorial, no prices or rankings. */
-export function MarketNewsView() {
-  return <MarketsPage images={images} onNavigate={useAppNavigate()} />;
+export function MarketNewsView({
+  initialArticles,
+  initialTotalPages,
+}: {
+  initialArticles?: Article[];
+  initialTotalPages?: number;
+} = {}) {
+  return (
+    <MarketsPage
+      images={images}
+      onNavigate={useAppNavigate()}
+      initialArticles={initialArticles}
+      initialTotalPages={initialTotalPages}
+    />
+  );
 }
 
-export function BusinessView() {
-  return <BusinessPage images={images} onNavigate={useAppNavigate()} />;
+export function BusinessView({
+  initialArticles,
+  initialTotalPages,
+}: {
+  initialArticles?: Article[];
+  initialTotalPages?: number;
+} = {}) {
+  return (
+    <BusinessPage
+      images={images}
+      onNavigate={useAppNavigate()}
+      initialArticles={initialArticles}
+      initialTotalPages={initialTotalPages}
+    />
+  );
 }
 
-export function TechnologyView() {
-  return <TechnologyPage images={images} onNavigate={useAppNavigate()} />;
+export function TechnologyView({
+  initialArticles,
+  initialTotalPages,
+}: {
+  initialArticles?: Article[];
+  initialTotalPages?: number;
+} = {}) {
+  return (
+    <TechnologyPage
+      images={images}
+      onNavigate={useAppNavigate()}
+      initialArticles={initialArticles}
+      initialTotalPages={initialTotalPages}
+    />
+  );
 }
 
-export function CategoryView({ category }: { category: string }) {
-  return <CategoryPage category={category} images={images} onNavigate={useAppNavigate()} />;
+export function CategoryView({
+  category,
+  initialArticles,
+  relatedArticles,
+}: {
+  category: string;
+  initialArticles?: Article[];
+  relatedArticles?: Article[];
+}) {
+  return (
+    <CategoryPage
+      category={category}
+      images={images}
+      onNavigate={useAppNavigate()}
+      initialArticles={initialArticles}
+      relatedArticles={relatedArticles}
+    />
+  );
 }
 
 export function ArticleView({ category, article }: { category: string; article: Article }) {

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 interface HeroArticleProps {
@@ -11,20 +12,18 @@ interface HeroArticleProps {
   articleSlug: string;
   image?: string;
   gradientImage?: string;
+  /** @deprecated Navigation is handled by the card's own <Link>. Kept so existing call sites still compile. */
   onNavigate?: (page: string) => void;
 }
 
-export function HeroArticle({ category, categorySlug, time, title, tags, articleSlug, onNavigate }: HeroArticleProps) {
-  const handleClick = () => {
-    if (onNavigate) {
-      onNavigate(`news/${categorySlug}/${articleSlug}`);
-    }
-  };
+export function HeroArticle({ category, categorySlug, time, title, tags, articleSlug }: HeroArticleProps) {
+  // A real URL, so the card is a crawlable <a> rather than a click handler.
+  const href = `/news/${categorySlug}/${articleSlug}`;
 
   return (
-    <div 
-      onClick={handleClick}
-      className="bg-white dark:bg-[#1E1E20] rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden min-h-[300px] md:min-h-[400px] flex flex-col justify-between border border-gray-100 dark:border-white/[0.08] transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
+    <Link
+      href={href}
+      className="block bg-white dark:bg-[#1E1E20] rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden min-h-[300px] md:min-h-[400px] flex flex-col justify-between border border-gray-100 dark:border-white/[0.08] transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
     >
       <div className="absolute right-0 top-0 w-[300px] md:w-[600px] h-[300px] md:h-[600px]">
         <div className="w-full h-full bg-gradient-to-br from-yellow-200 via-yellow-300 to-blue-200 dark:from-yellow-400/20 dark:via-yellow-500/15 dark:to-yellow-600/10 rounded-full opacity-40 blur-3xl"></div>
@@ -57,6 +56,6 @@ export function HeroArticle({ category, categorySlug, time, title, tags, article
           <ArrowRight className="w-3 h-3 md:w-4 md:h-4" />
         </button>
       </div>
-    </div>
+    </Link>
   );
 }

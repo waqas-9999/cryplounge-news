@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface LatestNewsCardProps {
@@ -9,20 +10,18 @@ interface LatestNewsCardProps {
   title: string;
   image: string;
   articleSlug: string;
+  /** @deprecated Navigation is handled by the card's own <Link>. Kept so existing call sites still compile. */
   onNavigate?: (page: string) => void;
 }
 
-export function LatestNewsCard({ category, categorySlug, time, title, image, articleSlug, onNavigate }: LatestNewsCardProps) {
-  const handleClick = () => {
-    if (onNavigate) {
-      onNavigate(`news/${categorySlug}/${articleSlug}`);
-    }
-  };
+export function LatestNewsCard({ category, categorySlug, time, title, image, articleSlug }: LatestNewsCardProps) {
+  // A real URL, so the card is a crawlable <a> rather than a click handler.
+  const href = `/news/${categorySlug}/${articleSlug}`;
 
   return (
-    <div 
-      onClick={handleClick}
-      className="flex gap-3 md:gap-4 items-start hover:opacity-80 transition-opacity cursor-pointer group"
+    <Link
+      href={href}
+      className="block flex gap-3 md:gap-4 items-start hover:opacity-80 transition-opacity cursor-pointer group"
     >
       <div className="flex-1">
         <div className="mb-1 md:mb-2">
@@ -40,6 +39,6 @@ export function LatestNewsCard({ category, categorySlug, time, title, image, art
           className="w-full h-full object-cover"
         />
       </div>
-    </div>
+    </Link>
   );
 }

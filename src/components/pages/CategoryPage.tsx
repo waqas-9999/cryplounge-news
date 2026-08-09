@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { TrendingCard } from '@/components/TrendingCard';
 import { LatestNewsCard } from '@/components/LatestNewsCard';
 import { ArrowRight, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
-import { getCrossPromotionArticles } from '@/data/crossPromotionData';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 import { labelForSlug } from '@/lib/taxonomy';
+import { articleHref } from '@/services/news';
+import type { Article } from '@/types/article';
 
 interface CategoryPageProps {
   category: string;
@@ -19,16 +21,21 @@ interface CategoryPageProps {
     asianBusinessmanImage: string;
   };
   onNavigate?: (page: string) => void;
+  /** This category's articles, fetched on the server. */
+  initialArticles?: Article[];
+  /** Real articles from other categories, replacing the old generated ones. */
+  relatedArticles?: Article[];
 }
 
-export function CategoryPage({ category, images, onNavigate }: CategoryPageProps) {
+export function CategoryPage({ category, images, onNavigate, initialArticles, relatedArticles }: CategoryPageProps) {
   const { vrImage, businessmanImage, solanaImage, phoneImage, speakerImage, documentImage, asianBusinessmanImage } = images;
 
   // Labels come from the shared taxonomy so they cannot drift per page.
   const displayTitle = labelForSlug(category);
+  const featured = initialArticles?.[0] ?? null;
   
   // Get cross-promotion articles from related categories
-  const crossPromotionArticles = getCrossPromotionArticles(category);
+  const crossPromotionArticles = relatedArticles ?? [];
 
   const handleBack = () => {
     if (onNavigate) {
@@ -53,23 +60,28 @@ export function CategoryPage({ category, images, onNavigate }: CategoryPageProps
       {/* Featured Article */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-2">
-          <div 
-            onClick={() => onNavigate?.(`news/${category}/breaking-major-developments`)}
-            className="bg-white dark:bg-[#1A1A1A] rounded-2xl md:rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
+          <Link
+            href={featured ? articleHref(featured) : `/news/${category}`}
+            className="block bg-white dark:bg-[#1A1A1A] rounded-2xl md:rounded-3xl p-6 md:p-8 mb-6 md:mb-8 border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
           >
             <div className="mb-3 md:mb-4">
               <span className="text-[#EFB81A] text-xs md:text-sm">{displayTitle}</span>
-              <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm ml-2">2 hours ago</span>
+              {featured && (
+                <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm ml-2">
+                  {new Date(featured.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              )}
             </div>
-            
-            <h2 className="text-gray-800 dark:text-[#F3F3F5] text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
-              Breaking: Major Developments in {displayTitle} Sector Reshaping the Industry
-            </h2>
-            
+
+            {/* The page's single h1: its lead story. */}
+            <h1 className="text-gray-800 dark:text-[#F3F3F5] text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
+              {featured ? featured.title : `${displayTitle} News`}
+            </h1>
+
             <div className="flex gap-2 md:gap-3 mb-6 md:mb-8">
-              <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm">#{displayTitle}</span>
-              <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm">#News</span>
-              <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm">#Crypto</span>
+              {(featured?.tags ?? [displayTitle]).slice(0, 3).map(tag => (
+                <span key={tag} className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm">#{tag}</span>
+              ))}
             </div>
             
             <button className="flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 text-gray-800 dark:text-[#F3F3F5] hover:text-[#EFB81A] transition-colors mb-6 md:mb-8 text-sm">
@@ -82,7 +94,7 @@ export function CategoryPage({ category, images, onNavigate }: CategoryPageProps
                 <div className="text-black dark:text-[#EFB81A] text-3xl md:text-5xl lg:text-6xl tracking-wider">{displayTitle.toUpperCase()}</div>
               </div>
             </div>
-          </div>
+          </Link>
           
           {/* Latest Articles in Category */}
           <div>
@@ -230,14 +242,14 @@ export function CategoryPage({ category, images, onNavigate }: CategoryPageProps
           
             <div className="space-y-3 md:space-y-4">
             {crossPromotionArticles.map((article, idx) => (
-              <div 
-                key={idx}
-                onClick={() => onNavigate?.(`news/${article.categorySlug}/${article.slug}`)}
-                className="bg-white dark:bg-[#1A1A1A] rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
+              <Link
+                key={article.id ?? idx}
+                href={articleHref(article)}
+                className="block bg-white dark:bg-[#1A1A1A] rounded-xl md:rounded-2xl p-4 md:p-5 border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
               >
                 <div className="mb-2">
                   <span className="text-[#EFB81A] text-xs md:text-sm">{article.category}</span>
-                  <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm ml-2">{article.time}</span>
+                  <span className="text-gray-400 dark:text-[#A0A0A5] text-xs md:text-sm ml-2">{new Date(article.publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 </div>
                 <h4 className="text-gray-800 dark:text-[#F3F3F5] leading-snug text-sm md:text-base mb-3 group-hover:text-[#EFB81A] transition-colors">
                   {article.title}
@@ -247,7 +259,7 @@ export function CategoryPage({ category, images, onNavigate }: CategoryPageProps
                     <span key={tagIdx} className="text-gray-400 dark:text-[#A0A0A5] text-xs">#{tag}</span>
                   ))}
                 </div>
-              </div>
+              </Link>
             ))}
             </div>
           </div>

@@ -16,6 +16,11 @@ import { getLatestArticles, articleHref } from '@/services/news';
 interface HomePageProps {
   /** Fetched on the server in app/page.tsx and passed down. */
   spotlightProjects: Project[];
+  /**
+   * Latest articles, fetched on the server so the homepage's headlines,
+   * links and hero image are present in the initial HTML.
+   */
+  initialArticles?: Article[];
   images: {
     vrImage: string;
     businessmanImage: string;
@@ -48,14 +53,29 @@ function timeAgo(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-export function HomePage({ images, onNavigate, spotlightProjects }: HomePageProps) {
+export function HomePage({ images, onNavigate, spotlightProjects, initialArticles }: HomePageProps) {
   const imageMap = images as unknown as Record<(typeof FALLBACK_IMAGE_KEYS)[number], string>;
   const fallbackImage = (index: number) => imageMap[FALLBACK_IMAGE_KEYS[index % FALLBACK_IMAGE_KEYS.length]];
 
-  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [articles, setArticles] = useState<Article[]>([]);
+  /**
+   * Articles are fetched on the server and handed down as `initialArticles`.
+   *
+   * They used to be loaded here in an effect, which meant the homepage's HTML
+   * contained no headlines, no article links and no H1 — everything appeared
+   * only after JavaScript ran. For a news site that is the worst place to be:
+   * crawlers had nothing to index without rendering, and LCP waited on an API
+   * round trip. The effect below is kept purely as a fallback for the case
+   * where the server fetch failed.
+   */
+  const hasServerData = (initialArticles?.length ?? 0) > 0;
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>(
+    hasServerData ? 'ready' : 'loading'
+  );
+  const [articles, setArticles] = useState<Article[]>(initialArticles ?? []);
 
   useEffect(() => {
+    if (hasServerData) return;
+
     let cancelled = false;
     getLatestArticles(30)
       .then(items => {
@@ -221,9 +241,10 @@ export function HomePage({ images, onNavigate, spotlightProjects }: HomePageProp
               </span>
             </div>
 
-            <h1 className="text-gray-800 dark:text-gray-200 text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
+            {/* h2: `HeroArticle` above already renders the page's single h1. */}
+            <h2 className="text-gray-800 dark:text-gray-200 text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
               {latestFeatured.title}
-            </h1>
+            </h2>
 
             <div className="flex gap-2 md:gap-3 mb-6 md:mb-8">
               {latestFeatured.tags.slice(0, 2).map(tag => (
@@ -352,9 +373,11 @@ export function HomePage({ images, onNavigate, spotlightProjects }: HomePageProp
               </span>
             </div>
 
-            <h1 className="text-gray-800 dark:text-gray-200 text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
+            {/* h2, not h1: the lead story above is the page's single H1. Two
+                h1s on one page split the topical signal for both. */}
+            <h2 className="text-gray-800 dark:text-gray-200 text-2xl md:text-4xl lg:text-5xl mb-4 md:mb-6 leading-tight">
               {mostReadFeatured.title}
-            </h1>
+            </h2>
 
             <div className="flex gap-2 md:gap-3 mb-6 md:mb-8">
               {mostReadFeatured.tags.slice(0, 2).map(tag => (

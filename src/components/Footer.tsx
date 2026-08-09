@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { Twitter, Shield, Send, Rss, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { subscribeToNewsletter } from '@/services/newsletter';
 import { trackNewsletterSignup } from '@/utils/analytics';
+import { pageKeyToHref } from '@/lib/navigation';
 
 interface FooterProps {
   onNavigate?: (page: string) => void;
@@ -120,12 +122,12 @@ export function Footer({ onNavigate }: FooterProps = {}) {
                 { label: 'Newsletter', page: 'newsletter' },
               ].map(({ label, page }) => (
                 <li key={label}>
-                  <button
-                    onClick={() => onNavigate?.(page)}
+                  <Link
+                    href={pageKeyToHref(page)}
                     className="text-gray-500 dark:text-[#A0A0A5] text-sm sm:text-base hover:text-[#FFD200] transition-colors text-left min-h-[44px] flex items-center"
                   >
                     {label}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -145,12 +147,12 @@ export function Footer({ onNavigate }: FooterProps = {}) {
                 { label: 'Terms', page: 'terms' },
               ].map(({ label, page }) => (
                 <li key={label}>
-                  <button
-                    onClick={() => onNavigate?.(page)}
+                  <Link
+                    href={pageKeyToHref(page)}
                     className="text-gray-500 dark:text-[#A0A0A5] text-sm sm:text-base hover:text-[#FFD200] transition-colors text-left min-h-[44px] flex items-center"
                   >
                     {label}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface RecommendedCardProps {
@@ -10,21 +11,19 @@ interface RecommendedCardProps {
   image: string;
   articleSlug: string;
   variant?: 'large' | 'small';
+  /** @deprecated Navigation is handled by the card's own <Link>. */
   onNavigate?: (page: string) => void;
 }
 
-export function RecommendedCard({ category, categorySlug, time, title, image, articleSlug, variant = 'small', onNavigate }: RecommendedCardProps) {
-  const handleClick = () => {
-    if (onNavigate) {
-      onNavigate(`news/${categorySlug}/${articleSlug}`);
-    }
-  };
+export function RecommendedCard({ category, categorySlug, time, title, image, articleSlug, variant = 'small' }: RecommendedCardProps) {
+  // A real URL, so both variants render a crawlable <a>.
+  const href = `/news/${categorySlug}/${articleSlug}`;
 
   if (variant === 'large') {
     return (
-      <div 
-        onClick={handleClick}
-        className="rounded-2xl md:rounded-3xl overflow-hidden relative h-[150px] md:h-[200px] cursor-pointer hover:opacity-90 transition-opacity"
+      <Link
+        href={href}
+        className="block rounded-2xl md:rounded-3xl overflow-hidden relative h-[150px] md:h-[200px] cursor-pointer hover:opacity-90 transition-opacity"
       >
         <ImageWithFallback 
           src={image} 
@@ -41,13 +40,13 @@ export function RecommendedCard({ category, categorySlug, time, title, image, ar
             {title}
           </h3>
         </div>
-      </div>
+      </Link>
     );
   }
   
   return (
-    <div 
-      onClick={handleClick}
+    <Link
+      href={href}
       className="flex gap-3 md:gap-4 items-center hover:opacity-80 transition-opacity cursor-pointer group"
     >
       <div className="flex-1">
@@ -66,6 +65,6 @@ export function RecommendedCard({ category, categorySlug, time, title, image, ar
           className="w-full h-full object-cover"
         />
       </div>
-    </div>
+    </Link>
   );
 }

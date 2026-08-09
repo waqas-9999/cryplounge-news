@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { Search, Menu, ChevronDown, Sun, Moon, X, TrendingUp, Rss } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { searchArticles } from '@/services/news';
 import type { Article } from '@/types/article';
 import { Badge } from './ui/badge';
+import { pageKeyToHref } from '@/lib/navigation';
 
 interface HeaderProps {
   onNavigate?: (page: string) => void;
@@ -154,8 +156,8 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
         <div className="flex items-center justify-between max-w-[1400px] mx-auto">
           {/* Logo + Desktop Nav */}
           <div className="flex items-center gap-3 sm:gap-4 md:gap-6 lg:gap-8">
-            <button
-              onClick={() => onNavigate?.('')}
+            <Link
+              href="/"
               className="flex items-center gap-2 hover:opacity-80 transition-opacity min-h-[44px]"
               aria-label="Go to home page"
             >
@@ -163,7 +165,7 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
                 <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-gray-800 dark:bg-gray-200 rounded-full" />
               </div>
               <span className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-200">CrypLounge</span>
-            </button>
+            </Link>
 
             {/* Desktop navigation with mega-menus */}
             <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
@@ -174,8 +176,9 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
                   onMouseEnter={() => item.children ? handleNavHover(item.slug) : undefined}
                   onMouseLeave={item.children ? handleNavLeave : undefined}
                 >
-                  <button
-                    onClick={() => handleNavClick(item)}
+                  <Link
+                    href={pageKeyToHref(item.page)}
+                    onClick={() => setHoveredNav(null)}
                     className={`flex items-center gap-1 text-sm xl:text-base min-h-[44px] px-2.5 transition-all duration-200 ${
                       isActive(item.slug) ? 'text-[#FFD200]' : 'text-gray-600 dark:text-gray-400'
                     } hover:text-[#FFD200]`}
@@ -187,7 +190,7 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
                     {item.children && (
                       <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${hoveredNav === item.slug ? 'rotate-180' : ''}`} />
                     )}
-                  </button>
+                  </Link>
 
                   {/* Dropdown */}
                   {item.children && hoveredNav === item.slug && (
@@ -199,13 +202,14 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
                       <div className="bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl py-2 min-w-[200px]">
                         <p className="px-4 py-1.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">{item.name}</p>
                         {item.children.map(child => (
-                          <button
+                          <Link
                             key={child.label}
-                            onClick={() => { onNavigate?.(child.page); setHoveredNav(null); }}
+                            href={pageKeyToHref(child.page)}
+                            onClick={() => setHoveredNav(null)}
                             className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-[#FFD200] hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                           >
                             {child.label}
-                          </button>
+                          </Link>
                         ))}
                       </div>
                     </div>

@@ -272,16 +272,22 @@ export function ArticleDetailPage({
     "image": articleImage || `${siteConfig.url}${phoneImage}`,
     "datePublished": publishedTime || new Date().toISOString(),
     "dateModified": updatedTime || publishedTime || new Date().toISOString(),
-    "author": {
-      "@type": "Organization",
-      "name": authorName
-    },
+    // A named byline is a Person. Google treats `Organization` here as "no
+    // named author", which weakens the E-E-A-T signal news results rely on;
+    // it is only correct when the piece genuinely has no individual author.
+    "author": authorName
+      ? { "@type": "Person", "name": authorName }
+      : { "@type": "Organization", "name": siteConfig.name },
     "publisher": {
       "@type": "Organization",
       "name": siteConfig.name,
       "logo": {
         "@type": "ImageObject",
-        "url": `${siteConfig.url}/logo.png`
+        // Served by `app/logo.png/route.tsx`. Dimensions are declared because
+        // Google validates the publisher logo against its size guidance.
+        "url": `${siteConfig.url}/logo.png`,
+        "width": 600,
+        "height": 60
       }
     },
     "mainEntityOfPage": {

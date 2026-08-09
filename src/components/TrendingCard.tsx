@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface TrendingCardProps {
@@ -11,20 +12,18 @@ interface TrendingCardProps {
   image: string;
   articleSlug: string;
   variant?: 'large' | 'medium' | 'small';
+  /** @deprecated Navigation is handled by the card's own <Link>. Kept so existing call sites still compile. */
   onNavigate?: (page: string) => void;
 }
 
-export function TrendingCard({ category, categorySlug, time, title, tags, image, articleSlug, variant = 'medium', onNavigate }: TrendingCardProps) {
-  const handleClick = () => {
-    if (onNavigate) {
-      onNavigate(`news/${categorySlug}/${articleSlug}`);
-    }
-  };
+export function TrendingCard({ category, categorySlug, time, title, tags, image, articleSlug, variant = 'medium' }: TrendingCardProps) {
+  // A real URL, so the card is a crawlable <a> rather than a click handler.
+  const href = `/news/${categorySlug}/${articleSlug}`;
 
   return (
-    <div 
-      onClick={handleClick}
-      className="bg-white dark:bg-[#1A1A1A] rounded-xl md:rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
+    <Link
+      href={href}
+      className="block bg-white dark:bg-[#1A1A1A] rounded-xl md:rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:border-[#EFB81A] dark:hover:border-[#EFB81A] transition-all cursor-pointer group"
     >
       <div className="aspect-[4/3] overflow-hidden">
         <ImageWithFallback 
@@ -49,6 +48,6 @@ export function TrendingCard({ category, categorySlug, time, title, tags, image,
           ))}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

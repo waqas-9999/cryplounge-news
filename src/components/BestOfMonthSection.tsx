@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ArrowRight } from 'lucide-react';
 
@@ -33,9 +34,9 @@ export function BestOfMonthSection({ title = "BEST OF THE MONTH", featuredArticl
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Featured Article - Large */}
-        <div 
-          onClick={() => onNavigate && onNavigate(`news/${featuredArticle.categorySlug}/${featuredArticle.articleSlug}`)}
-          className="lg:col-span-2 bg-white dark:bg-[#1E1E20] rounded-2xl md:rounded-3xl overflow-hidden relative border border-gray-100 dark:border-white/[0.08] transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
+        <Link
+          href={`/news/${featuredArticle.categorySlug}/${featuredArticle.articleSlug}`}
+          className="block lg:col-span-2 bg-white dark:bg-[#1E1E20] rounded-2xl md:rounded-3xl overflow-hidden relative border border-gray-100 dark:border-white/[0.08] transition-colors cursor-pointer hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 group"
         >
           <div className="relative h-[300px] md:h-[400px]">
             <ImageWithFallback 
@@ -61,15 +62,15 @@ export function BestOfMonthSection({ title = "BEST OF THE MONTH", featuredArticl
               </button>
             </div>
           </div>
-        </div>
+        </Link>
         
         {/* Side Articles Grid */}
         <div className="space-y-3 md:space-y-4">
           {sideArticles.map((article, idx) => (
-            <div 
-              key={idx} 
-              onClick={() => onNavigate && onNavigate(`news/${article.categorySlug}/${article.articleSlug}`)}
-              className="flex gap-3 md:gap-4 items-start bg-white dark:bg-[#1E1E20] rounded-xl md:rounded-2xl p-3 md:p-4 border border-gray-100 dark:border-white/[0.08] transition-all hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 cursor-pointer group"
+            <Link
+              key={idx}
+              href={`/news/${article.categorySlug}/${article.articleSlug}`}
+              className="block flex gap-3 md:gap-4 items-start bg-white dark:bg-[#1E1E20] rounded-xl md:rounded-2xl p-3 md:p-4 border border-gray-100 dark:border-white/[0.08] transition-all hover:shadow-lg dark:hover:shadow-yellow-500/10 dark:hover:border-yellow-500/30 cursor-pointer group"
             >
               <div className="flex-1">
                 <div className="mb-1 md:mb-2">
@@ -87,7 +88,7 @@ export function BestOfMonthSection({ title = "BEST OF THE MONTH", featuredArticl
                   className="w-full h-full object-cover"
                 />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
