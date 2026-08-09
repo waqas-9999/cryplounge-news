@@ -25,6 +25,7 @@ import {
   Loader2,
   Copy,
   Check,
+  Trash2,
 } from 'lucide-react';
 
 interface UsersListPageProps {
@@ -79,6 +80,7 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
   const me = getCurrentUser();
   const canManage = me?.permissions.includes('users.manage') ?? false;
   const canGrantSuperAdmin = me?.role === 'SUPER_ADMIN';
+  const isSuperAdmin = me?.role === 'SUPER_ADMIN';
 
   const load = useCallback(() => {
     setState('loading');
@@ -119,6 +121,25 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
       load();
     } catch (err) {
       toast.error(errorMessage(err, 'Failed to update account'));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleDelete(user: StaffUser) {
+    if (user.id === me?.id) {
+      toast.error('You cannot delete your own account');
+      return;
+    }
+    if (!window.confirm(`Permanently delete ${user.name}? This cannot be undone.`)) return;
+
+    setBusyId(user.id);
+    try {
+      await apiClient.delete(`users/${user.id}`);
+      toast.success('Account deleted');
+      load();
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to delete account'));
     } finally {
       setBusyId(null);
     }
@@ -284,6 +305,16 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
                                     <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                                   )}
                                 </button>
+                                {isSuperAdmin && (
+                                  <button
+                                    onClick={() => handleDelete(user)}
+                                    disabled={busyId === user.id || user.id === me?.id}
+                                    title="Delete account permanently"
+                                    className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-40"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           )}

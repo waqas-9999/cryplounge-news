@@ -312,13 +312,51 @@ export class UsersService {
   }
 
   /**
-   * Accounts are deactivated, never deleted.
-   *
-   * Their name is attached to published bylines and audit entries; removing
-   * the row would orphan both.
+   * Accounts are usually deactivated, not deleted — see `remove` for the
+   * exception. Deactivating keeps the row so bylines and audit entries that
+   * reference it stay intact.
    */
   async deactivate(id: string, actor: AuthenticatedUser, context: AuditContext) {
     return this.update(id, { isActive: false }, actor, context);
+  }
+
+  /**
+   * Hard-delete an account. Super admin only.
+   *
+   * Bylines live on the separate `Author` model and audit/content rows
+   * reference the user with `onDelete: SetNull`, so removing the row doesn't
+   * orphan anything — it just anonymizes past entries.
+   */
+  async remove(id: string, actor: AuthenticatedUser, context: AuditContext) {
+    if (actor.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException({
+        message: 'Only a super admin can delete an account',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    if (id === actor.id) {
+      throw new BadRequestException({
+        message: 'You cannot delete your own account',
+        code: 'SELF_LOCKOUT',
+      });
+    }
+
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException({ message: 'User not found', code: 'NOT_FOUND' });
+
+    await this.assertNotLastSuperAdmin(existing, undefined, true);
+
+    await this.auth.revokeAllForUser(id);
+    await this.prisma.user.delete({ where: { id } });
+
+    await this.audit.record({
+      action: AuditAction.DELETE,
+      entity: 'User',
+      entityId: id,
+      summary: `Deleted ${existing.email}`,
+      context,
+    });
   }
 
   /* ------------------------------------------------------------ guards --- */

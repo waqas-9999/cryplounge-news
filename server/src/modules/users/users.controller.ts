@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -157,5 +158,24 @@ export class UsersController {
     @Req() request: Request
   ) {
     return this.users.deactivate(id, user, auditContext(user, request));
+  }
+
+  @Delete(':id')
+  @ApiBearerAuth()
+  @RequirePermissions('users.manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Permanently delete an account',
+    description:
+      'Super admin only, enforced in the service beyond the users.manage ' +
+      'check here. Bylines live on a separate Author model and other rows ' +
+      'reference the user with onDelete: SetNull, so this cannot orphan content.',
+  })
+  remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.users.remove(id, user, auditContext(user, request));
   }
 }

@@ -189,17 +189,6 @@ export function Footer({ onNavigate }: FooterProps = {}) {
           </div>
         </div>
 
-        {/* Admin Login Link */}
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800 flex justify-center">
-          <button
-            onClick={() => onNavigate?.('admin/login')}
-            className="flex items-center gap-2 px-4 py-2 text-xs text-gray-500 dark:text-gray-500 hover:text-[#FFD200] dark:hover:text-[#FFD200] transition-colors group"
-            aria-label="Access admin portal"
-          >
-            <Shield className="w-3.5 h-3.5" />
-            Admin Portal
-          </button>
-        </div>
       </div>
 
       {/* Copyright */}

@@ -28,6 +28,7 @@ interface Permission {
   key: string;
   name: string;
   module: string;
+  description: string | null;
 }
 
 interface PermissionGroup {
@@ -219,10 +220,15 @@ export function RolesPermissionsPage({ currentPage, onNavigate, onLogout }: Role
                             return (
                               <div
                                 key={perm.id}
-                                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#202225] rounded-lg"
+                                className="flex items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-[#202225] rounded-lg"
                               >
-                                <span className="text-sm text-gray-900 dark:text-gray-100">{perm.name}</span>
-                                <label className="relative inline-flex items-center cursor-pointer">
+                                <div>
+                                  <p className="text-sm text-gray-900 dark:text-gray-100">{perm.name}</p>
+                                  {perm.description && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{perm.description}</p>
+                                  )}
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                   <input
                                     type="checkbox"
                                     checked={hasPermission}
