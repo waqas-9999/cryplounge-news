@@ -70,9 +70,7 @@ export function AdminProfilePage({ currentPage, onNavigate, onLogout }: AdminPro
     try {
       const form = new FormData();
       form.append('file', file);
-      form.append('folder', 'avatars');
-      const asset = await apiClient.upload<{ id: string; path: string; url: string }>('media', form);
-      const updated = await apiClient.patch<Me>('users/me', { avatarUrl: asset.url });
+      const updated = await apiClient.upload<Me>('users/me/avatar', form);
       setMe(updated);
       toast.success('Avatar updated');
     } catch (err) {

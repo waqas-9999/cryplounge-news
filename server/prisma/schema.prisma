@@ -38,6 +38,8 @@ model User {
   role         Role      @default(VIEWER)
   isActive     Boolean   @default(true)
   avatarUrl    String?
+  /// Short public-facing bio, shown on published articles under their byline.
+  bio          String?
   lastLoginAt  DateTime?
 
   /// Set when an admin invites a user; cleared once they set a password

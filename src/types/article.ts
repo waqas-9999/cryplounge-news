@@ -7,6 +7,7 @@ export interface Article {
   category: string;
   categorySlug: string;
   author: string;
+  authorAvatarUrl?: string;
   readTime: string;
   publishedAt: string;
   tags: string[];

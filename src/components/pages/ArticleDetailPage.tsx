@@ -32,6 +32,7 @@ interface ArticleDetailPageProps {
   updatedTime?: string;
   articleDescription?: string;
   authorName?: string;
+  authorAvatarUrl?: string;
   tags?: string[];
   images: {
     vrImage: string;
@@ -56,6 +57,7 @@ export function ArticleDetailPage({
   updatedTime,
   articleDescription,
   authorName = 'CrypLounge Editorial Team',
+  authorAvatarUrl,
   tags = ['Crypto', 'News'],
   images,
   onNavigate
@@ -448,11 +450,19 @@ export function ArticleDetailPage({
             {/* Author Info */}
             <aside className="bg-[#F4F4F4] dark:bg-[#1A1A1A] rounded-xl p-4 md:p-6 border border-gray-200 dark:border-gray-800" aria-label="Author information">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#EFB81A] flex items-center justify-center flex-shrink-0" aria-hidden="true">
-                  <span className="text-black text-lg md:text-xl">
-                    {authorName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
-                  </span>
-                </div>
+                {authorAvatarUrl ? (
+                  <img
+                    src={authorAvatarUrl}
+                    alt={authorName}
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-[#EFB81A] flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                    <span className="text-black text-lg md:text-xl">
+                      {authorName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+                    </span>
+                  </div>
+                )}
                 <div className="flex-1">
                   <h3 className="text-gray-800 dark:text-[#F3F3F5] mb-1">{authorName}</h3>
                   <p className="text-gray-600 dark:text-[#A0A0A5] text-sm">

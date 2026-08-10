@@ -58,7 +58,7 @@ export class LocalStorageProvider implements StorageProvider {
   }
 
   url(path: string): string {
-    return `/uploads/${path.replace(/^\/+/, '')}`;
+    return `${this.config.publicUrl}/uploads/${path.replace(/^\/+/, '')}`;
   }
 
   async exists(path: string): Promise<boolean> {

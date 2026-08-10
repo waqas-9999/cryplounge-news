@@ -23,7 +23,7 @@ export class CreateAuthorDto {
   @MaxLength(2000)
   bio?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsUrl() avatarUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(500) avatarUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() @MaxLength(200) email?: string;
   @ApiPropertyOptional() @IsOptional() @IsUrl() x?: string;
   @ApiPropertyOptional() @IsOptional() @IsUrl() linkedin?: string;

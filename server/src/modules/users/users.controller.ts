@@ -10,8 +10,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from '@/common/decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -50,6 +53,26 @@ export class UsersController {
   @ApiOperation({ summary: 'Edit your own name and avatar; cannot change role' })
   updateMe(@CurrentUser('id') id: string, @Body() dto: UpdateProfileDto) {
     return this.users.updateOwnProfile(id, dto);
+  }
+
+  @Post('me/avatar')
+  @ApiBearerAuth()
+  @ResponseMessage('Avatar updated')
+  @ApiOperation({
+    summary: 'Upload and set your own avatar',
+    description:
+      'Available to every staff account regardless of role — not gated behind ' +
+      'the `media.upload` permission, since it only ever touches your own profile.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } } })
+  @UseInterceptors(FileInterceptor('file'))
+  updateMyAvatar(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.users.updateOwnAvatar(user.id, file, user, auditContext(user, request));
   }
 
   /* -------------------------------------------------- unauthenticated ----- */
@@ -153,6 +176,43 @@ export class UsersController {
     @Req() request: Request
   ) {
     return this.users.update(id, dto, user, auditContext(user, request));
+  }
+
+  @Post(':id/roles/:key')
+  @ApiBearerAuth()
+  @RequirePermissions('users.manage')
+  @ResponseMessage('Additional role granted')
+  @ApiOperation({
+    summary: 'Grant an additional role to an already-active account',
+    description:
+      'Super admin only, enforced in the service beyond the users.manage check ' +
+      'here. Takes effect immediately — unlike `POST /users/invite`, there is ' +
+      'no accept step.',
+  })
+  grantAdditionalRole(
+    @Param('id') id: string,
+    @Param('key') key: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.users.grantAdditionalRole(id, key, user, auditContext(user, request));
+  }
+
+  @Delete(':id/roles/:key')
+  @ApiBearerAuth()
+  @RequirePermissions('users.manage')
+  @ResponseMessage('Additional role revoked')
+  @ApiOperation({
+    summary: 'Revoke a previously granted additional role',
+    description: 'Super admin only, enforced in the service beyond the users.manage check here.',
+  })
+  revokeAdditionalRole(
+    @Param('id') id: string,
+    @Param('key') key: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.users.revokeAdditionalRole(id, key, user, auditContext(user, request));
   }
 
   @Post(':id/deactivate')

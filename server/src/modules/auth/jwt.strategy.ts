@@ -18,6 +18,8 @@ export interface AuthenticatedUser {
   email: string;
   name: string;
   role: string;
+  /** Extra roles granted on top of `role` — see `User.additionalRoles`. */
+  additionalRoles: string[];
   permissions: string[];
 }
 
@@ -76,6 +78,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       email: user.email,
       name: user.name,
       role: user.role,
+      additionalRoles: user.additionalRoles.map(r => r.key),
       permissions: [...permissions],
     };
   }

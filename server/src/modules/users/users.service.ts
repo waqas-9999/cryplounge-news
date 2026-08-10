@@ -12,6 +12,7 @@ import { Paginated } from '@/common/dto/api-response.dto';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
+import { MediaService } from '../media/media.service';
 import type {
   InviteUserDto,
   UpdateProfileDto,
@@ -49,7 +50,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auth: AuthService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly media: MediaService
   ) {}
 
   async list(query: UserQueryDto): Promise<Paginated<unknown>> {
@@ -219,6 +221,115 @@ export class UsersService {
     return (Object.values(Role) as string[]).includes(key);
   }
 
+  /**
+   * Grant an existing, active account an additional role immediately — super
+   * admin only. Unlike `invite`, this skips the accept step: the target is
+   * already a colleague with working credentials, so there is nothing for
+   * them to confirm.
+   */
+  async grantAdditionalRole(
+    id: string,
+    roleKey: string,
+    actor: AuthenticatedUser,
+    context: AuditContext
+  ) {
+    if (actor.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException({
+        message: 'Only a super admin can grant an additional role',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const roleDefinition = await this.prisma.roleDefinition.findUnique({ where: { key: roleKey } });
+    if (!roleDefinition) {
+      throw new BadRequestException({ message: `Unknown role: ${roleKey}`, code: 'UNKNOWN_ROLE' });
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: { additionalRoles: { select: { key: true } } },
+    });
+    if (!existing) throw new NotFoundException({ message: 'User not found', code: 'NOT_FOUND' });
+
+    if (!existing.isActive) {
+      throw new BadRequestException({
+        message: 'Only an active account can be granted an additional role directly; invite it instead',
+        code: 'INACTIVE_ACCOUNT',
+      });
+    }
+
+    if (existing.role === roleKey || existing.additionalRoles.some(r => r.key === roleKey)) {
+      throw new BadRequestException({
+        message: 'This account already holds that role',
+        code: 'DUPLICATE_ROLE',
+      });
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { additionalRoles: { connect: { key: roleKey } } },
+      select: PUBLIC_SELECT,
+    });
+
+    await this.auth.revokeAllForUser(id);
+
+    await this.audit.record({
+      action: AuditAction.ROLE_CHANGE,
+      entity: 'User',
+      entityId: id,
+      summary: `Granted the additional role ${roleKey} to ${existing.email}`,
+      context,
+    });
+
+    return user;
+  }
+
+  /** Revoke a role previously granted on top of the primary `role` — super admin only. */
+  async revokeAdditionalRole(
+    id: string,
+    roleKey: string,
+    actor: AuthenticatedUser,
+    context: AuditContext
+  ) {
+    if (actor.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException({
+        message: 'Only a super admin can revoke an additional role',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: { additionalRoles: { select: { key: true } } },
+    });
+    if (!existing) throw new NotFoundException({ message: 'User not found', code: 'NOT_FOUND' });
+
+    if (!existing.additionalRoles.some(r => r.key === roleKey)) {
+      throw new BadRequestException({
+        message: 'This account does not hold that additional role',
+        code: 'NOT_GRANTED',
+      });
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { additionalRoles: { disconnect: { key: roleKey } } },
+      select: PUBLIC_SELECT,
+    });
+
+    await this.auth.revokeAllForUser(id);
+
+    await this.audit.record({
+      action: AuditAction.ROLE_CHANGE,
+      entity: 'User',
+      entityId: id,
+      summary: `Revoked the additional role ${roleKey} from ${existing.email}`,
+      context,
+    });
+
+    return user;
+  }
+
   /** Look up an invite by its raw token without consuming it, for the accept-invite screen. */
   async previewInvite(token: string) {
     const user = await this.prisma.user.findFirst({ where: { inviteToken: this.hash(token) } });
@@ -385,6 +496,24 @@ export class UsersService {
       },
       select: PUBLIC_SELECT,
     });
+  }
+
+  /**
+   * Upload and set your own avatar.
+   *
+   * Deliberately not gated behind `media.upload` — every staff account, of
+   * whatever role, can set a picture of themselves. Reuses `MediaService` so
+   * the same content-type and magic-byte validation applies as any other
+   * upload.
+   */
+  async updateOwnAvatar(
+    userId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    actor: AuthenticatedUser,
+    context: AuditContext
+  ) {
+    const asset = await this.media.upload(file, { folder: 'avatars' }, actor, context);
+    return this.updateOwnProfile(userId, { avatarUrl: asset.url });
   }
 
   /**

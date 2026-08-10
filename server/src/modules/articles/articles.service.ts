@@ -308,10 +308,13 @@ export class ArticlesService extends BaseCrudService {
    * AUTHOR holds `news.update` so it can edit its own drafts, but that grant
    * is not scoped to ownership at the permission-guard level — enforce it
    * here instead. Every other role with `news.update` (editors, moderators,
-   * admins) edits across the board by design.
+   * admins) edits across the board by design — and an AUTHOR who has also
+   * been granted an additional role is no longer "just an author", so the
+   * scoping only applies to an account with no additional roles at all.
    */
   private assertMayEdit(existing: { createdById: string | null }, user: AuthenticatedUser): void {
     if (user.role !== 'AUTHOR') return;
+    if (user.additionalRoles.length > 0) return;
     if (existing.createdById === user.id) return;
 
     throw new ForbiddenException({

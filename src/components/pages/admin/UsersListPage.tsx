@@ -26,6 +26,8 @@ import {
   Copy,
   Check,
   Trash2,
+  X,
+  PenSquare,
 } from 'lucide-react';
 
 interface UsersListPageProps {
@@ -80,10 +82,16 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+  const [addRoleFor, setAddRoleFor] = useState<StaffUser | null>(null);
+
   const me = getCurrentUser();
   const canManage = me?.permissions.includes('users.manage') ?? false;
+  const canManageAuthors = me?.permissions.includes('authors.manage') ?? false;
   const canGrantSuperAdmin = me?.role === 'SUPER_ADMIN';
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
+
+  const [bylineFor, setBylineFor] = useState<StaffUser | null>(null);
 
   const load = useCallback(() => {
     setState('loading');
@@ -110,6 +118,14 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    apiClient
+      .get<RoleOption[]>('roles')
+      .then(setRoleOptions)
+      .catch(() => setRoleOptions([]));
+  }, [isSuperAdmin]);
+
   async function handleToggleActive(user: StaffUser) {
     if (user.id === me?.id) {
       toast.error('You cannot disable your own account');
@@ -124,6 +140,21 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
       load();
     } catch (err) {
       toast.error(errorMessage(err, 'Failed to update account'));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleRevokeRole(user: StaffUser, roleKey: string, roleName: string) {
+    if (!window.confirm(`Remove the ${roleName} role from ${user.name}?`)) return;
+
+    setBusyId(user.id);
+    try {
+      await apiClient.delete(`users/${user.id}/roles/${roleKey}`);
+      toast.success(`${roleName} role removed`);
+      load();
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to remove role'));
     } finally {
       setBusyId(null);
     }
@@ -279,11 +310,31 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
                                 <span
                                   key={role.key}
                                   title="Additional role"
-                                  className="inline-block px-2.5 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-full text-xs"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-full text-xs"
                                 >
                                   {role.name}
+                                  {isSuperAdmin && (
+                                    <button
+                                      onClick={() => handleRevokeRole(user, role.key, role.name)}
+                                      disabled={busyId === user.id}
+                                      title={`Remove ${role.name} role`}
+                                      className="hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </span>
                               ))}
+                              {isSuperAdmin && (
+                                <button
+                                  onClick={() => setAddRoleFor(user)}
+                                  disabled={busyId === user.id}
+                                  title="Add another role"
+                                  className="inline-flex items-center px-2 py-1 border border-dashed border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 rounded-full text-xs hover:border-yellow-400 hover:text-yellow-600 disabled:opacity-40"
+                                >
+                                  + Role
+                                </button>
+                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
@@ -319,6 +370,16 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
                                     <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                                   )}
                                 </button>
+                                {canManageAuthors && (
+                                  <button
+                                    onClick={() => setBylineFor(user)}
+                                    disabled={busyId === user.id}
+                                    title="Create a byline for this staff member"
+                                    className="p-1.5 hover:bg-yellow-100 dark:hover:bg-yellow-900/20 rounded transition-colors disabled:opacity-40"
+                                  >
+                                    <PenSquare className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                  </button>
+                                )}
                                 {isSuperAdmin && (
                                   <button
                                     onClick={() => handleDelete(user)}
@@ -422,7 +483,271 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddRoleDialog
+        user={addRoleFor}
+        roleOptions={roleOptions}
+        onOpenChange={open => !open && setAddRoleFor(null)}
+        onGranted={() => {
+          setAddRoleFor(null);
+          load();
+        }}
+      />
+
+      <CreateBylineDialog
+        user={bylineFor}
+        onOpenChange={open => !open && setBylineFor(null)}
+        onCreated={() => setBylineFor(null)}
+      />
     </div>
+  );
+}
+
+function AddRoleDialog({
+  user,
+  roleOptions,
+  onOpenChange,
+  onGranted,
+}: {
+  user: StaffUser | null;
+  roleOptions: RoleOption[];
+  onOpenChange: (open: boolean) => void;
+  onGranted: () => void;
+}) {
+  const [roleKey, setRoleKey] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const available = user
+    ? roleOptions.filter(r => r.key !== user.role && !user.additionalRoles.some(a => a.key === r.key))
+    : [];
+
+  useEffect(() => {
+    if (user) setRoleKey(available[0]?.key ?? '');
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !roleKey) return;
+    setSaving(true);
+    try {
+      await apiClient.post(`users/${user.id}/roles/${roleKey}`, {});
+      toast.success('Role granted');
+      onGranted();
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to grant role'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!user} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a role for {user?.name}</DialogTitle>
+          <DialogDescription>
+            Grants this role immediately, in addition to their existing role(s). No invitation or acceptance step
+            is needed since they already have an active account.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Role</label>
+            <select
+              value={roleKey}
+              onChange={e => setRoleKey(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            >
+              {available.length === 0 && <option value="">No roles left to grant</option>}
+              {available.map(r => (
+                <option key={r.key} value={r.key}>
+                  {r.name}
+                  {!r.isSystem ? ' (custom)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !roleKey}
+              className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-gray-900 rounded-lg hover:from-yellow-500 hover:to-yellow-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              Grant Role
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+interface ExistingAuthor {
+  id: string;
+  name: string;
+  slug: string;
+  email: string | null;
+  avatarUrl: string | null;
+}
+
+function CreateBylineDialog({
+  user,
+  onOpenChange,
+  onCreated,
+}: {
+  user: StaffUser | null;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [existing, setExisting] = useState<ExistingAuthor | null>(null);
+  const [lookupState, setLookupState] = useState<'idle' | 'loading' | 'done'>('idle');
+
+  useEffect(() => {
+    if (!user) {
+      setExisting(null);
+      setLookupState('idle');
+      return;
+    }
+    setName(user.name);
+    setSlug(slugify(user.name));
+    setAvatarUrl(user.avatarUrl || '');
+    setLookupState('loading');
+    apiClient
+      .getPaginated<ExistingAuthor>('authors', { query: { search: user.name, perPage: 50 } })
+      .then(({ items }) => {
+        const match = items.find(a => a.email && a.email.toLowerCase() === user.email.toLowerCase()) ?? null;
+        setExisting(match);
+        if (match) {
+          setName(match.name);
+          setSlug(match.slug);
+          setAvatarUrl(match.avatarUrl || user.avatarUrl || '');
+        }
+        setLookupState('done');
+      })
+      .catch(() => setLookupState('done'));
+  }, [user]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (existing) {
+        await apiClient.patch(`authors/${existing.id}`, {
+          name,
+          slug: slug || undefined,
+          avatarUrl: avatarUrl || undefined,
+        });
+        toast.success(`Byline updated for ${name}`);
+      } else {
+        await apiClient.post('authors', {
+          name,
+          slug: slug || undefined,
+          email: user.email,
+          avatarUrl: avatarUrl || undefined,
+        });
+        toast.success(`Byline created for ${name}`);
+      }
+      onCreated();
+    } catch (err) {
+      toast.error(errorMessage(err, existing ? 'Failed to update byline' : 'Failed to create byline'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={!!user} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{existing ? `Edit byline for ${user?.name}` : `Create a byline for ${user?.name}`}</DialogTitle>
+          <DialogDescription>
+            This is a separate public-facing attribution (name, slug, avatar, bio) — not their staff role. It's what
+            readers see under a news article's byline.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Display name</label>
+            <input
+              required
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Slug</label>
+            <input
+              value={slug}
+              onChange={e => setSlug(e.target.value)}
+              placeholder="Derived from the name when left blank"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Profile picture URL</label>
+            <div className="flex gap-2">
+              <input
+                value={avatarUrl}
+                onChange={e => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              />
+              {user?.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAvatarUrl(user.avatarUrl || '')}
+                  className="px-3 py-2 text-xs whitespace-nowrap bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                >
+                  Use staff photo
+                </button>
+              )}
+            </div>
+            {lookupState === 'loading' && (
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Checking for an existing byline…</p>
+            )}
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !name}
+              className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-gray-900 rounded-lg hover:from-yellow-500 hover:to-yellow-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {existing ? 'Save Changes' : 'Create Byline'}
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

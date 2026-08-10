@@ -23,6 +23,14 @@ const envSchema = z.object({
   /** Comma-separated origins allowed to call the API. */
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
+  /**
+   * Origin the backend is publicly reachable at, used to turn a locally
+   * stored file's relative path into an absolute URL a browser can load.
+   * Irrelevant on the `cloudinary` provider, which already returns absolute
+   * URLs.
+   */
+  API_PUBLIC_URL: z.string().url().optional(),
+
   /** Absolute or relative path for local file storage. */
   UPLOAD_DIR: z.string().default('./uploads'),
   UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),

@@ -59,6 +59,7 @@ function toArticle(a: BackendArticle): Article {
     category: a.category?.name ?? 'General',
     categorySlug: a.category?.slug ?? 'general',
     author: a.author?.name ?? 'CrypLounge Staff',
+    authorAvatarUrl: a.author?.avatarUrl ?? undefined,
     readTime: `${a.readMinutes ?? 3} min read`,
     publishedAt: a.publishedAt ?? a.updatedAt ?? new Date().toISOString(),
     updatedAt: a.updatedAt,

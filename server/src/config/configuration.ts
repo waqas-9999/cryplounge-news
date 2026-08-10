@@ -73,6 +73,9 @@ export const storageConfig = registerAs('storage', () => {
      */
     provider: env.STORAGE_PROVIDER ?? (process.env.VERCEL ? 'cloudinary' : 'local'),
     uploadDir: env.UPLOAD_DIR ?? './uploads',
+    // Falls back to the local dev server's own origin; in any deployed
+    // environment using the `local` provider, API_PUBLIC_URL must be set.
+    publicUrl: env.API_PUBLIC_URL ?? `http://localhost:${Number(env.PORT ?? 4000)}`,
     maxBytes: Number(env.UPLOAD_MAX_BYTES ?? 10 * 1024 * 1024),
     cloudinary: {
       cloudName: env.CLOUDINARY_CLOUD_NAME,

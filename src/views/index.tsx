@@ -170,6 +170,7 @@ export function ArticleView({ category, article }: { category: string; article: 
       updatedTime={article.updatedAt}
       articleDescription={article.seoDescription || article.summary}
       authorName={article.author}
+      authorAvatarUrl={article.authorAvatarUrl}
       tags={article.tags}
       images={images}
       onNavigate={useAppNavigate()}
