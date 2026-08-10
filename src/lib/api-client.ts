@@ -177,6 +177,10 @@ async function request<T>(
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
+    // Next.js's server-side Data Cache defaults GET fetches to force-cache,
+    // which would keep serving a page's first response forever — admin
+    // edits/deletes would never show up without a full rebuild.
+    cache: 'no-store',
   });
 
   // 401 with a stored refresh token: refresh once, then retry the original call.
@@ -225,6 +229,7 @@ async function requestUpload<T>(
     headers,
     body: formData,
     signal,
+    cache: 'no-store',
   });
 
   if (response.status === 401 && auth && !skipAuthRetry && hasStoredSession()) {
@@ -258,7 +263,7 @@ async function requestPaginated<T>(
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
-  const response = await fetch(buildUrl(path, query), { method, headers, signal });
+  const response = await fetch(buildUrl(path, query), { method, headers, signal, cache: 'no-store' });
 
   if (response.status === 401 && auth && !skipAuthRetry && hasStoredSession()) {
     const refreshed = await refreshSession();
