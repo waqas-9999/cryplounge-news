@@ -40,19 +40,30 @@ model User {
   avatarUrl    String?
   lastLoginAt  DateTime?
 
-  /// Set when an admin invites a user; cleared once they set a password.
+  /// Set when an admin invites a user; cleared once they set a password
+  /// (new account) or once a role grant is accepted (existing account).
   inviteToken        String?   @unique
   inviteExpiresAt    DateTime?
+  /// Set alongside inviteToken when a super admin grants an *additional*
+  /// role to an already-active account rather than inviting a new one.
+  /// Accepting the invite adds this role to `additionalRoles` and clears
+  /// both fields; it never touches `role` or the password.
+  pendingRoleKey     String?
   passwordResetToken String?   @unique
   passwordResetAt    DateTime?
 
-  sessions      Session[]
-  refreshTokens RefreshToken[]
-  auditLogs AuditLog[]
-  articles  Article[]  @relation("ArticleCreatedBy")
+  /// Extra roles granted on top of the primary `role`, e.g. an EDITOR who
+  /// is also given AUTHOR. Only a super admin can grant these, and only by
+  /// re-inviting the same email for the other role.
+  additionalRoles RoleDefinition[] @relation("UserAdditionalRoles")
+
+  sessions            Session[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  articles            Article[]            @relation("ArticleCreatedBy")
   newsletterCampaigns NewsletterCampaign[] @relation("NewsletterCampaignCreatedBy")
-  uploads   Media[]
-  legalPages LegalPage[]
+  uploads             Media[]
+  legalPages          LegalPage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -132,9 +143,9 @@ model Category {
 
 /// Global, reusable across every content type.
 model Tag {
-  id    String @id @default(cuid())
-  slug  String @unique
-  name  String
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
 
   articles    Article[]
   projects    Project[]
@@ -165,8 +176,8 @@ model Article {
   summary String @db.Text
   content String @db.Text
 
-  status      ContentStatus @default(DRAFT)
-  publishedAt DateTime?
+  status       ContentStatus @default(DRAFT)
+  publishedAt  DateTime?
   /// Set when status is SCHEDULED; a job publishes at this time.
   scheduledFor DateTime?
 
@@ -208,7 +219,7 @@ model Article {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -223,15 +234,15 @@ model Article {
 
 /// Immutable snapshot taken on each save, powering version history.
 model ArticleVersion {
-  id        String   @id @default(cuid())
-  articleId String
-  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  title     String
-  summary   String   @db.Text
-  content   String   @db.Text
+  id         String   @id @default(cuid())
+  articleId  String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  title      String
+  summary    String   @db.Text
+  content    String   @db.Text
   /// User id captured at write time; kept even if the account is deleted.
   editedById String?
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([articleId, createdAt])
 }
@@ -246,12 +257,12 @@ enum ProjectStatus {
 }
 
 model Project {
-  id               String  @id @default(cuid())
-  slug             String  @unique
-  name             String
-  tagline          String
-  about            String  @db.Text
-  keyFeatures      String[]
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  tagline     String
+  about       String   @db.Text
+  keyFeatures String[]
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -261,14 +272,14 @@ model Project {
   nativeToken       String?
   launchYear        Int?
 
-  status     ProjectStatus @default(LIVE)
-  verified   Boolean       @default(false)
-  openSource Boolean       @default(false)
-  featured   Boolean       @default(false)
+  status      ProjectStatus @default(LIVE)
+  verified    Boolean       @default(false)
+  openSource  Boolean       @default(false)
+  featured    Boolean       @default(false)
   /// Curated for the Ecosystem homepage "Trending Projects" rail. Editorial,
   /// not derived from any traffic metric.
-  trending    Boolean      @default(false)
-  editorsPick Boolean      @default(false)
+  trending    Boolean       @default(false)
+  editorsPick Boolean       @default(false)
 
   /// Emoji mark and brand colour, used until real logo assets exist.
   logo   String
@@ -313,7 +324,7 @@ model Project {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -348,11 +359,11 @@ model ProjectCollection {
 }
 
 model Research {
-  id      String @id @default(cuid())
-  slug    String @unique
-  title   String
-  summary String @db.Text
-  content String @db.Text
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  title      String
+  summary    String   @db.Text
+  content    String   @db.Text
   /// Source list rendered as the References block.
   references String[]
 
@@ -380,7 +391,7 @@ model Research {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -419,7 +430,7 @@ model Regulation {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -448,23 +459,23 @@ model Event {
   /// IANA zone, e.g. "Europe/London".
   timezone String    @default("UTC")
 
-  mode     EventMode @default(OFFLINE)
-  venue    String?
-  city     String?
-  country  String?
+  mode      EventMode @default(OFFLINE)
+  venue     String?
+  city      String?
+  country   String?
   onlineUrl String?
 
-  registerUrl String?
+  registerUrl     String?
   telegramChannel String?
   /// Free-text so international / crypto-denominated prices don't need a
   /// currency engineering pass (e.g. "$50", "0.05 ETH", "Free").
-  isFree      Boolean @default(true)
-  ticketPrice String?
+  isFree          Boolean @default(true)
+  ticketPrice     String?
   /// e.g. "English" -- free text, not an enum, since this is display-only.
-  language String?
+  language        String?
 
-  status   ContentStatus @default(DRAFT)
-  featured Boolean       @default(false)
+  status      ContentStatus @default(DRAFT)
+  featured    Boolean       @default(false)
   /// Set when an editor cancels/postpones a published event. Deliberately not
   /// part of `ContentStatus`: cancelling/postponing doesn't change who can see
   /// the page, just how it's labeled, so it's presentation metadata rather
@@ -507,7 +518,7 @@ model Event {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -550,13 +561,13 @@ model Organizer {
 }
 
 model EventSpeaker {
-  id       String  @id @default(cuid())
-  eventId  String
-  event    Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name     String
-  title    String?
-  bio      String?
-  photoUrl String?
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  title     String?
+  bio       String?
+  photoUrl  String?
   /// Optional link to a founder profile when the speaker is one.
   founderId String?
   founder   Founder? @relation(fields: [founderId], references: [id], onDelete: SetNull)
@@ -565,13 +576,13 @@ model EventSpeaker {
 }
 
 model Founder {
-  id       String @id @default(cuid())
-  slug     String @unique
-  name     String
-  role     String
-  company  String?
-  bio      String @db.Text
-  excerpt  String
+  id      String  @id @default(cuid())
+  slug    String  @unique
+  name    String
+  role    String
+  company String?
+  bio     String  @db.Text
+  excerpt String
 
   photoId String?
   photo   Media?  @relation(fields: [photoId], references: [id], onDelete: SetNull)
@@ -581,24 +592,24 @@ model Founder {
   linkedin String?
   github   String?
 
-  region    String?
+  region      String?
   /// Sector the founder works in, e.g. "DeFi", "Infrastructure", "Gaming".
   /// Drives the industry breakdown in founder analytics.
-  industry  String?
-  status    ContentStatus @default(DRAFT)
+  industry    String?
+  status      ContentStatus @default(DRAFT)
   publishedAt DateTime?
-  featured  Boolean       @default(false)
+  featured    Boolean       @default(false)
   /// Editorially confirmed identity. Mirrors `Organizer.verified`.
-  verified  Boolean       @default(false)
+  verified    Boolean       @default(false)
 
   /// Set only on public "submit your story" submissions.
   submittedByName  String?
   submittedByEmail String?
 
-  tags     Tag[]
-  projects Project[]
-  articles Article[]
-  events   Event[]
+  tags      Tag[]
+  projects  Project[]
+  articles  Article[]
+  events    Event[]
   speakerAt EventSpeaker[]
 
   seoTitle       String?
@@ -607,7 +618,7 @@ model Founder {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -620,27 +631,27 @@ model Founder {
 // ----------------------------------------------------------------- media ---
 
 model Media {
-  id         String  @id @default(cuid())
+  id       String  @id @default(cuid())
   /// Opaque identifier the active StorageProvider uses to build a URL or
   /// delete the file: a relative disk path for LocalStorageProvider, or a
   /// Cloudinary public ID for CloudinaryStorageProvider. Never a full URL.
-  path       String  @unique
-  filename   String
-  mimeType   String
+  path     String  @unique
+  filename String
+  mimeType String
   /// Bytes.
-  size       Int
-  width      Int?
-  height     Int?
-  altText    String?
-  title      String?
-  folder     String  @default("/")
+  size     Int
+  width    Int?
+  height   Int?
+  altText  String?
+  title    String?
+  folder   String  @default("/")
 
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   articleFeatures Article[]
-  projectLogos    Project[]  @relation("ProjectLogo")
-  projectCovers   Project[]  @relation("ProjectCover")
+  projectLogos    Project[]   @relation("ProjectLogo")
+  projectCovers   Project[]   @relation("ProjectCover")
   researchCovers  Research[]
   eventBanners    Event[]
   founderPhotos   Founder[]
@@ -648,7 +659,7 @@ model Media {
 
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt DateTime?
+  deletedAt   DateTime?
   deletedById String?
   updatedById String?
 
@@ -682,12 +693,12 @@ model HomepageSection {
 }
 
 model NavigationItem {
-  id       String  @id @default(cuid())
+  id       String           @id @default(cuid())
   /// "header" or "footer".
   location String
   label    String
   href     String
-  position Int     @default(0)
+  position Int              @default(0)
   parentId String?
   parent   NavigationItem?  @relation("NavChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children NavigationItem[] @relation("NavChildren")
@@ -758,16 +769,16 @@ enum AdStatus {
 }
 
 model AdSlot {
-  id           String   @id @default(cuid())
+  id             String    @id @default(cuid())
   /// Placement identifier the frontend renders into, e.g. "article_sidebar".
-  placement    String
-  campaignName String
-  status       AdStatus @default(PAUSED)
-  startsAt     DateTime?
-  endsAt       DateTime?
-  priority     Int      @default(0)
+  placement      String
+  campaignName   String
+  status         AdStatus  @default(PAUSED)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  priority       Int       @default(0)
   destinationUrl String?
-  imageId      String?
+  imageId        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -791,16 +802,16 @@ enum AuditAction {
 
 /// Append-only. Rows are never updated or deleted by the application.
 model AuditLog {
-  id     String      @id @default(cuid())
-  action AuditAction
+  id       String      @id @default(cuid())
+  action   AuditAction
   /// Model name, e.g. "Article".
-  entity String?
+  entity   String?
   entityId String?
   /// Human-readable summary shown in the log table.
-  summary String
+  summary  String
 
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   /// Denormalised so the log survives account deletion.
   userEmail String?
 
@@ -822,19 +833,19 @@ model AuditLog {
 /// Rotating refresh tokens. One row per issued token; rotation revokes the
 /// previous row, so a stolen token is usable at most once before detection.
 model RefreshToken {
-  id        String   @id @default(cuid())
+  id           String    @id @default(cuid())
   /// SHA-256 of the token. The raw value is only ever held by the client.
-  tokenHash String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  revokedAt DateTime?
+  tokenHash    String    @unique
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  revokedAt    DateTime?
   /// Set when this token was rotated, pointing at its replacement. Reuse of a
   /// rotated token indicates theft and invalidates the whole chain.
   replacedById String?
-  userAgent String?
-  ipAddress String?
-  createdAt DateTime @default(now())
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])
@@ -860,10 +871,13 @@ model RoleDefinition {
   key         String  @unique
   name        String
   description String?
-  /// System roles cannot be deleted or renamed.
+  /// System roles (the built-in `Role` enum values) cannot be deleted or
+  /// renamed, and only their permission grants can be edited.
   isSystem    Boolean @default(false)
 
-  permissions RolePermission[]
+  permissions           RolePermission[]
+  /// Users who hold this role as an *additional* grant (see `User.additionalRoles`).
+  additionalRoleHolders User[]           @relation("UserAdditionalRoles")
 }
 
 model RolePermission {
@@ -909,21 +923,21 @@ model AiAgent {
   isActive    Boolean          @default(false)
 
   /// Public identifier sent in the X-Agent-Key header.
-  apiKey      String  @unique
+  apiKey        String   @unique
   /// Argon2 hash of the secret. The plaintext is shown once, at creation.
   apiSecretHash String
   /// Optional allowlist; empty means any source address.
-  allowedIps  String[]
+  allowedIps    String[]
 
   defaultPublishMode AgentPublishMode @default(DRAFT)
   /// Permission keys this agent holds, e.g. ["news.create","media.upload"].
-  permissions String[]
+  permissions        String[]
 
   rateLimitPerMinute Int @default(60)
 
-  lastConnectedAt  DateTime?
-  lastPublishedAt  DateTime?
-  lastError        String?
+  lastConnectedAt DateTime?
+  lastPublishedAt DateTime?
+  lastError       String?
 
   requests AgentRequestLog[]
   webhooks Webhook[]
@@ -936,23 +950,23 @@ model AiAgent {
 
 /// Every agent call, successful or not.
 model AgentRequestLog {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   agentId   String?
   agent     AiAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
   /// Denormalised so the log survives agent deletion.
   agentName String?
 
-  endpoint    String
-  method      String
-  statusCode  Int
-  ipAddress   String?
-  contentType String?
+  endpoint         String
+  method           String
+  statusCode       Int
+  ipAddress        String?
+  contentType      String?
   /// Id of the row the request created or updated, when it succeeded.
-  resultEntity   String?
-  resultEntityId String?
+  resultEntity     String?
+  resultEntityId   String?
   /// Validation failures, so agent authors can debug their payloads.
   validationErrors Json?
-  durationMs  Int
+  durationMs       Int
 
   createdAt DateTime @default(now())
 
@@ -969,14 +983,14 @@ enum WebhookEvent {
 }
 
 model Webhook {
-  id      String         @id @default(cuid())
-  agentId String?
-  agent   AiAgent?       @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  url     String
-  events  WebhookEvent[]
+  id       String         @id @default(cuid())
+  agentId  String?
+  agent    AiAgent?       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  url      String
+  events   WebhookEvent[]
   /// Used to sign the payload so the receiver can verify origin.
-  secret  String
-  isActive Boolean       @default(true)
+  secret   String
+  isActive Boolean        @default(true)
 
   deliveries WebhookDelivery[]
 
@@ -984,14 +998,14 @@ model Webhook {
 }
 
 model WebhookDelivery {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   webhookId  String
-  webhook    Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  webhook    Webhook      @relation(fields: [webhookId], references: [id], onDelete: Cascade)
   event      WebhookEvent
   statusCode Int?
   error      String?
-  attempts   Int      @default(1)
-  createdAt  DateTime @default(now())
+  attempts   Int          @default(1)
+  createdAt  DateTime     @default(now())
 
   @@index([webhookId, createdAt])
 }
@@ -1028,34 +1042,34 @@ model SearchQuery {
 /// and device fields are only populated when the client supplies them — the
 /// UI shows "Not available" rather than invented values.
 model AnalyticsEvent {
-  id        String   @id @default(cuid())
+  id               String   @id @default(cuid())
   /// e.g. page_view | article_view | article_scroll | share | search | …
-  type      String
+  type             String
   /// Anonymous session id generated client-side per visit.
-  sessionId String
+  sessionId        String
   /// Hashed anonymous visitor id (persists across sessions).
-  visitorId String?
-  path      String?
-  referrer  String?
+  visitorId        String?
+  path             String?
+  referrer         String?
   /// Captured from Accept-Language region when available.
-  country   String?
-  region    String?
-  city      String?
-  deviceType String?
-  browser   String?
-  os        String?
+  country          String?
+  region           String?
+  city             String?
+  deviceType       String?
+  browser          String?
+  os               String?
   screenResolution String?
-  language  String?
+  language         String?
   /// Content context (entity type + id, e.g. Article + article id).
-  entity    String?
-  entityId  String?
-  categoryId String?
-  authorId  String?
+  entity           String?
+  entityId         String?
+  categoryId       String?
+  authorId         String?
   /// Scroll depth in % for article_scroll milestones.
-  scrollDepth Int?
+  scrollDepth      Int?
   /// Extra structured payload (share platform, search term, …).
-  meta      Json?
-  timestamp DateTime @default(now())
+  meta             Json?
+  timestamp        DateTime @default(now())
 
   @@index([type, timestamp])
   @@index([sessionId, timestamp])
@@ -1089,8 +1103,8 @@ enum NewsletterStatus {
 /// managed in the admin panel. The email is stored lowercased and unique, so
 /// duplicate subscriptions are impossible at the database level.
 model NewsletterSubscriber {
-  id    String           @id @default(cuid())
-  email String           @unique
+  id    String  @id @default(cuid())
+  email String  @unique
   /// Optional first name collected by the public subscribe form.
   name  String?
 
@@ -1131,8 +1145,8 @@ model NewsletterCampaign {
   /// Sanitized HTML body authored in the admin editor.
   content String @db.Text
 
-  status        NewsletterCampaignStatus  @default(DRAFT)
-  recipientType NewsletterRecipientType   @default(ALL_ACTIVE)
+  status          NewsletterCampaignStatus @default(DRAFT)
+  recipientType   NewsletterRecipientType  @default(ALL_ACTIVE)
   /// Snapshot of chosen addresses when recipientType = SELECTED. Stored so a
   /// later change to the subscriber table cannot alter who actually got it.
   recipientEmails String[]

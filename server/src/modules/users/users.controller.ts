@@ -55,6 +55,19 @@ export class UsersController {
   /* -------------------------------------------------- unauthenticated ----- */
 
   @Public()
+  @Get('invite/:token')
+  @ApiOperation({
+    summary: 'Preview an invitation without consuming it',
+    description:
+      'Lets the accept-invite screen tell a brand-new signup ("set a password") ' +
+      'apart from an additional-role grant on an already-active account ' +
+      '("confirm the new role") before rendering the right form.',
+  })
+  previewInvite(@Param('token') token: string) {
+    return this.users.previewInvite(token);
+  }
+
+  @Public()
   @Post('invite/accept')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Accept an invitation and set the first password' })

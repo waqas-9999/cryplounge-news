@@ -36,6 +36,7 @@ const PUBLIC_SELECT = {
   lastLoginAt: true,
   createdAt: true,
   updatedAt: true,
+  additionalRoles: { select: { key: true, name: true } },
 } satisfies Prisma.UserSelect;
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -102,17 +103,41 @@ export class UsersService {
    * its hash is stored, so a database read cannot be turned into an account
    * takeover.
    */
+  /**
+   * Invite a colleague, or — if the email already belongs to an active
+   * account — grant that account an *additional* role.
+   *
+   * The two paths share an endpoint deliberately: granting a second role is
+   * only ever "invite this same person again for the other role", so a
+   * super admin re-uses the same form instead of a separate role-editing UI
+   * that could bypass the acceptance step.
+   */
   async invite(dto: InviteUserDto, actor: AuthenticatedUser, context: AuditContext) {
-    this.assertMayAssignRole(dto.role, actor);
-
     const email = dto.email.toLowerCase().trim();
-    const existing = await this.prisma.user.findUnique({ where: { email } });
+
+    const roleDefinition = await this.prisma.roleDefinition.findUnique({ where: { key: dto.role } });
+    if (!roleDefinition) {
+      throw new BadRequestException({ message: `Unknown role: ${dto.role}`, code: 'UNKNOWN_ROLE' });
+    }
+
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      include: { additionalRoles: { select: { key: true } } },
+    });
+
     if (existing) {
+      return this.inviteAdditionalRole(existing, roleDefinition.key, actor, context);
+    }
+
+    // A brand-new account's primary role is the fixed `Role` enum column —
+    // custom roles can only be granted as an additional role above.
+    if (!this.isPrimaryRole(dto.role)) {
       throw new BadRequestException({
-        message: 'An account with this email already exists',
-        code: 'DUPLICATE_ENTRY',
+        message: 'A new account must be created with one of the built-in roles; custom roles can only be granted as an additional role to an existing account',
+        code: 'INVALID_PRIMARY_ROLE',
       });
     }
+    this.assertMayAssignRole(dto.role, actor);
 
     const token = randomBytes(32).toString('base64url');
 
@@ -142,8 +167,90 @@ export class UsersService {
     return { user, inviteToken: token };
   }
 
-  /** Accept an invitation and set the first password. */
-  async acceptInvite(token: string, password: string) {
+  /** Grant an existing, active account an additional role — super admin only. */
+  private async inviteAdditionalRole(
+    existing: { id: string; email: string; role: Role; isActive: boolean; additionalRoles: { key: string }[] },
+    roleKey: string,
+    actor: AuthenticatedUser,
+    context: AuditContext
+  ) {
+    if (actor.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException({
+        message: 'Only a super admin can grant an additional role to an existing account',
+        code: 'FORBIDDEN',
+      });
+    }
+    if (!existing.isActive) {
+      throw new BadRequestException({
+        message: 'An account with this email already exists',
+        code: 'DUPLICATE_ENTRY',
+      });
+    }
+    if (existing.role === roleKey || existing.additionalRoles.some(r => r.key === roleKey)) {
+      throw new BadRequestException({
+        message: 'This account already holds that role',
+        code: 'DUPLICATE_ROLE',
+      });
+    }
+
+    const token = randomBytes(32).toString('base64url');
+    const user = await this.prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        pendingRoleKey: roleKey,
+        inviteToken: this.hash(token),
+        inviteExpiresAt: new Date(Date.now() + INVITE_TTL_MS),
+      },
+      select: PUBLIC_SELECT,
+    });
+
+    await this.audit.record({
+      action: AuditAction.CREATE,
+      entity: 'User',
+      entityId: existing.id,
+      summary: `Invited ${existing.email} to accept the additional role ${roleKey}`,
+      context,
+    });
+
+    return { user, inviteToken: token };
+  }
+
+  private isPrimaryRole(key: string): key is Role {
+    return (Object.values(Role) as string[]).includes(key);
+  }
+
+  /** Look up an invite by its raw token without consuming it, for the accept-invite screen. */
+  async previewInvite(token: string) {
+    const user = await this.prisma.user.findFirst({ where: { inviteToken: this.hash(token) } });
+
+    if (!user || !user.inviteExpiresAt || user.inviteExpiresAt.getTime() < Date.now()) {
+      throw new BadRequestException({
+        message: 'This invitation is invalid or has expired',
+        code: 'INVALID_TOKEN',
+      });
+    }
+
+    const roleDefinition = await this.prisma.roleDefinition.findUnique({
+      where: { key: user.pendingRoleKey ?? user.role },
+    });
+
+    return {
+      mode: user.pendingRoleKey ? ('grant' as const) : ('signup' as const),
+      name: user.name,
+      email: user.email,
+      roleName: roleDefinition?.name ?? user.pendingRoleKey ?? user.role,
+    };
+  }
+
+  /**
+   * Accept an invitation.
+   *
+   * Two distinct outcomes share this one entry point: a brand-new account
+   * sets its first password and activates, while an already-active account
+   * accepting an additional-role grant only needs the token — `password` is
+   * ignored for that path.
+   */
+  async acceptInvite(token: string, password?: string) {
     const user = await this.prisma.user.findFirst({
       where: { inviteToken: this.hash(token) },
     });
@@ -152,6 +259,38 @@ export class UsersService {
       throw new BadRequestException({
         message: 'This invitation is invalid or has expired',
         code: 'INVALID_TOKEN',
+      });
+    }
+
+    if (user.pendingRoleKey) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          additionalRoles: { connect: { key: user.pendingRoleKey } },
+          pendingRoleKey: null,
+          inviteToken: null,
+          inviteExpiresAt: null,
+        },
+      });
+
+      // The permission set just changed; force a clean re-read instead of
+      // waiting for the current access token to expire.
+      await this.auth.revokeAllForUser(user.id);
+
+      await this.audit.record({
+        action: AuditAction.ROLE_CHANGE,
+        entity: 'User',
+        entityId: user.id,
+        summary: `${user.email} accepted the additional role ${user.pendingRoleKey}`,
+        context: { actorLabel: user.email },
+      });
+      return;
+    }
+
+    if (!password) {
+      throw new BadRequestException({
+        message: 'A password is required to activate this account',
+        code: 'PASSWORD_REQUIRED',
       });
     }
 

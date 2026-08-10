@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Put, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -6,7 +6,7 @@ import { auditContext } from '../articles/articles.controller';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
-import { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/role.dto';
+import { CreateRoleDto, UpdateRoleDto, UpdateRolePermissionsDto } from './dto/role.dto';
 import { RolesService } from './roles.service';
 
 @ApiTags('Roles & Permissions')
@@ -30,6 +30,21 @@ export class RolesController {
   @ApiOperation({ summary: 'The permission catalogue, grouped by module' })
   listPermissions() {
     return this.roles.listPermissions();
+  }
+
+  @Post('roles')
+  @ApiBearerAuth()
+  @RequirePermissions('roles.manage')
+  @ResponseMessage('Role created')
+  @ApiOperation({
+    summary: 'Create a custom role',
+    description:
+      'Super admin only, enforced in the service beyond the roles.manage check ' +
+      'here. Custom roles can be granted to existing accounts as an ' +
+      'additional role but cannot be a brand-new account’s primary role.',
+  })
+  create(@Body() dto: CreateRoleDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.roles.create(dto, user, auditContext(user, request));
   }
 
   @Patch('roles/:key')

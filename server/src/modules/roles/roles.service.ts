@@ -4,7 +4,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
 import { AuthService } from '../auth/auth.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
-import type { UpdateRoleDto, UpdateRolePermissionsDto } from './dto/role.dto';
+import type { CreateRoleDto, UpdateRoleDto, UpdateRolePermissionsDto } from './dto/role.dto';
 
 /**
  * Roles and their permission grants.
@@ -61,6 +61,66 @@ export class RolesService {
     }
 
     return [...grouped.entries()].map(([module, items]) => ({ module, permissions: items }));
+  }
+
+  /**
+   * Create a custom role — super admin only. New roles can be granted to
+   * existing accounts as an *additional* role (see `UsersService.invite`);
+   * they cannot be a brand-new account's primary role, which stays fixed to
+   * the `Role` enum.
+   */
+  async create(dto: CreateRoleDto, actor: AuthenticatedUser, context: AuditContext) {
+    if (actor.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException({
+        message: 'Only a super admin can create a role',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const existing = await this.prisma.roleDefinition.findUnique({ where: { key: dto.key } });
+    if (existing) {
+      throw new BadRequestException({
+        message: `Role ${dto.key} already exists`,
+        code: 'DUPLICATE_ENTRY',
+      });
+    }
+
+    let permissions: { id: string; key: string }[] = [];
+    if (dto.permissionKeys?.length) {
+      permissions = await this.prisma.permission.findMany({
+        where: { key: { in: dto.permissionKeys } },
+      });
+      const known = new Set(permissions.map(p => p.key));
+      const unknown = dto.permissionKeys.filter(k => !known.has(k));
+      if (unknown.length > 0) {
+        throw new BadRequestException({
+          message: `Unknown permission keys: ${unknown.join(', ')}`,
+          code: 'UNKNOWN_PERMISSION',
+        });
+      }
+    }
+
+    const role = await this.prisma.roleDefinition.create({
+      data: {
+        key: dto.key,
+        name: dto.name,
+        description: dto.description,
+        isSystem: false,
+        permissions: {
+          create: permissions.map(permission => ({ permissionId: permission.id })),
+        },
+      },
+    });
+
+    await this.audit.record({
+      action: AuditAction.CREATE,
+      entity: 'RoleDefinition',
+      entityId: role.id,
+      summary: `Created role ${role.key}`,
+      context,
+    });
+
+    return this.list();
   }
 
   async update(key: string, dto: UpdateRoleDto, context: AuditContext) {

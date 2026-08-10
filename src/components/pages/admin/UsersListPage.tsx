@@ -34,20 +34,23 @@ interface UsersListPageProps {
   onLogout: () => void;
 }
 
+interface RoleOption {
+  key: string;
+  name: string;
+  isSystem: boolean;
+}
+
 interface StaffUser {
   id: string;
   email: string;
   name: string;
   role: string;
+  additionalRoles: { key: string; name: string }[];
   isActive: boolean;
   avatarUrl: string | null;
   lastLoginAt: string | null;
   createdAt: string;
 }
-
-/** Matches `Role` in `server/prisma/schema.prisma`. Viewer stays out of the
- * invite picker: it isn't part of the active staff authentication workflow. */
-const ASSIGNABLE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'EDITOR', 'AUTHOR', 'MODERATOR'] as const;
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
@@ -268,9 +271,20 @@ export function UsersListPage({ currentPage, onNavigate, onLogout }: UsersListPa
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-block px-2.5 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-full text-xs">
-                              {ROLE_LABELS[user.role] ?? user.role}
-                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              <span className="inline-block px-2.5 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded-full text-xs">
+                                {ROLE_LABELS[user.role] ?? user.role}
+                              </span>
+                              {user.additionalRoles.map(role => (
+                                <span
+                                  key={role.key}
+                                  title="Additional role"
+                                  className="inline-block px-2.5 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-full text-xs"
+                                >
+                                  {role.name}
+                                </span>
+                              ))}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-700 dark:text-gray-300">
                             {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : 'Never'}
@@ -427,12 +441,17 @@ function InviteUserDialog({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('AUTHOR');
   const [saving, setSaving] = useState(false);
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
 
   useEffect(() => {
     if (open) {
       setName('');
       setEmail('');
       setRole('AUTHOR');
+      apiClient
+        .get<RoleOption[]>('roles')
+        .then(roles => setRoleOptions(roles))
+        .catch(() => setRoleOptions([]));
     }
   }, [open]);
 
@@ -461,6 +480,13 @@ function InviteUserDialog({
           <DialogTitle>Invite a staff member</DialogTitle>
           <DialogDescription>
             They&apos;ll receive a one-time link to set their own password. The account stays disabled until they accept.
+            {canGrantSuperAdmin && (
+              <>
+                {' '}If this email already belongs to an active account, this instead sends a link that adds the
+                selected role to that account — a super admin power for giving someone a second role (e.g. an Editor
+                who is also an Author).
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -490,9 +516,15 @@ function InviteUserDialog({
               onChange={e => setRole(e.target.value)}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
             >
-              {ASSIGNABLE_ROLES.filter(r => r !== 'SUPER_ADMIN' || canGrantSuperAdmin).map(r => (
-                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
-              ))}
+              {roleOptions
+                .filter(r => r.key !== 'SUPER_ADMIN' || canGrantSuperAdmin)
+                .filter(r => r.isSystem || canGrantSuperAdmin)
+                .map(r => (
+                  <option key={r.key} value={r.key}>
+                    {r.name}
+                    {!r.isSystem ? ' (custom — additional role only)' : ''}
+                  </option>
+                ))}
             </select>
           </div>
           <DialogFooter>

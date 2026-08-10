@@ -1,11 +1,20 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { apiClient, errorMessage } from '@/lib/api-client';
+import { getCurrentUser } from '@/lib/auth-client';
 import { toast } from 'sonner';
-import { Shield, Users, CheckCircle2, Search, Save, Loader2 } from 'lucide-react';
+import { Shield, Users, CheckCircle2, Search, Save, Loader2, Plus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface RolesPermissionsPageProps {
   currentPage: string;
@@ -44,8 +53,12 @@ export function RolesPermissionsPage({ currentPage, onNavigate, onLogout }: Role
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
   const [pendingGrants, setPendingGrants] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  useEffect(() => {
+  const me = getCurrentUser();
+  const isSuperAdmin = me?.role === 'SUPER_ADMIN';
+
+  const load = useCallback((preserveSelection = false) => {
     Promise.all([
       apiClient.get<Role[]>('roles'),
       apiClient.get<PermissionGroup[]>('permissions'),
@@ -53,12 +66,18 @@ export function RolesPermissionsPage({ currentPage, onNavigate, onLogout }: Role
       .then(([rolesData, groups]) => {
         setRoles(rolesData);
         setPermissionGroups(groups);
-        setSelectedRole(rolesData[0]?.key ?? null);
-        setPendingGrants(rolesData[0]?.permissions ?? []);
+        if (!preserveSelection) {
+          setSelectedRole(rolesData[0]?.key ?? null);
+          setPendingGrants(rolesData[0]?.permissions ?? []);
+        }
         setState('ready');
       })
       .catch(() => setState('error'));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const activeRole = roles.find(r => r.key === selectedRole);
 
@@ -156,6 +175,15 @@ export function RolesPermissionsPage({ currentPage, onNavigate, onLogout }: Role
                 <div className="bg-white dark:bg-[#1A1A1C] rounded-xl border border-gray-200 dark:border-gray-800 p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg text-gray-900 dark:text-gray-100">Roles</h3>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => setCreateOpen(true)}
+                        className="p-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 rounded-lg transition-colors"
+                        title="Create a new role"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-3">
@@ -251,6 +279,115 @@ export function RolesPermissionsPage({ currentPage, onNavigate, onLogout }: Role
           )}
         </main>
       </div>
+
+      <CreateRoleDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={key => {
+          load(true);
+          setSelectedRole(key);
+        }}
+      />
     </div>
+  );
+}
+
+function CreateRoleDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: (key: string) => void;
+}) {
+  const [key, setKey] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setKey('');
+      setName('');
+      setDescription('');
+    }
+  }, [open]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await apiClient.post('roles', { key: key.trim().toUpperCase(), name, description: description || undefined });
+      toast.success(`Role ${name} created`);
+      onOpenChange(false);
+      onCreated(key.trim().toUpperCase());
+    } catch (err) {
+      toast.error(errorMessage(err, 'Failed to create role'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create a role</DialogTitle>
+          <DialogDescription>
+            Custom roles can be granted to existing staff as an additional role (on top of their primary role) —
+            they cannot be used as a brand-new account&apos;s primary role. Set its permissions afterwards from the
+            list on the right.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Key</label>
+            <input
+              required
+              value={key}
+              onChange={e => setKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))}
+              placeholder="CONTRIBUTOR"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Display name</label>
+            <input
+              required
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Contributor"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Description (optional)</label>
+            <input
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            />
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-yellow-600 text-gray-900 rounded-lg hover:from-yellow-500 hover:to-yellow-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Role
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

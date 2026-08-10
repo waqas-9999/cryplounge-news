@@ -44,24 +44,39 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true, email: true, name: true, role: true, isActive: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        additionalRoles: { select: { key: true } },
+      },
     });
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Account is inactive or no longer exists');
     }
 
-    const role = await this.prisma.roleDefinition.findUnique({
-      where: { key: user.role },
+    // Permissions are the union of the primary role's grants and any
+    // additional roles a super admin has granted on top of it.
+    const roleKeys = [user.role, ...user.additionalRoles.map(r => r.key)];
+    const roles = await this.prisma.roleDefinition.findMany({
+      where: { key: { in: roleKeys } },
       include: { permissions: { include: { permission: true } } },
     });
+
+    const permissions = new Set<string>();
+    for (const role of roles) {
+      for (const rp of role.permissions) permissions.add(rp.permission.key);
+    }
 
     return {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: role?.permissions.map(rp => rp.permission.key) ?? [],
+      permissions: [...permissions],
     };
   }
 }

@@ -32,9 +32,17 @@ export class InviteUserDto {
   @MaxLength(120)
   name!: string;
 
-  @ApiProperty({ enum: Role })
-  @IsEnum(Role)
-  role!: Role;
+  @ApiProperty({
+    description:
+      'RoleDefinition key. A brand-new account must use one of the built-in ' +
+      'Role enum values. Any role (including custom ones) may be granted as ' +
+      'an *additional* role when the email already belongs to an active ' +
+      'account — that path is super-admin only.',
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  role!: string;
 }
 
 export class AcceptInviteDto {
@@ -43,11 +51,17 @@ export class AcceptInviteDto {
   @MinLength(1)
   token!: string;
 
-  @ApiProperty({ minLength: 12 })
+  @ApiPropertyOptional({
+    minLength: 12,
+    description:
+      'Required to activate a brand-new account. Omitted when accepting an ' +
+      'additional-role grant on an already-active account.',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(12, { message: 'Password must be at least 12 characters' })
   @MaxLength(200)
-  password!: string;
+  password?: string;
 }
 
 export class UpdateUserDto {

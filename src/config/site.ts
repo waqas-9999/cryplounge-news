@@ -17,7 +17,7 @@ export const siteConfig = {
    * `*.vercel.app`, which tells Google to index that copy instead of this one.
    * Non-canonical hosts are marked `noindex` in `src/middleware.ts`.
    */
-  url: (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://cryplounge.com').replace(/\/+$/, ''),
+  url: (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.cryplounge.com').replace(/\/+$/, ''),
   description:
     'Independent crypto journalism: news, project discovery, research, regulation, events and the people building the industry.',
   /** The one address CrypLounge is reachable at, for every inquiry type. */
