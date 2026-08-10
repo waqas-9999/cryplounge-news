@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { TrendingCard } from '@/components/TrendingCard';
 import { LatestNewsCard } from '@/components/LatestNewsCard';
-import { ArrowRight, ArrowLeft, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { CategoryPageSkeleton } from '@/components/skeletons';
 import { listArticles, articleHref } from '@/services/news';
 import { subscribeToNewsletter } from '@/services/newsletter';
 import { trackNewsletterSignup } from '@/utils/analytics';
@@ -139,11 +140,7 @@ export function CategoryNewsPage({ category, displayTitle, images, onNavigate, i
   }, [category, page, seeded]);
 
   if (state === 'loading') {
-    return (
-      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-24 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-[#EFB81A]" />
-      </main>
-    );
+    return <CategoryPageSkeleton />;
   }
 
   if (state === 'error') {

@@ -10,8 +10,9 @@ import { RecommendedCard } from '@/components/RecommendedCard';
 import { TrendingCard } from '@/components/TrendingCard';
 import { FeaturedNewsSection } from '@/components/FeaturedNewsSection';
 import { BestOfMonthSection } from '@/components/BestOfMonthSection';
-import { ArrowRight, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getLatestArticles, articleHref } from '@/services/news';
+import { HomePageSkeleton } from '@/components/skeletons';
 
 interface HomePageProps {
   /** Fetched on the server in app/page.tsx and passed down. */
@@ -107,11 +108,7 @@ export function HomePage({ images, onNavigate, spotlightProjects, initialArticle
   };
 
   if (state === 'loading') {
-    return (
-      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-24 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-[#EFB81A]" />
-      </main>
-    );
+    return <HomePageSkeleton />;
   }
 
   if (state === 'error' || articles.length === 0) {

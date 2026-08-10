@@ -1,8 +1,9 @@
 'use client';
 
-import { Calendar, MapPin, Clock, ExternalLink, TrendingUp, Loader2, Users } from 'lucide-react';
+import { Calendar, MapPin, Clock, ExternalLink, TrendingUp, Users } from 'lucide-react';
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '@/components/ui/breadcrumb';
 import { Badge } from '@/components/ui/badge';
+import { EventHeroSkeleton, EventGridSkeleton } from '@/components/skeletons';
 import { useEvents } from '@/contexts/EventsContext';
 import { useState } from 'react';
 
@@ -83,8 +84,9 @@ export function EventsPage({ onNavigate, initialType }: EventsPageProps) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="w-6 h-6 animate-spin text-[#EFB81A]" />
+          <div className="space-y-6 sm:space-y-8 md:space-y-12">
+            <EventHeroSkeleton />
+            <EventGridSkeleton count={6} />
           </div>
         ) : error ? (
           <div className="py-24 text-center text-sm text-gray-500 dark:text-gray-400">
