@@ -199,14 +199,14 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
                       onMouseEnter={() => handleNavHover(item.slug)}
                       onMouseLeave={handleNavLeave}
                     >
-                      <div className="bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl py-2 min-w-[200px]">
+                      <div className="flex flex-col bg-white dark:bg-[#1A1A1A] border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl py-2 min-w-[200px]">
                         <p className="px-4 py-1.5 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">{item.name}</p>
                         {item.children.map(child => (
                           <Link
                             key={child.label}
                             href={pageKeyToHref(child.page)}
                             onClick={() => setHoveredNav(null)}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-[#FFD200] hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
+                            className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:text-[#FFD200] hover:bg-gray-50 dark:hover:bg-white/[0.04] transition-colors"
                           >
                             {child.label}
                           </Link>
