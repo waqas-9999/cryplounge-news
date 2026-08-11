@@ -1,3 +1,6 @@
+'use client';
+
+import { motion } from 'framer-motion';
 import type { Project } from '@/types/project';
 import { ProjectCard } from './ProjectCard';
 
@@ -19,12 +22,19 @@ export function ProjectGrid({
 
   return (
     <ul className={`grid grid-cols-1 ${columnClass} gap-4 md:gap-5`}>
-      {projects.map(project => (
-        <li key={project.id} className="flex">
+      {projects.map((project, i) => (
+        <motion.li
+          key={project.id}
+          className="flex"
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.4, delay: (i % columns) * 0.06 }}
+        >
           <div className="flex-1">
             <ProjectCard project={project} compact={compact} />
           </div>
-        </li>
+        </motion.li>
       ))}
     </ul>
   );

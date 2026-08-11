@@ -140,7 +140,6 @@ export function Footer({ onNavigate }: FooterProps = {}) {
               {[
                 { label: 'About', page: 'about' },
                 { label: 'Contact', page: 'contact' },
-                { label: 'Advertise', page: 'advertise' },
                 { label: 'Editorial Policy', page: 'editorial-policy' },
                 { label: 'Fact-check Policy', page: 'fact-check-policy' },
                 { label: 'Privacy', page: 'privacy' },

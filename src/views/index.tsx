@@ -39,7 +39,6 @@ import { FoundersPage } from '@/components/pages/FoundersPage';
 
 import AboutPage from '@/components/pages/AboutPage';
 import ContactPage from '@/components/pages/ContactPage';
-import AdvertisePage from '@/components/pages/AdvertisePage';
 import CareersPage from '@/components/pages/CareersPage';
 import LegalPage from '@/components/pages/LegalPage';
 import NewsletterPage from '@/components/pages/NewsletterPage';
@@ -245,10 +244,6 @@ export function AboutView() {
 
 export function ContactView() {
   return <ContactPage onNavigate={useAppNavigate()} />;
-}
-
-export function AdvertiseView() {
-  return <AdvertisePage onNavigate={useAppNavigate()} />;
 }
 
 export function CareersView() {
