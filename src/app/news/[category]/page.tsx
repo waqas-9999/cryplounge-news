@@ -4,6 +4,14 @@ import { isNewsCategory, labelForSlug, NEWS_CATEGORIES } from '@/lib/taxonomy';
 import { MarketNewsView, BusinessView, TechnologyView, CategoryView } from '@/views';
 import { listArticles } from '@/services/news';
 
+/**
+ * Editorial content changes between builds: an article published, updated or
+ * deleted in the CMS must appear on the live site without a redeploy. Without
+ * this the route is rendered once at build time and served from the full route
+ * cache forever, which is why removed articles kept showing.
+ */
+export const revalidate = 60;
+
 type Params = { params: Promise<{ category: string }> };
 
 export function generateStaticParams() {

@@ -8,6 +8,7 @@ import DOMPurify from 'dompurify';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
 import { listArticles } from '@/services/news';
+import { NEWS_CATEGORIES, labelForSlug } from '@/lib/taxonomy';
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -257,9 +258,9 @@ export function ArticleDetailPage({
       .catch(() => setBestOfMonth([]));
   }, [articleSlug, categorySlug]);
 
-  const moreNewsCategories = [
-    'Finance', 'Technology', 'Geopolitics', 'Business'
-  ];
+  // The real desks, so every chip resolves. The old hardcoded list included
+  // Finance and Geopolitics, which are not routes — both linked to a 404.
+  const moreNewsCategories = NEWS_CATEGORIES.filter(slug => slug !== categorySlug);
 
   // Sanitize article content to prevent XSS
   const sanitizedContent = DOMPurify.sanitize(articleContent || "Stay informed with the latest developments in the cryptocurrency and blockchain space. Our comprehensive coverage brings you in-depth analysis, expert insights, and breaking news from across the digital asset ecosystem.");
@@ -570,21 +571,13 @@ export function ArticleDetailPage({
                 More News
               </h3>
               <div className="flex flex-wrap gap-2" role="list">
-                {moreNewsCategories.map((cat, idx) => {
-                  // Proper category name to slug mapping
-                  const categorySlugMap: Record<string, string> = {
-                    'Market': 'market',
-                    'Technology': 'technology',
-                    'Policy': 'policy',
-                    'Business': 'business'
-                  };
-                  
-                  const categorySlug = categorySlugMap[cat] || cat.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-');
-                  
+                {moreNewsCategories.map(slug => {
+                  const cat = labelForSlug(slug);
+
                   return (
-                    <button 
-                      key={`category-${cat}-${idx}`}
-                      onClick={() => safeNavigate(`news/${categorySlug}`)}
+                    <button
+                      key={`category-${slug}`}
+                      onClick={() => safeNavigate(`news/${slug}`)}
                       className="px-3.5 py-2 rounded-lg bg-[#F4F4F4] dark:bg-[#1A1A1A] text-gray-700 dark:text-[#C0C0C5] text-xs hover:bg-[#F9D96A] dark:hover:bg-[#EFB81A]/20 hover:text-black dark:hover:text-[#EFB81A] transition-colors border border-gray-200 dark:border-gray-800 focus:outline-none focus:ring-2 focus:ring-[#EFB81A]"
                       role="listitem"
                       aria-label={`Browse ${cat} category`}

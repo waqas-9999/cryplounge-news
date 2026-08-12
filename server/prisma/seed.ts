@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Seeds the database from the existing in-repo content.
  *
  * Idempotent: every write is an upsert keyed on a natural key, so running it
@@ -9,7 +9,6 @@
 import { PrismaClient, CategoryKind, ContentStatus, ProjectStatus, Role } from '@prisma/client';
 import * as argon2 from 'argon2';
 
-import { mockArticles } from '../../src/data/mockArticles';
 import { projects as seedProjects } from '../../src/data/projects';
 import { mockEvents } from '../../src/data/mockEvents';
 import { mockFounderStories } from '../../src/data/mockFounders';
@@ -122,44 +121,6 @@ async function upsertTags(names: string[]) {
     );
   }
   return tags;
-}
-
-async function seedArticles(createdById: string) {
-  for (const article of mockArticles) {
-    const slug = article.slug ?? article.id;
-    const category = await db.category.findUnique({
-      where: { kind_slug: { kind: CategoryKind.NEWS, slug: article.categorySlug } },
-    });
-
-    const authorSlug = slugify(article.author);
-    const author = await db.author.upsert({
-      where: { slug: authorSlug },
-      update: {},
-      create: { slug: authorSlug, name: article.author },
-    });
-
-    const tags = await upsertTags(article.tags ?? []);
-
-    await db.article.upsert({
-      where: { slug },
-      update: {},
-      create: {
-        slug,
-        title: article.title,
-        summary: article.summary,
-        content: article.content ?? article.summary,
-        status: ContentStatus.PUBLISHED,
-        publishedAt: new Date(article.publishedAt),
-        featured: article.featured ?? false,
-        readMinutes: Number.parseInt(article.readTime, 10) || 3,
-        categoryId: category?.id,
-        authorId: author.id,
-        createdById,
-        tags: { connect: tags.map(t => ({ id: t.id })) },
-      },
-    });
-  }
-  console.log(`  articles: ${await db.article.count()}`);
 }
 
 async function seedProjectDirectory() {
@@ -604,7 +565,6 @@ async function main() {
   await seedPermissions();
   const owner = await seedUsers();
   await seedCategories();
-  await seedArticles(owner.id);
   await seedProjectDirectory();
   await seedEvents();
   await seedFounders();

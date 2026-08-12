@@ -28,8 +28,16 @@ export class TaxonomyService {
       where: kind ? { kind } : undefined,
       orderBy: [{ kind: 'asc' }, { position: 'asc' }, { name: 'asc' }],
       include: {
+        // Soft-deleted content is excluded: a deleted article must not keep
+        // inflating the counts the CMS shows for a desk.
         _count: {
-          select: { articles: true, research: true, regulations: true, projects: true, events: true },
+          select: {
+            articles: { where: { deletedAt: null } },
+            research: { where: { deletedAt: null } },
+            regulations: { where: { deletedAt: null } },
+            projects: { where: { deletedAt: null } },
+            events: { where: { deletedAt: null } },
+          },
         },
       },
     });
