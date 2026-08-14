@@ -52,6 +52,24 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'newsletter.manage', module: 'Newsletter', description: 'Activate, unsubscribe or delete newsletter subscribers' },
   { key: 'agents.manage', module: 'AI Agents', description: 'Manage AI agent credentials and permissions' },
   { key: 'webhooks.manage', module: 'AI Agents', description: 'Manage webhook subscriptions' },
+
+  /**
+   * Turning automated publishing on is the single highest-consequence switch
+   * in the product: it lets content reach the public site with no human in the
+   * loop. It is deliberately NOT covered by `settings.manage`, which ADMIN
+   * holds — otherwise any admin could enable it. Granted to SUPER_ADMIN only,
+   * via the wildcard.
+   */
+  {
+    key: 'ai.automation.manage',
+    module: 'AI Newsroom',
+    description: 'Enable or disable AI news automation and per-category automation',
+  },
+  {
+    key: 'ai.automation.read',
+    module: 'AI Newsroom',
+    description: 'View AI newsroom automation status and run history',
+  },
 ];
 
 function contentPermissions(prefix: string, module: string, noun: string): PermissionDefinition[] {
@@ -123,6 +141,10 @@ export const ROLES: RoleDefinitionSeed[] = [
       'newsletter.manage',
       'agents.manage',
       'webhooks.manage',
+      // Read-only on purpose. An admin can see whether automation is on and
+      // what it published; only a super admin can switch it on.
+      // `ai.automation.manage` is intentionally absent here.
+      'ai.automation.read',
     ],
   },
   {

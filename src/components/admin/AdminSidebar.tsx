@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Bot,
   LayoutDashboard,
   Newspaper,
   Users,
@@ -173,6 +174,12 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
         { label: 'Campaigns', page: 'admin/newsletter/campaigns' },
         { label: 'Create Newsletter', page: 'admin/newsletter/campaigns/new' }
       ]
+    },
+    {
+      id: 'ai',
+      label: 'AI Automation',
+      icon: Bot,
+      page: 'admin/ai-automation'
     },
     {
       id: 'logs',

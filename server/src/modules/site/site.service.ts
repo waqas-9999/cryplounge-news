@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditAction, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
+import { AI_SETTING_PREFIX } from '../ai-newsroom/ai-newsroom.service';
 import type {
   CreateNavigationItemDto,
   ReorderDto,
@@ -33,10 +34,30 @@ export class SiteService {
    */
   async settings(): Promise<Record<string, unknown>> {
     const rows = await this.prisma.setting.findMany();
-    return Object.fromEntries(rows.map(row => [row.key, row.value]));
+    return Object.fromEntries(
+      rows
+        // This response is world readable (`GET /settings` is public). AI
+        // automation state describes internal editorial operations and is
+        // served instead by `GET /admin/ai/automation`, behind a permission.
+        .filter(row => !row.key.startsWith(AI_SETTING_PREFIX))
+        .map(row => [row.key, row.value])
+    );
   }
 
   async setSetting(key: string, value: unknown, context: AuditContext) {
+    // `PUT /settings` requires `settings.manage`, which ADMIN holds. AI
+    // automation requires `ai.automation.manage`, which only SUPER_ADMIN
+    // holds. Without this guard the generic endpoint would be a second,
+    // weaker way to switch on automatic publishing.
+    if (key.startsWith(AI_SETTING_PREFIX)) {
+      throw new ForbiddenException({
+        message:
+          'AI automation settings cannot be changed here. Use /admin/ai/automation, ' +
+          'which requires the ai.automation.manage permission.',
+        code: 'FORBIDDEN',
+      });
+    }
+
     const previous = await this.prisma.setting.findUnique({ where: { key } });
 
     const setting = await this.prisma.setting.upsert({

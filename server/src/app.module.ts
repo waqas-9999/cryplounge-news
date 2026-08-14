@@ -37,6 +37,7 @@ import { AgentsModule } from './modules/agents/agents.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { NewsletterModule } from './modules/newsletter/newsletter.module';
 import { MailModule } from './modules/mail/mail.module';
+import { AiNewsroomModule } from './modules/ai-newsroom/ai-newsroom.module';
 
 /**
  * Application root.
@@ -98,6 +99,7 @@ import { MailModule } from './modules/mail/mail.module';
     AgentsModule,
     ContactModule,
     MailModule,
+    AiNewsroomModule,
     NewsletterModule,
   ],
   providers: [

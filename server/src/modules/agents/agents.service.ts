@@ -5,6 +5,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AgentPublishMode, AuditAction, ContentStatus, Prisma } from '@prisma/client';
@@ -12,6 +13,7 @@ import * as argon2 from 'argon2';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService } from '../content-core/audit.service';
 import { PublishingService } from '../content-core/publishing.service';
+import { checkAgentPermissions, describeRejections } from './agent-permissions';
 import { SlugService } from '../content-core/slug.service';
 import type { CreateAgentDto, UpdateAgentDto } from './dto/agent.dto';
 import type { SubmitArticleDto } from './dto/submit-article.dto';
@@ -44,6 +46,8 @@ export interface AgentContext {
  */
 @Injectable()
 export class AgentsService {
+  private readonly logger = new Logger(AgentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly slugs: SlugService,
@@ -156,6 +160,23 @@ export class AgentsService {
       where: { id: agent.id },
       data: { lastConnectedAt: new Date() },
     });
+
+    /**
+     * Defence in depth: the allow-list is enforced on write, but rows created
+     * before it existed — or written by any future code path that forgets to
+     * validate — could still carry a forbidden grant. Filtering here means a
+     * dangerous permission sitting in the database is inert at request time
+     * rather than merely hard to create.
+     */
+    const check = checkAgentPermissions(agent.permissions);
+    if (!check.allowed) {
+      const stripped = check.rejected.map(item => item.key);
+      this.logger.error(
+        { agentId: agent.id, agent: agent.name, stripped },
+        'Agent holds permissions that are forbidden for agents; ignoring them for this request'
+      );
+      return { ...agent, permissions: agent.permissions.filter(key => !stripped.includes(key)) };
+    }
 
     return agent;
   }
@@ -307,8 +328,18 @@ export class AgentsService {
     });
   }
 
+  /**
+   * Validates a requested permission set in two stages.
+   *
+   * Existence alone is not enough: `users.manage` and `roles.manage` are real
+   * catalogue keys, so a check for "does this key exist" passes them happily
+   * and an agent ends up able to alter staff accounts or grant itself
+   * anything. The second stage is an allow-list, so a permission added to the
+   * catalogue later is refused for agents until explicitly opted in.
+   */
   private async assertKnownPermissions(keys?: string[]): Promise<void> {
     if (!keys?.length) return;
+
     const known = await this.prisma.permission.findMany({
       where: { key: { in: keys } },
       select: { key: true },
@@ -317,6 +348,15 @@ export class AgentsService {
     const unknown = keys.filter(key => !knownKeys.has(key));
     if (unknown.length > 0) {
       throw new BadRequestException(`Unknown permission key(s): ${unknown.join(', ')}`);
+    }
+
+    const check = checkAgentPermissions(keys);
+    if (!check.allowed) {
+      throw new ForbiddenException({
+        message: `An AI agent may not hold these permissions: ${describeRejections(check)}`,
+        code: 'AGENT_PERMISSION_FORBIDDEN',
+        errors: { permissions: check.rejected.map(item => item.key) },
+      });
     }
   }
 }

@@ -907,6 +907,17 @@ enum AgentEnvironment {
   STAGING
 }
 
+/// Lifecycle of one idempotent submission.
+///
+/// `PROCESSING` exists so a *concurrent* duplicate is distinguishable from a
+/// *sequential* retry: the second caller sees work already in flight and backs
+/// off rather than starting a second article.
+enum IdempotencyStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 enum AgentPublishMode {
   DRAFT
   REVIEW
@@ -941,8 +952,9 @@ model AiAgent {
   lastPublishedAt DateTime?
   lastError       String?
 
-  requests AgentRequestLog[]
-  webhooks Webhook[]
+  requests        AgentRequestLog[]
+  webhooks        Webhook[]
+  idempotencyKeys AgentIdempotencyKey[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -951,6 +963,56 @@ model AiAgent {
 }
 
 /// Every agent call, successful or not.
+/// One idempotent submission, keyed by the caller's `Idempotency-Key`.
+///
+/// AI workflows retry: a network timeout, a worker restart, a scheduler that
+/// fires twice, a webhook redelivery. Without this table each retry of a
+/// submission that actually succeeded creates a *second* article, because the
+/// caller never learned about the first.
+///
+/// The unique constraint is what makes this work. Two concurrent requests race
+/// to insert the same key; exactly one wins and the loser gets a unique-
+/// constraint violation, which is handled as "someone else is doing this"
+/// rather than as an error. Checking-then-inserting would leave a window
+/// between the two where both callers see nothing and both proceed.
+model AgentIdempotencyKey {
+  id      String  @id @default(cuid())
+  agentId String
+  agent   AiAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// Caller-supplied, e.g. "newsroom-job-20260813-001".
+  key       String
+  /// Which operation the key belongs to, so the same key on a different
+  /// endpoint is a genuinely different request rather than a false match.
+  operation String
+
+  status IdempotencyStatus @default(PROCESSING)
+
+  /// Set once the work succeeds. Null while PROCESSING or after FAILED.
+  resultEntity   String?
+  resultEntityId String?
+  /// The response body to replay on a repeat call, so a retry returns exactly
+  /// what the first call returned instead of a different shape.
+  response       Json?
+
+  /// Why it failed, so a retry is an informed decision rather than a guess.
+  error String?
+
+  /// Fingerprint of the request body. A caller reusing one key for different
+  /// content is a bug worth refusing rather than silently returning the old
+  /// article.
+  requestHash String?
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  /// Scoped per agent and operation: two agents using the same key string are
+  /// unrelated requests.
+  @@unique([agentId, operation, key])
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
 model AgentRequestLog {
   id        String   @id @default(cuid())
   agentId   String?
