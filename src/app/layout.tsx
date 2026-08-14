@@ -4,6 +4,7 @@ import { Providers } from './providers';
 import { SiteShell } from './site-shell';
 import { Toaster } from '@/components/ui/sonner';
 import { AdSenseScripts } from '@/components/AdSenseScripts';
+import { GoogleAnalytics } from '@/components/GoogleAnalytics';
 import { adsenseConfig } from '@/config/adsense';
 import { siteConfig } from '@/config/site';
 
@@ -115,6 +116,7 @@ export default function RootLayout({
           <SiteShell>{children}</SiteShell>
           <Toaster position="bottom-right" />
         </Providers>
+        <GoogleAnalytics />
         <AdSenseScripts />
       </body>
     </html>
