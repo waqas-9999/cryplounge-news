@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
+  icons: {
+    icon: '/logo/favicon.png',
+    shortcut: '/logo/favicon.png',
+    apple: '/logo/favicon.png',
+  },
   // Tells Google the canonical version of the homepage; per-page metadata
   // overrides this with its own path.
   alternates: {
