@@ -6,13 +6,16 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { subscribeToNewsletter } from '@/services/newsletter';
 import { trackNewsletterSignup } from '@/utils/analytics';
+import { useTheme } from '../contexts/ThemeContext';
 import { pageKeyToHref } from '@/lib/navigation';
+import Image from 'next/image';
 
 interface FooterProps {
   onNavigate?: (page: string) => void;
 }
 
 export function Footer({ onNavigate }: FooterProps = {}) {
+  const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,10 +74,12 @@ export function Footer({ onNavigate }: FooterProps = {}) {
           {/* About CrypLounge */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-gray-800 dark:border-gray-200 flex items-center justify-center">
-                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-gray-800 dark:bg-gray-200 rounded-full"></div>
-              </div>
-              <span className="text-base sm:text-lg text-gray-800 dark:text-[#F3F3F5] font-medium">CrypLounge</span>
+              <Image
+                src={theme === 'dark' ? '/logo/cryplounge-dark.png' : '/logo/cryplounge-light.png'}
+                width={200}
+                height={67}
+                alt="CrypLounge"
+              />
             </div>
             <p className="text-gray-500 dark:text-[#A0A0A5] text-sm sm:text-base mb-4 sm:mb-6">
               Your trusted source for cryptocurrency, blockchain, Web3, DeFi, and digital asset news.

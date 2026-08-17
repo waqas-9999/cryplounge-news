@@ -8,6 +8,7 @@ import { searchArticles } from '@/services/news';
 import type { Article } from '@/types/article';
 import { Badge } from './ui/badge';
 import { pageKeyToHref } from '@/lib/navigation';
+import Image from 'next/image';
 
 interface HeaderProps {
   onNavigate?: (page: string) => void;
@@ -161,10 +162,13 @@ export function Header({ onNavigate, currentPage = 'home' }: HeaderProps) {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity min-h-[44px]"
               aria-label="Go to home page"
             >
-              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-gray-800 dark:border-gray-200 flex items-center justify-center">
-                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-gray-800 dark:bg-gray-200 rounded-full" />
-              </div>
-              <span className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-200">CrypLounge</span>
+              <Image
+                src={theme === 'dark' ? '/logo/cryplounge-dark.png' : '/logo/cryplounge-light.png'}
+                width={200}
+                height={67}
+                alt="CrypLounge"
+                priority
+              />
             </Link>
 
             {/* Desktop navigation with mega-menus */}
