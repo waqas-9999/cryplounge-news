@@ -14,6 +14,25 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid connection string'),
 
+  /**
+   * Read-only connection to the AI newsroom's own database.
+   *
+   * The newsroom runs as a separate service with a separate database, and its
+   * discovery records — scores, freshness, sources, why a story was skipped —
+   * live there. The admin news pages read them through this.
+   *
+   * Optional on purpose: the CMS must boot and serve without it. When it is
+   * absent the discovery endpoints report that the newsroom is unreachable
+   * rather than failing the whole application.
+   *
+   * Should point at a role with SELECT and nothing else. Nothing in this
+   * codebase writes through this connection.
+   */
+  AI_DATABASE_URL: z
+    .string()
+    .url('AI_DATABASE_URL must be a valid connection string')
+    .optional(),
+
   // Access tokens are short-lived; refresh tokens rotate on every use.
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),

@@ -1,10 +1,11 @@
-import { BadRequestException, Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Body, Req, UseGuards } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { IdempotencyService } from './idempotency.service';
 import { Public } from '@/common/decorators/public.decorator';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { AgentsService, type AgentContext } from './agents.service';
+import { AiNewsroomService } from '../ai-newsroom/ai-newsroom.service';
 import { CurrentAgent } from './decorators/current-agent.decorator';
 import { SubmitArticleDto } from './dto/submit-article.dto';
 import { AgentAuthGuard } from './guards/agent-auth.guard';
@@ -23,8 +24,44 @@ import { AgentAuthGuard } from './guards/agent-auth.guard';
 export class AgentSubmissionController {
   constructor(
     private readonly agents: AgentsService,
-    private readonly idempotency: IdempotencyService
+    private readonly idempotency: IdempotencyService,
+    private readonly automation: AiNewsroomService
   ) {}
+
+  /**
+   * The automation state an agent must obey.
+   *
+   * Exists because the admin dashboard is the source of truth for whether
+   * automation runs, and an external newsroom had no way to read it: the
+   * `admin/ai/automation` routes require a *user* permission
+   * (`ai.automation.read`), and the agent allow-list deliberately excludes
+   * every `ai.*` permission. Rather than widen that allow-list — which would
+   * let an agent reach admin surfaces — this is a read-only projection of the
+   * three fields an agent needs, on the authentication scheme it already has.
+   *
+   * Returns no secrets and nothing writable. An agent can learn whether it
+   * may run; it cannot change whether it may run.
+   */
+  @Get('automation')
+  @ResponseMessage('Automation settings')
+  @ApiOperation({
+    summary: "Automation state for this agent. Read-only; the dashboard is authoritative.",
+  })
+  async automationSettings(@CurrentAgent() agent: AgentContext) {
+    const settings = await this.automation.forAgent();
+
+    return {
+      ...settings,
+      // The agent's own configuration, so a newsroom can report honestly at
+      // startup whether anything it submits could become public.
+      agent: {
+        publishMode: agent.defaultPublishMode,
+        permissions: agent.permissions,
+        canPublish: agent.permissions.includes('news.publish'),
+        environment: agent.environment,
+      },
+    };
+  }
 
   @Post('articles')
   @ResponseMessage('Article submitted')

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ContentCoreModule } from '../content-core/content-core.module';
 import { AiNewsroomController } from './ai-newsroom.controller';
 import { AiNewsroomService } from './ai-newsroom.service';
+import { NewsroomDiscoveryController } from './newsroom-discovery.controller';
+import { NewsroomDiscoveryService } from './newsroom-discovery.service';
 
 /**
  * AI newsroom automation controls.
@@ -12,8 +14,8 @@ import { AiNewsroomService } from './ai-newsroom.service';
  */
 @Module({
   imports: [ContentCoreModule],
-  controllers: [AiNewsroomController],
-  providers: [AiNewsroomService],
+  controllers: [AiNewsroomController, NewsroomDiscoveryController],
+  providers: [AiNewsroomService, NewsroomDiscoveryService],
   exports: [AiNewsroomService],
 })
 export class AiNewsroomModule {}

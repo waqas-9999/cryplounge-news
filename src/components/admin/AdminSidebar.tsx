@@ -177,9 +177,13 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
     },
     {
       id: 'ai',
-      label: 'AI Automation',
+      label: 'AI Newsroom',
       icon: Bot,
-      page: 'admin/ai-automation'
+      submenu: [
+        { label: 'Qualified News', page: 'admin/news-discovery/qualified' },
+        { label: 'All Discovered News', page: 'admin/news-discovery/all' },
+        { label: 'Automation', page: 'admin/ai-automation' }
+      ]
     },
     {
       id: 'logs',

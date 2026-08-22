@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AiNewsroomModule } from '../ai-newsroom/ai-newsroom.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { AgentSubmissionController } from './agent-submission.controller';
 import { AgentLogCleanupTask } from './agent-log-cleanup.task';
@@ -9,7 +10,7 @@ import { IDEMPOTENCY_STORE, IdempotencyService } from './idempotency.service';
 import { PrismaIdempotencyStore } from './prisma-idempotency.store';
 
 @Module({
-  imports: [WebhooksModule],
+  imports: [WebhooksModule, AiNewsroomModule],
   controllers: [AgentsController, AgentSubmissionController],
   providers: [
     AgentsService,

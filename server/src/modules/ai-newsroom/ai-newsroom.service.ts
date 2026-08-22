@@ -111,6 +111,36 @@ export class AiNewsroomService {
    * reason as well as the verdict so a refusal is explainable in the audit log
    * rather than silent.
    */
+  /**
+   * The automation state, projected for an external agent.
+   *
+   * Deliberately a projection rather than the full settings object: an agent
+   * needs three facts and must not receive operational fields like
+   * `lastPublishedTitle`. The category semantics are the same ones
+   * `canPublishToCategory` enforces — a slug is allowed only when explicitly
+   * set to `true`, so an empty map means nothing is allowed. That is the
+   * existing fail-closed behaviour, reproduced here rather than reinvented.
+   */
+  async forAgent(): Promise<{
+    enabled: boolean;
+    publishMode: AiPublishMode;
+    categories: Record<string, boolean>;
+    allowedCategories: string[];
+  }> {
+    const enabled = await this.isEnabled();
+    const categories = await this.raw<Record<string, boolean>>(KEYS.categories, {});
+    const publishMode = await this.raw<AiPublishMode>(KEYS.publishMode, 'DRAFT_ONLY');
+
+    return {
+      enabled,
+      publishMode,
+      categories,
+      allowedCategories: Object.entries(categories)
+        .filter(([, on]) => on === true)
+        .map(([slug]) => slug),
+    };
+  }
+
   async canPublishToCategory(slug: string): Promise<{ allowed: boolean; reason: string }> {
     if (!(await this.isEnabled())) {
       return { allowed: false, reason: 'AI automation is disabled globally' };

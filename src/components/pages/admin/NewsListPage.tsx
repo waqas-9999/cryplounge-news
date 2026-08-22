@@ -30,9 +30,41 @@ interface AdminArticle {
   title: string;
   status: 'DRAFT' | 'REVIEW' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED';
   publishedAt: string | null;
+  /** When the row was created — for a draft, when it arrived. */
+  createdAt: string;
   updatedAt: string;
   category: { slug: string; name: string } | null;
   author: { name: string } | null;
+}
+
+/**
+ * The date that actually matters for this article.
+ *
+ * A draft has no `publishedAt`, so the column showed a dash for every
+ * unpublished row — which is precisely the set an editor is working through.
+ * Drafts arriving from the AI newsroom were indistinguishable from ones filed
+ * last week, and the time of day matters when several land in the same hour.
+ */
+function articleTimestamp(article: AdminArticle): { label: string; value: string } {
+  const stamp = article.status === 'PUBLISHED' && article.publishedAt
+    ? { label: 'Published', at: article.publishedAt }
+    : { label: 'Added', at: article.createdAt };
+
+  const date = new Date(stamp.at);
+  if (Number.isNaN(date.getTime())) return { label: stamp.label, value: '-' };
+
+  return {
+    label: stamp.label,
+    // Date and time together: "when did this arrive?" is not answerable to the
+    // day when a newsroom cycle files several drafts in one afternoon.
+    value: date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  };
 }
 
 const PER_PAGE = 15;
@@ -224,7 +256,7 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
                         <th className="text-left py-3 px-4 text-sm text-gray-600 dark:text-gray-400">Author</th>
                         <th className="text-left py-3 px-4 text-sm text-gray-600 dark:text-gray-400">Category</th>
                         <th className="text-left py-3 px-4 text-sm text-gray-600 dark:text-gray-400">Status</th>
-                        <th className="text-left py-3 px-4 text-sm text-gray-600 dark:text-gray-400">Published</th>
+                        <th className="text-left py-3 px-4 text-sm text-gray-600 dark:text-gray-400">Date</th>
                         <th className="text-right py-3 px-4 text-sm text-gray-600 dark:text-gray-400">Actions</th>
                       </tr>
                     </thead>
@@ -243,8 +275,18 @@ export function NewsListPage({ currentPage, onNavigate, onLogout }: NewsListPage
                             </span>
                           </td>
                           <td className="py-3 px-4">{getStatusBadge(article.status)}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
-                            {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : '-'}
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                            {(() => {
+                              const stamp = articleTimestamp(article);
+                              return (
+                                <>
+                                  <span className="block">{stamp.value}</span>
+                                  <span className="block text-xs text-gray-400 dark:text-gray-500">
+                                    {stamp.label}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center justify-end gap-2">

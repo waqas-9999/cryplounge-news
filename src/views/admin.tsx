@@ -21,6 +21,8 @@ import { UsersListPage } from '@/components/pages/admin/UsersListPage';
 import { RolesPermissionsPage } from '@/components/pages/admin/RolesPermissionsPage';
 import { SystemSettingsPage } from '@/components/pages/admin/SystemSettingsPage';
 import { LogsPage } from '@/components/pages/admin/LogsPage';
+import { QualifiedNewsPage } from '@/components/pages/admin/QualifiedNewsPage';
+import { AllDiscoveredNewsPage } from '@/components/pages/admin/AllDiscoveredNewsPage';
 import { ContactMessagesPage } from '@/components/pages/admin/ContactMessagesPage';
 import { NewsletterListPage } from '@/components/pages/admin/NewsletterListPage';
 import { CampaignsListPage } from '@/components/pages/admin/CampaignsListPage';
@@ -154,6 +156,22 @@ export function AdminNewsCreateView() {
 
 export function AdminNewsEditView({ articleId }: { articleId: string }) {
   return <NewsEditPage {...useAdminChrome()} articleId={articleId} />;
+}
+
+/**
+ * Admin → Qualified News. Discovered stories scoring 50 or above.
+ *
+ * A separate route from All Discovered News on purpose: the two answer
+ * different questions and are used at different moments, and the everyday
+ * view should not be a special case of the diagnostic one.
+ */
+export function AdminQualifiedNewsView() {
+  return <QualifiedNewsPage {...useAdminChrome()} />;
+}
+
+/** Admin → All Discovered News. Everything, whatever it scored. */
+export function AdminAllDiscoveredNewsView() {
+  return <AllDiscoveredNewsPage {...useAdminChrome()} />;
 }
 
 /** Admin → AI Automation. Super-admin controls for the AI newsroom. */
