@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
-import { AI_PUBLISH_MODES, type AiPublishMode } from '../ai-newsroom.service';
+import {
+  AI_PUBLISH_MODES,
+  AUTO_PUBLISH_STRICTNESS,
+  type AiPublishMode,
+  type AutoPublishStrictness,
+} from '../ai-newsroom.service';
 
 export class SetAutomationDto {
   @ApiProperty({ description: 'Global AI automation switch. False stops all automatic publishing.' })
@@ -54,4 +59,15 @@ export class SetAutoPublishLimitsDto {
   @Min(0)
   @Max(100)
   minScore?: number;
+
+  @ApiProperty({
+    required: false,
+    enum: AUTO_PUBLISH_STRICTNESS,
+    description:
+      'ALL_DRAFTS releases every draft the newsroom files. HIGH_CONFIDENCE additionally ' +
+      'requires the score, fact and quality thresholds. Safety checks apply either way.',
+  })
+  @IsOptional()
+  @IsIn(AUTO_PUBLISH_STRICTNESS)
+  strictness?: AutoPublishStrictness;
 }

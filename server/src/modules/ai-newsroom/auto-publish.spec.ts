@@ -38,6 +38,7 @@ interface Settings {
   limit?: number;
   minScore?: number;
   publishedToday?: number;
+  strictness?: string;
 }
 
 function build(settings: Settings = {}, article: unknown = DRAFT_ARTICLE) {
@@ -61,6 +62,7 @@ function build(settings: Settings = {}, article: unknown = DRAFT_ARTICLE) {
     isEmergencyPaused: async () => settings.paused ?? false,
     autoPublishDailyLimit: async () => settings.limit ?? 5,
     autoPublishMinScore: async () => settings.minScore ?? 70,
+    autoPublishStrictness: async () => settings.strictness ?? 'ALL_DRAFTS',
     recordAutoPublished: async () => undefined,
   };
 
@@ -130,9 +132,9 @@ describe('auto mode publishes an article that clears every gate', () => {
 
 /* ------------------------------------------------------- failed gates --- */
 
-describe('each gate refuses on its own', () => {
+describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
   it('refuses a score below the configured minimum', async () => {
-    const { service, updated } = build({ minScore: 70 });
+    const { service, updated } = build({ minScore: 70, strictness: 'HIGH_CONFIDENCE' });
     const decision = await service.consider('article-1', { ...GOOD_EVIDENCE, score: 69 });
 
     expect(decision.published).toBe(false);
@@ -141,7 +143,7 @@ describe('each gate refuses on its own', () => {
   });
 
   it('refuses a fact score below the fixed floor', async () => {
-    const { service } = build();
+    const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
     const decision = await service.consider('article-1', {
       ...GOOD_EVIDENCE,
       factScore: FACT_SCORE_MIN - 1,
@@ -152,7 +154,7 @@ describe('each gate refuses on its own', () => {
   });
 
   it('refuses a quality score below the fixed floor', async () => {
-    const { service } = build();
+    const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
     const decision = await service.consider('article-1', {
       ...GOOD_EVIDENCE,
       qualityScore: QUALITY_SCORE_MIN - 1,
@@ -163,7 +165,7 @@ describe('each gate refuses on its own', () => {
   });
 
   it('refuses when image validation did not pass', async () => {
-    const { service } = build();
+    const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
     const decision = await service.consider('article-1', { ...GOOD_EVIDENCE, imageValidated: false });
     expect(decision.reasons).toContain('image validation did not pass');
   });
@@ -208,7 +210,7 @@ describe('each gate refuses on its own', () => {
   });
 
   it('reports every failing gate at once, not just the first', async () => {
-    const { service } = build({ minScore: 90 });
+    const { service } = build({ minScore: 90, strictness: 'HIGH_CONFIDENCE' });
     const decision = await service.consider('article-1', {
       score: 10,
       factScore: 10,
@@ -262,5 +264,177 @@ describe('the daily limit', () => {
   it('a limit of zero publishes nothing', async () => {
     const { service } = build({ limit: 0, publishedToday: 0 });
     expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+  });
+});
+
+/* --------------------------------------------------------- strictness --- */
+
+describe('ALL_DRAFTS publishes everything that reached the queue', () => {
+  /**
+   * The default, and what "auto publish" is normally taken to mean.
+   *
+   * HIGH_CONFIDENCE was tried first and held back most of what the newsroom
+   * filed — score 70, fact 90 and quality 85 between them refuse the majority
+   * of drafts. The loosening is of *quality* thresholds only.
+   */
+  const WEAK = {
+    score: 20,
+    factScore: 71,
+    qualityScore: 60,
+    imageValidated: false,
+    duplicateChecked: true,
+  };
+
+  it('publishes a draft that would fail every quality threshold', async () => {
+    const { service, updated } = build({ strictness: 'ALL_DRAFTS' });
+    const decision = await service.consider('article-1', WEAK);
+
+    expect(decision.published).toBe(true);
+    expect(updated).toHaveLength(1);
+  });
+
+  it('refuses the same draft under HIGH_CONFIDENCE', async () => {
+    // The two modes differ, and only here.
+    const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
+    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+  });
+
+  it('still refuses an article with no attribution', async () => {
+    // Not a quality judgement: publishing unattributed copy under our name is
+    // wrong at any setting.
+    const { service } = build(
+      { strictness: 'ALL_DRAFTS' },
+      { ...DRAFT_ARTICLE, content: '<p>Something happened.</p>' }
+    );
+    const decision = await service.consider('article-1', WEAK);
+
+    expect(decision.published).toBe(false);
+    expect(decision.reasons).toContain('no source attribution found in the article body');
+  });
+
+  it('still refuses an article with no category', async () => {
+    const { service } = build({ strictness: 'ALL_DRAFTS' }, { ...DRAFT_ARTICLE, categoryId: null });
+    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+  });
+
+  it('still refuses when the duplicate check did not run', async () => {
+    const { service } = build({ strictness: 'ALL_DRAFTS' });
+    const decision = await service.consider('article-1', { ...WEAK, duplicateChecked: false });
+
+    expect(decision.published).toBe(false);
+    expect(decision.reasons).toContain('the duplicate check did not run');
+  });
+
+  it('still obeys the emergency stop', async () => {
+    const { service } = build({ strictness: 'ALL_DRAFTS', paused: true });
+    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+  });
+
+  it('still obeys the daily limit', async () => {
+    const { service } = build({ strictness: 'ALL_DRAFTS', limit: 25, publishedToday: 25 });
+    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+  });
+
+  it('still publishes nothing in DRAFT_ONLY', async () => {
+    const { service, updated } = build({ strictness: 'ALL_DRAFTS', mode: 'DRAFT_ONLY' });
+    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+    expect(updated).toHaveLength(0);
+  });
+});
+
+/* ------------------------------------------------------------- sweeping --- */
+
+describe('sweeping drafts already in the CMS', () => {
+  /**
+   * The gap this closes: promotion normally happens at submission, so a draft
+   * filed while the mode was DRAFT_ONLY — or before automatic publishing was
+   * wired at all — would never be looked at again. Turning the mode on would
+   * only affect future stories, which is not what the setting says.
+   */
+  function sweeper(settings: Settings, drafts: { id: string }[]) {
+    const updated: Record<string, unknown>[] = [];
+    let published = 0;
+
+    const prisma = {
+      article: {
+        /*
+         * Two different queries land here: the sweep asks for DRAFT articles,
+         * and the duplicate check asks for PUBLISHED ones. Serving `drafts` to
+         * both made every article look like a duplicate of itself.
+         */
+        findMany: async (args: { where?: { status?: string } }) =>
+          args?.where?.status === ContentStatus.DRAFT ? drafts : [],
+        findUnique: async () => DRAFT_ARTICLE,
+        update: async (args: Record<string, unknown>) => {
+          updated.push(args);
+          published += 1;
+          return {};
+        },
+        count: async () => (settings.publishedToday ?? 0) + published,
+      },
+    };
+
+    const newsroom = {
+      publishMode: async () => settings.mode ?? 'AUTO_PUBLISH',
+      isEnabled: async () => settings.enabled ?? true,
+      isEmergencyPaused: async () => settings.paused ?? false,
+      autoPublishDailyLimit: async () => settings.limit ?? 25,
+      autoPublishMinScore: async () => settings.minScore ?? 70,
+      autoPublishStrictness: async () => settings.strictness ?? 'ALL_DRAFTS',
+      recordAutoPublished: async () => undefined,
+    };
+
+    return { service: new AutoPublishService(prisma as never, newsroom as never), updated };
+  }
+
+  const three = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+
+  it('publishes the waiting drafts', async () => {
+    const { service, updated } = sweeper({}, three);
+    const result = await service.sweepPendingDrafts();
+
+    expect(result.considered).toBe(3);
+    expect(result.published).toBe(3);
+    expect(updated).toHaveLength(3);
+  });
+
+  it('publishes nothing while the mode is DRAFT_ONLY', async () => {
+    const { service, updated } = sweeper({ mode: 'DRAFT_ONLY' }, three);
+    const result = await service.sweepPendingDrafts();
+
+    expect(result.published).toBe(0);
+    expect(updated).toHaveLength(0);
+  });
+
+  it('publishes nothing while the emergency stop is engaged', async () => {
+    const { service, updated } = sweeper({ paused: true }, three);
+    expect((await service.sweepPendingDrafts()).published).toBe(0);
+    expect(updated).toHaveLength(0);
+  });
+
+  it('stops at the daily limit rather than grinding through the rest', async () => {
+    // Once the limit binds every remaining draft fails for the same reason,
+    // so continuing would be a hundred pointless queries.
+    const { service } = sweeper({ limit: 2, publishedToday: 0 }, [
+      { id: 'a' },
+      { id: 'b' },
+      { id: 'c' },
+      { id: 'd' },
+    ]);
+
+    const result = await service.sweepPendingDrafts();
+    expect(result.published).toBe(2);
+  });
+
+  it('refuses to sweep under HIGH_CONFIDENCE, and says why', async () => {
+    // The score, fact and quality numbers for an existing draft are not
+    // recoverable, and inventing passing values would defeat the setting.
+    const { service, updated } = sweeper({ strictness: 'HIGH_CONFIDENCE' }, three);
+    const result = await service.sweepPendingDrafts();
+
+    expect(result.published).toBe(0);
+    expect(result.considered).toBe(0);
+    expect(result.reason).toMatch(/not recoverable/i);
+    expect(updated).toHaveLength(0);
   });
 });

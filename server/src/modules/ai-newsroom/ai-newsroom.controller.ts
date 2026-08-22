@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Put, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
@@ -7,6 +7,7 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { auditContext } from '../articles/articles.controller';
 import { AiNewsroomService } from './ai-newsroom.service';
+import { AutoPublishService } from './auto-publish.service';
 import {
   SetAutoPublishLimitsDto,
   SetAutomationDto,
@@ -29,7 +30,10 @@ import {
 @ApiTags('AI Newsroom')
 @Controller('admin/ai/automation')
 export class AiNewsroomController {
-  constructor(private readonly newsroom: AiNewsroomService) {}
+  constructor(
+    private readonly newsroom: AiNewsroomService,
+    private readonly autoPublish: AutoPublishService
+  ) {}
 
   @Get()
   @ApiBearerAuth()
@@ -112,6 +116,22 @@ export class AiNewsroomController {
     @Req() request: Request
   ) {
     return this.newsroom.setAutoPublishLimits(dto, auditContext(user, request));
+  }
+
+  /**
+   * Publishes the drafts already waiting, subject to every ordinary gate.
+   *
+   * Separate from the mode switch because turning auto publishing on is a
+   * decision about *future* stories; clearing a backlog of forty is a
+   * different decision, and one an operator should make deliberately.
+   */
+  @Post('publish-pending')
+  @ApiBearerAuth()
+  @RequirePermissions('ai.automation.manage')
+  @ResponseMessage('Pending drafts considered')
+  @ApiOperation({ summary: 'Reconsider drafts already in the CMS for automatic publication' })
+  publishPending() {
+    return this.autoPublish.sweepPendingDrafts();
   }
 
   @Put('category')

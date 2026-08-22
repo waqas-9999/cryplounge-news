@@ -43,6 +43,7 @@ interface AutomationStatus {
   autoPublishDailyLimit: number;
   autoPublishedToday: number;
   autoPublishMinScore: number;
+  autoPublishStrictness: 'ALL_DRAFTS' | 'HIGH_CONFIDENCE';
   availablePublishModes: PublishMode[];
   categories: Array<{ id: string; slug: string; name: string; enabled: boolean }>;
   lastRunAt: string | null;
@@ -350,11 +351,21 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                             Turn on automatic publishing?
                           </p>
                           <p className="text-xs text-red-800 dark:text-red-300 mt-1">
-                            Articles clearing every gate will go live on CrypLounge without anyone
-                            reading them first. The gates are: score at or above{' '}
-                            {data.autoPublishMinScore}, fact score 90+, quality score 85+, source
-                            attribution present, a validated image, and no duplicate already
-                            published.
+                            {data.autoPublishStrictness === 'ALL_DRAFTS' ? (
+                              <>
+                                <strong>Every draft the newsroom files will go live</strong> without
+                                anyone reading it first. Drafts are only created after passing the
+                                safety checks — no fabricated facts, no copied wording, no missing
+                                attribution — but they are not filtered on quality.
+                              </>
+                            ) : (
+                              <>
+                                Articles clearing every gate will go live without anyone reading them
+                                first: score at or above {data.autoPublishMinScore}, fact score 90+,
+                                quality score 85+, source attribution present, a validated image, and
+                                no duplicate already published.
+                              </>
+                            )}
                           </p>
                           <p className="text-xs text-red-800 dark:text-red-300 mt-2">
                             At most {data.autoPublishDailyLimit} per day. The emergency stop below
@@ -439,9 +450,11 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                       </span>
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      Minimum score to publish:{' '}
+                      Releases:{' '}
                       <span className="text-gray-900 dark:text-gray-200">
-                        {data.autoPublishMinScore}
+                        {data.autoPublishStrictness === 'ALL_DRAFTS'
+                          ? 'every draft'
+                          : `only drafts scoring ${data.autoPublishMinScore}+ with fact 90+ and quality 85+`}
                       </span>
                     </p>
                   </div>

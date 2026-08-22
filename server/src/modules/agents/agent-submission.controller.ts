@@ -119,6 +119,28 @@ export class AgentSubmissionController {
     return this.autoPublish.consider(id, evidence);
   }
 
+  /**
+   * Asks the CMS to reconsider the drafts it already holds.
+   *
+   * Called once per newsroom cycle. Without it, a draft filed before auto mode
+   * was turned on would never be looked at again — turning the mode on would
+   * only affect stories written afterwards, which is not what "auto publish"
+   * means to anyone reading the setting.
+   */
+  @Post('articles/publish-pending')
+  @ResponseMessage('Pending drafts considered')
+  @ApiOperation({ summary: 'Reconsider existing drafts for publication, subject to the CMS gates' })
+  async publishPending(@CurrentAgent() agent: AgentContext) {
+    if (!agent.permissions.includes('news.create')) {
+      throw new ForbiddenException({
+        message: 'This agent is not permitted to submit articles',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    return this.autoPublish.sweepPendingDrafts();
+  }
+
   @Post('articles')
   @ResponseMessage('Article submitted')
   @ApiHeader({

@@ -58,6 +58,15 @@ const KEYS = {
   autoPublishDailyLimit: `${AI_SETTING_PREFIX}autoPublishDailyLimit`,
   /** Opportunity score an article must reach to be published automatically. */
   autoPublishMinScore: `${AI_SETTING_PREFIX}autoPublishMinScore`,
+  /**
+   * How selective auto mode is.
+   *
+   * `ALL_DRAFTS` publishes everything that reached the drafts queue.
+   * `HIGH_CONFIDENCE` additionally requires the score, fact and quality
+   * thresholds. See `AutoPublishService` for what each actually skips — the
+   * safety checks are not part of this choice and apply either way.
+   */
+  autoPublishStrictness: `${AI_SETTING_PREFIX}autoPublishStrictness`,
 } as const;
 
 /**
@@ -67,7 +76,31 @@ const KEYS = {
  * to find out what gets published, and a cap that binds is easier to raise
  * than a bad afternoon is to undo.
  */
-export const AUTO_PUBLISH_DEFAULTS = { dailyLimit: 5, minScore: 70 } as const;
+export const AUTO_PUBLISH_STRICTNESS = ['ALL_DRAFTS', 'HIGH_CONFIDENCE'] as const;
+export type AutoPublishStrictness = (typeof AUTO_PUBLISH_STRICTNESS)[number];
+
+/**
+ * Defaults for automatic publishing.
+ *
+ * `ALL_DRAFTS` is the default because it is what "auto publish" is normally
+ * taken to mean: everything the newsroom files goes out. The alternative was
+ * tried first and was too selective to be useful — score 70, fact 90 and
+ * quality 85 held back most of what reached the drafts queue.
+ *
+ * That is a loosening of *quality* thresholds only. Every draft has already
+ * passed the draft-safety gate — no fabrication, no copied prose, no
+ * duplicates, attribution present — and `AutoPublishService` re-checks the
+ * structural ones at publication regardless of this setting.
+ *
+ * The daily limit is what stops a bad afternoon becoming a bad week, and it
+ * matters more under `ALL_DRAFTS` than it did before: 25 is roughly a busy
+ * day's output, so it binds only when something has gone wrong.
+ */
+export const AUTO_PUBLISH_DEFAULTS = {
+  dailyLimit: 25,
+  minScore: 70,
+  strictness: 'ALL_DRAFTS' as AutoPublishStrictness,
+} as const;
 
 export interface AutomationStatus {
   /** Global switch. Defaults to false — automation is opt-in, never opt-out. */
@@ -81,6 +114,8 @@ export interface AutomationStatus {
   autoPublishedToday: number;
   /** Opportunity score required before an article publishes itself. */
   autoPublishMinScore: number;
+  /** Whether auto mode releases every draft or only high-confidence ones. */
+  autoPublishStrictness: AutoPublishStrictness;
   /**
    * Modes the admin screen may currently offer. `AUTO_PUBLISH` is absent until
    * the generation, fact-check and image stages exist — the UI greys it out
@@ -241,13 +276,20 @@ export class AiNewsroomService {
     return Number.isFinite(stored) && stored >= 0 ? stored : AUTO_PUBLISH_DEFAULTS.dailyLimit;
   }
 
+  async autoPublishStrictness(): Promise<AutoPublishStrictness> {
+    const stored = await this.raw<string>(KEYS.autoPublishStrictness, AUTO_PUBLISH_DEFAULTS.strictness);
+    return (AUTO_PUBLISH_STRICTNESS as readonly string[]).includes(stored)
+      ? (stored as AutoPublishStrictness)
+      : AUTO_PUBLISH_DEFAULTS.strictness;
+  }
+
   async autoPublishMinScore(): Promise<number> {
     const stored = await this.raw<number>(KEYS.autoPublishMinScore, AUTO_PUBLISH_DEFAULTS.minScore);
     return Number.isFinite(stored) && stored >= 0 ? stored : AUTO_PUBLISH_DEFAULTS.minScore;
   }
 
   async setAutoPublishLimits(
-    limits: { dailyLimit?: number; minScore?: number },
+    limits: { dailyLimit?: number; minScore?: number; strictness?: AutoPublishStrictness },
     context: AuditContext
   ): Promise<AutomationStatus> {
     if (limits.dailyLimit !== undefined) {
@@ -256,6 +298,16 @@ export class AiNewsroomService {
         limits.dailyLimit,
         context,
         `Set the AI daily auto-publish limit to ${limits.dailyLimit}`
+      );
+    }
+    if (limits.strictness !== undefined) {
+      await this.write(
+        KEYS.autoPublishStrictness,
+        limits.strictness,
+        context,
+        limits.strictness === 'ALL_DRAFTS'
+          ? 'Set auto-publish to release every draft'
+          : 'Set auto-publish to release only high-confidence drafts'
       );
     }
     if (limits.minScore !== undefined) {
@@ -332,13 +384,19 @@ export class AiNewsroomService {
         this.raw<string | null>(KEYS.lastError, null),
       ]);
 
-    const [emergencyPaused, autoPublishDailyLimit, autoPublishMinScore, autoPublishedToday] =
-      await Promise.all([
-        this.isEmergencyPaused(),
-        this.autoPublishDailyLimit(),
-        this.autoPublishMinScore(),
-        this.countAutoPublishedToday(),
-      ]);
+    const [
+      emergencyPaused,
+      autoPublishDailyLimit,
+      autoPublishMinScore,
+      autoPublishedToday,
+      autoPublishStrictness,
+    ] = await Promise.all([
+      this.isEmergencyPaused(),
+      this.autoPublishDailyLimit(),
+      this.autoPublishMinScore(),
+      this.countAutoPublishedToday(),
+      this.autoPublishStrictness(),
+    ]);
 
     // Driven by the real category list, so a category deleted in the CMS
     // disappears from the screen instead of lingering as an orphaned toggle.
@@ -356,6 +414,7 @@ export class AiNewsroomService {
       autoPublishDailyLimit,
       autoPublishedToday,
       autoPublishMinScore,
+      autoPublishStrictness,
       availablePublishModes: this.availablePublishModes(),
       categories: withFlags,
       lastRunAt,

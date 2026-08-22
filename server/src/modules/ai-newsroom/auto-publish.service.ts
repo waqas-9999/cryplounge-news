@@ -89,12 +89,13 @@ export class AutoPublishService {
     const reasons: string[] = [];
 
     /* ------------------------------------------------ mode and switches -- */
-    const [mode, enabled, paused, limit, minScore] = await Promise.all([
+    const [mode, enabled, paused, limit, minScore, strictness] = await Promise.all([
       this.newsroom.publishMode(),
       this.newsroom.isEnabled(),
       this.newsroom.isEmergencyPaused(),
       this.newsroom.autoPublishDailyLimit(),
       this.newsroom.autoPublishMinScore(),
+      this.newsroom.autoPublishStrictness(),
     ]);
 
     // Checked first and separately from everything else: when the operator has
@@ -111,17 +112,36 @@ export class AutoPublishService {
       reasons.push(`daily auto-publish limit reached (${publishedToday}/${limit})`);
     }
 
-    /* -------------------------------------------------------- the gates -- */
-    if (evidence.score < minScore) {
-      reasons.push(`score ${evidence.score} is below the configured minimum ${minScore}`);
+    /* ---------------------------------------------- the quality gates -- */
+    /*
+     * Applied only under HIGH_CONFIDENCE.
+     *
+     * Under ALL_DRAFTS — the default — auto mode means what it says: every
+     * draft goes out. These four are *quality* judgements, and an operator who
+     * turned auto publishing on has already made that judgement. What they
+     * have not waived, and cannot waive here, is everything below: an article
+     * still has to be a draft, have a category, carry attribution, have a
+     * usable image, and not duplicate something already public.
+     *
+     * The draft itself was only created because it passed the draft-safety
+     * gate — no fabrication, no copied prose, no unverified material claims —
+     * so "publish every draft" is not "publish anything".
+     */
+    if (strictness === 'HIGH_CONFIDENCE') {
+      if (evidence.score < minScore) {
+        reasons.push(`score ${evidence.score} is below the configured minimum ${minScore}`);
+      }
+      if (evidence.factScore < FACT_SCORE_MIN) {
+        reasons.push(`fact score ${evidence.factScore} is below ${FACT_SCORE_MIN}`);
+      }
+      if (evidence.qualityScore < QUALITY_SCORE_MIN) {
+        reasons.push(`quality score ${evidence.qualityScore} is below ${QUALITY_SCORE_MIN}`);
+      }
+      if (!evidence.imageValidated) reasons.push('image validation did not pass');
     }
-    if (evidence.factScore < FACT_SCORE_MIN) {
-      reasons.push(`fact score ${evidence.factScore} is below ${FACT_SCORE_MIN}`);
-    }
-    if (evidence.qualityScore < QUALITY_SCORE_MIN) {
-      reasons.push(`quality score ${evidence.qualityScore} is below ${QUALITY_SCORE_MIN}`);
-    }
-    if (!evidence.imageValidated) reasons.push('image validation did not pass');
+
+    // Never optional: publishing a second article about the same event is the
+    // failure a reader notices first, and it is not a matter of taste.
     if (!evidence.duplicateChecked) reasons.push('the duplicate check did not run');
 
     /* --------------------------------------- what the database can prove -- */
@@ -191,6 +211,91 @@ export class AutoPublishService {
     this.logger.warn(`Auto-published ${articleId}: ${article.title}`);
 
     return { published: true, status: ContentStatus.PUBLISHED, reasons: [] };
+  }
+
+  /**
+   * Reconsiders drafts the newsroom already filed.
+   *
+   * ## Why this exists separately from `consider`
+   *
+   * Promotion normally happens the moment a draft is submitted. That leaves a
+   * gap the admin screens make obvious: a story filed while the mode was
+   * DRAFT_ONLY, or before automatic publishing was wired at all, sits in the
+   * queue forever. Turning auto mode on does nothing for it, because nothing
+   * ever asks about it again.
+   *
+   * So this sweeps the backlog. Every article goes through the same
+   * `consider` call as a fresh one — same mode check, same emergency stop,
+   * same daily limit, same structural checks — so a swept draft can never
+   * take a route a new draft could not.
+   *
+   * ## Why it needs no attested evidence
+   *
+   * Under `ALL_DRAFTS` the score, fact and quality numbers are unused, and
+   * they are not recoverable here anyway: they live in the newsroom's
+   * database, keyed by cluster, and an article filed last week may have no
+   * surviving record. Under `HIGH_CONFIDENCE` that makes a sweep impossible to
+   * do honestly, so it refuses rather than inventing numbers that would pass.
+   */
+  async sweepPendingDrafts(max = 25): Promise<{
+    considered: number;
+    published: number;
+    skipped: number;
+    reason?: string;
+  }> {
+    const strictness = await this.newsroom.autoPublishStrictness();
+
+    if (strictness !== 'ALL_DRAFTS') {
+      return {
+        considered: 0,
+        published: 0,
+        skipped: 0,
+        reason:
+          'sweeping needs ALL_DRAFTS: the score, fact and quality numbers for an existing draft ' +
+          'are not recoverable, and inventing them to satisfy HIGH_CONFIDENCE would defeat it',
+      };
+    }
+
+    const drafts = await this.prisma.article.findMany({
+      where: {
+        status: ContentStatus.DRAFT,
+        // Agent-filed only. A human's unfinished draft is not the newsroom's
+        // to publish, and `createdById` is null exactly for agent submissions.
+        createdById: null,
+      },
+      orderBy: { createdAt: 'asc' },
+      take: Math.min(max, 100),
+      select: { id: true },
+    });
+
+    let published = 0;
+    let skipped = 0;
+
+    for (const draft of drafts) {
+      // The evidence fields are inert under ALL_DRAFTS. `duplicateChecked` is
+      // set because the real duplicate test runs inside `consider` against
+      // what is actually published, which is the check that matters here.
+      const decision = await this.consider(draft.id, {
+        score: 0,
+        factScore: 0,
+        qualityScore: 0,
+        imageValidated: false,
+        duplicateChecked: true,
+      });
+
+      if (decision.published) published += 1;
+      else skipped += 1;
+
+      // The daily limit is enforced per article inside `consider`, so once it
+      // binds every remaining draft would be refused for the same reason.
+      // Stopping early avoids a hundred pointless queries.
+      if (!decision.published && decision.reasons.some(r => /daily auto-publish limit/.test(r))) {
+        break;
+      }
+    }
+
+    this.logger.log(`Sweep considered ${drafts.length} drafts: ${published} published, ${skipped} left`);
+    return { considered: drafts.length, published, skipped };
   }
 
   /** Articles auto-published since midnight UTC. */
