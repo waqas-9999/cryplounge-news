@@ -438,3 +438,65 @@ describe('sweeping drafts already in the CMS', () => {
     expect(updated).toHaveLength(0);
   });
 });
+
+/* ------------------------------------------------------------ relevance --- */
+
+describe('off-topic articles never publish', () => {
+  /**
+   * The failure this closes, in the words of the articles that caused it.
+   *
+   * Both of these were published on a crypto publication by the newsroom.
+   * Neither carried a single crypto term, and no gate asked — the checks were
+   * all about fabrication, attribution and duplicates, none of which an
+   * accurate, well-sourced football report fails.
+   */
+  const offTopic = (title: string, content: string) => ({
+    ...DRAFT_ARTICLE,
+    title,
+    content: `<p>${content} According to Reuters.</p>`,
+  });
+
+  it.each([
+    ['Macron says France will send more missiles to Ukraine', 'The missiles will arrive next month.'],
+    ['Lucas Vazquez goal doubles Bayer Leverkusen lead', 'The striker scored in the 61st minute.'],
+  ])('refuses "%s"', async (title, content) => {
+    const { service, updated } = build({ strictness: 'ALL_DRAFTS' }, offTopic(title, content));
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(false);
+    expect(decision.reasons.some(r => /does not cover|no crypto or digital-asset subject/i.test(r))).toBe(true);
+    expect(updated).toHaveLength(0);
+  });
+
+  it('refuses an article with no crypto subject at all', async () => {
+    const { service } = build(
+      { strictness: 'ALL_DRAFTS' },
+      offTopic('Gold price hits three-month high', 'Bond market stress continued.')
+    );
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(false);
+    expect(decision.reasons).toContain('no crypto or digital-asset subject found in the article');
+  });
+
+  it('still publishes genuine crypto stories', async () => {
+    for (const [title, body] of [
+      ['Bitcoin ETF sees record weekly inflows', 'Inflows reached $1.2 billion.'],
+      ['DeFi protocol loses funds after smart contract exploit', 'The attacker drained the pool.'],
+      ['JPMorgan tokenized Treasury funds approach $885 million', 'Tokenized funds grew.'],
+    ] as const) {
+      const { service } = build({ strictness: 'ALL_DRAFTS' }, offTopic(title, body));
+      const decision = await service.consider('article-1', GOOD_EVIDENCE);
+      expect(decision.published).toBe(true);
+    }
+  });
+
+  it('applies under HIGH_CONFIDENCE too, not just ALL_DRAFTS', async () => {
+    // Relevance is not a quality threshold, so it is not part of that choice.
+    const { service } = build(
+      { strictness: 'HIGH_CONFIDENCE' },
+      offTopic('Macron says France will send more missiles', 'Missiles will arrive.')
+    );
+    expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+  });
+});

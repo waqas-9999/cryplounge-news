@@ -65,6 +65,29 @@ export interface PublishDecision {
   reasons: string[];
 }
 
+/**
+ * Is this a crypto story at all?
+ *
+ * A deliberately duplicated, deliberately small version of the newsroom's
+ * vocabulary. The full classifier lives in the AI service and cannot be
+ * imported here, and this is the last gate before a reader — so it asks the
+ * cheap version of the question rather than trusting that the answer arrived.
+ *
+ * It exists because of live failures: "Macron says France will send more
+ * missiles to Ukraine" and a football result were both published on a crypto
+ * publication. Neither carried a single crypto term, and no gate asked.
+ *
+ * Kept narrow on purpose. Its job is to catch the story that is obviously
+ * somebody else's beat, not to grade relevance — that judgement belongs
+ * upstream, where the whole article and its sources are available.
+ */
+const CRYPTO_SUBJECT =
+  /\b(crypto\w*|bitcoin|BTC|ethereum|ETH|blockchain|digital asset|stablecoins?|tokeni[sz]\w*|defi|web3|NFTs?|altcoins?|on-?chain|smart contract|mainnet|staking|validators?|rollups?|layer ?2|solana|XRP|ripple|cardano|polkadot|dogecoin|USDC|USDT|tether|coinbase|binance|kraken|mining|miners?|hashrate|wallets?|exchanges?|ETFs?)\b/i;
+
+/** Subjects that are somebody else's, whatever else the article says. */
+const OFF_BEAT_SUBJECT =
+  /\b(missiles?|troops?|airstrikes?|ceasefire|invasion|NATO|goal|striker|midfielder|league match|box office|vaccine)\b/i;
+
 /** Fixed floors. The admin may raise the score minimum, never these. */
 export const FACT_SCORE_MIN = 90;
 export const QUALITY_SCORE_MIN = 85;
@@ -172,6 +195,21 @@ export class AutoPublishService {
     }
 
     if (!article.categoryId) reasons.push('the article has no category');
+
+    /*
+     * Relevance, checked here rather than assumed.
+     *
+     * The newsroom already refuses off-topic stories at discovery, but a draft
+     * filed before that check existed is still in the queue and the sweep will
+     * pick it up. Checking again costs one regex and is the difference between
+     * a crypto publication and a general aggregator.
+     */
+    const subject = `${article.title} ${article.content}`;
+    if (OFF_BEAT_SUBJECT.test(article.title)) {
+      reasons.push('the headline is about a subject CrypLounge does not cover');
+    } else if (!CRYPTO_SUBJECT.test(subject)) {
+      reasons.push('no crypto or digital-asset subject found in the article');
+    }
 
     // Source attribution, verified rather than attested: the newsroom appends
     // a sources block, and an article without one must not be published under
