@@ -45,13 +45,17 @@ function build(settings: Settings = {}, article: unknown = DRAFT_ARTICLE) {
   const updated: Record<string, unknown>[] = [];
 
   const prisma = {
+    // The daily limit now counts automated PUBLISH audit entries rather than
+    // agent-created articles, so a human publishing drafts no longer eats the
+    // automation quota.
+    auditLog: { count: async () => settings.publishedToday ?? 0 },
     article: {
       findUnique: async () => article,
       update: async (args: Record<string, unknown>) => {
         updated.push(args);
         return {};
       },
-      count: async () => settings.publishedToday ?? 0,
+      count: async () => 0,
       findMany: async () => [],
     },
   };
@@ -66,8 +70,10 @@ function build(settings: Settings = {}, article: unknown = DRAFT_ARTICLE) {
     recordAutoPublished: async () => undefined,
   };
 
+  const audit = { record: async () => undefined };
+
   return {
-    service: new AutoPublishService(prisma as never, newsroom as never),
+    service: new AutoPublishService(prisma as never, newsroom as never, audit as never),
     updated,
   };
 }
@@ -370,8 +376,9 @@ describe('sweeping drafts already in the CMS', () => {
           published += 1;
           return {};
         },
-        count: async () => (settings.publishedToday ?? 0) + published,
+        count: async () => 0,
       },
+      auditLog: { count: async () => (settings.publishedToday ?? 0) + published },
     };
 
     const newsroom = {
@@ -384,7 +391,11 @@ describe('sweeping drafts already in the CMS', () => {
       recordAutoPublished: async () => undefined,
     };
 
-    return { service: new AutoPublishService(prisma as never, newsroom as never), updated };
+    const audit = { record: async () => undefined };
+    return {
+      service: new AutoPublishService(prisma as never, newsroom as never, audit as never),
+      updated,
+    };
   }
 
   const three = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];

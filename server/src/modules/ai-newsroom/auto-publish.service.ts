@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ContentStatus } from '@prisma/client';
+import { AuditAction, ContentStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
+import { AuditService } from '../content-core/audit.service';
 import { AiNewsroomService } from './ai-newsroom.service';
 
 /**
@@ -98,7 +99,8 @@ export class AutoPublishService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly newsroom: AiNewsroomService
+    private readonly newsroom: AiNewsroomService,
+    private readonly audit: AuditService
   ) {}
 
   /**
@@ -245,6 +247,29 @@ export class AutoPublishService {
       data: { status: ContentStatus.PUBLISHED, publishedAt: new Date() },
     });
 
+    /*
+     * An audit entry, because this is the one publication path with no human
+     * in it.
+     *
+     * Every other route to PUBLISHED goes through the articles service and is
+     * recorded. This one wrote straight to the table, so an audit of "who
+     * published this?" returned nothing for exactly the articles where the
+     * question matters most.
+     */
+    await this.audit.record({
+      action: AuditAction.PUBLISH,
+      entity: 'Article',
+      entityId: articleId,
+      summary: `Auto-published "${article.title.slice(0, 80)}" without human review`,
+      metadata: {
+        automated: true,
+        strictness,
+        score: evidence.score,
+        factScore: evidence.factScore,
+        qualityScore: evidence.qualityScore,
+      },
+    });
+
     await this.newsroom.recordAutoPublished(article.title);
     this.logger.warn(`Auto-published ${articleId}: ${article.title}`);
 
@@ -336,18 +361,31 @@ export class AutoPublishService {
     return { considered: drafts.length, published, skipped };
   }
 
-  /** Articles auto-published since midnight UTC. */
+  /**
+   * Articles *automation* published since midnight UTC.
+   *
+   * This used to count agent-*created* articles that were published by anyone,
+   * which conflated two different things. An editor working through the draft
+   * queue would silently consume the automation quota — publish twenty-five
+   * agent drafts by hand and auto mode is blocked for the rest of the day, for
+   * no reason anybody could see.
+   *
+   * The audit entry written above is the source of truth, which also avoids a
+   * migration: automated publications are the ones this service recorded, and
+   * a human publishing through the admin UI writes an entry with their email
+   * on it. No new column, and the count means what its name says.
+   */
   async publishedToday(): Promise<number> {
     const midnight = new Date();
     midnight.setUTCHours(0, 0, 0, 0);
 
-    return this.prisma.article.count({
+    return this.prisma.auditLog.count({
       where: {
-        status: ContentStatus.PUBLISHED,
-        publishedAt: { gte: midnight },
-        // Only agent-created articles count against the automation limit; a
-        // human publishing their own work is not automation.
-        createdById: null,
+        entity: 'Article',
+        action: AuditAction.PUBLISH,
+        createdAt: { gte: midnight },
+        // Written only by this service. A human's publish carries their email.
+        userEmail: null,
       },
     });
   }
