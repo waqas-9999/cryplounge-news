@@ -89,7 +89,31 @@ export class ArticlesService extends BaseCrudService {
       select: LIST_SELECT as Record<string, unknown>,
       searchFields: ['title', 'summary'],
       sortableFields: ['publishedAt', 'createdAt', 'updatedAt', 'title', 'priority'],
-      orderBy: [{ pinned: 'desc' }, { priority: 'desc' }, { publishedAt: 'desc' }],
+      /*
+       * The admin list and the public list want different orders.
+       *
+       * Readers get the editorial order: pinned first, then priority, then
+       * newest published. That is a curated front page.
+       *
+       * An editor wants a work queue — most recent activity at the top,
+       * whether that activity was a draft arriving or an article going live.
+       * Ordering by `publishedAt` cannot do that, because it is null for every
+       * draft, so drafts and published articles never interleave by real
+       * recency: the whole draft queue collapses to one end of the list
+       * regardless of age.
+       *
+       * `updatedAt` is the column that moves in both cases. A draft is created
+       * and it is set; the article is published and the status update bumps
+       * it. Prisma cannot express `COALESCE(publishedAt, createdAt)` in an
+       * `orderBy`, and this needs no migration and no raw query.
+       *
+       * The trade is that editing a two-week-old article lifts it to the top.
+       * For a work queue that is arguably right, and it is the behaviour to
+       * revisit first if this ever feels wrong.
+       */
+      orderBy: includeUnpublished
+        ? [{ updatedAt: 'desc' }]
+        : [{ pinned: 'desc' }, { priority: 'desc' }, { publishedAt: 'desc' }],
     });
   }
 
