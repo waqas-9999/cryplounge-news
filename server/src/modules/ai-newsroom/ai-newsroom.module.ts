@@ -4,6 +4,7 @@ import { AiNewsroomController } from './ai-newsroom.controller';
 import { AiNewsroomService } from './ai-newsroom.service';
 import { NewsroomDiscoveryController } from './newsroom-discovery.controller';
 import { NewsroomDiscoveryService } from './newsroom-discovery.service';
+import { AutoPublishService } from './auto-publish.service';
 
 /**
  * AI newsroom automation controls.
@@ -15,7 +16,7 @@ import { NewsroomDiscoveryService } from './newsroom-discovery.service';
 @Module({
   imports: [ContentCoreModule],
   controllers: [AiNewsroomController, NewsroomDiscoveryController],
-  providers: [AiNewsroomService, NewsroomDiscoveryService],
-  exports: [AiNewsroomService],
+  providers: [AiNewsroomService, NewsroomDiscoveryService, AutoPublishService],
+  exports: [AiNewsroomService, AutoPublishService],
 })
 export class AiNewsroomModule {}

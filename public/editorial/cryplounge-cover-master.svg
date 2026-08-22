@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-label="Abstract editorial illustration: a faceted monolith rising through concentric rings, lit by gold light against a dark field.">
+  <title>CrypLounge editorial cover — master</title>
+
+  <!--
+    Original artwork, drawn from primitives. No traced photography, no logos,
+    no trademarks, no charts or documents that could be mistaken for evidence.
+    The subject is deliberately symbolic: a faceted form rising through
+    concentric rings reads as structure, settlement and consensus without
+    depicting any real product, person or organisation.
+
+    Palette: near-black charcoal ground, #ffd200 as the single accent.
+    Composition: subject centred; the lower-left quadrant is kept dark and
+    uncluttered so a headline and standfirst can be overlaid without a scrim.
+  -->
+
+  <defs>
+    <!-- Ground: charcoal, warmed very slightly behind the subject. -->
+    <radialGradient id="ground" cx="50%" cy="46%" r="72%">
+      <stop offset="0%"   stop-color="#1c1a17"/>
+      <stop offset="45%"  stop-color="#111114"/>
+      <stop offset="100%" stop-color="#08080a"/>
+    </radialGradient>
+
+    <!-- The light itself, falling from upper right. -->
+    <linearGradient id="keyLight" x1="100%" y1="0%" x2="20%" y2="100%">
+      <stop offset="0%"   stop-color="#ffd200" stop-opacity="0.30"/>
+      <stop offset="55%"  stop-color="#ffd200" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ffd200" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Facet shading: metal reads as metal only if the planes disagree. -->
+    <linearGradient id="facetLit" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#4a4436"/>
+      <stop offset="50%"  stop-color="#2a2823"/>
+      <stop offset="100%" stop-color="#17161a"/>
+    </linearGradient>
+    <linearGradient id="facetMid" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#33302a"/>
+      <stop offset="100%" stop-color="#131317"/>
+    </linearGradient>
+    <linearGradient id="facetDark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#0d0d10"/>
+      <stop offset="100%" stop-color="#1e1c19"/>
+    </linearGradient>
+
+    <!-- Gold edge: brightest where the key light grazes it. -->
+    <linearGradient id="goldEdge" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#7a6410" stop-opacity="0.55"/>
+      <stop offset="45%"  stop-color="#ffd200"/>
+      <stop offset="100%" stop-color="#fff0a8"/>
+    </linearGradient>
+
+    <linearGradient id="ringFade" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffd200" stop-opacity="0"/>
+      <stop offset="35%"  stop-color="#ffd200" stop-opacity="0.55"/>
+      <stop offset="65%"  stop-color="#ffd200" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ffd200" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Floor: a reflection implied rather than mirrored. -->
+    <linearGradient id="floorFade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#ffd200" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#ffd200" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Vignette, and the text-safe darkening at the lower left. -->
+    <radialGradient id="vignette" cx="50%" cy="45%" r="70%">
+      <stop offset="55%"  stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.72"/>
+    </radialGradient>
+    <linearGradient id="textSafe" x1="0%" y1="100%" x2="70%" y2="20%">
+      <stop offset="0%"   stop-color="#08080a" stop-opacity="0.88"/>
+      <stop offset="55%"  stop-color="#08080a" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#08080a" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="softGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="tightGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+    <filter id="deepBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="44"/>
+    </filter>
+
+    <!-- Film grain. Low opacity; it stops the gradients banding on wide screens. -->
+    <filter id="grain" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" seed="7"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+
+    <clipPath id="frame"><rect width="1920" height="1080"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1920" height="1080" fill="url(#ground)"/>
+
+    <!-- Depth layer: out-of-focus geometry, well behind the subject. -->
+    <g filter="url(#deepBlur)" opacity="0.5">
+      <circle cx="1520" cy="250" r="150" fill="#ffd200" opacity="0.10"/>
+      <circle cx="330"  cy="760" r="190" fill="#3a3520" opacity="0.5"/>
+      <path d="M1180 120 L1400 300 L1150 420 Z" fill="#2a2718" opacity="0.6"/>
+    </g>
+
+    <!-- Key light shaft. -->
+    <path d="M1920 -140 L1920 420 L520 1080 L60 1080 Z" fill="url(#keyLight)"/>
+
+    <!-- Structural grid, very low contrast: order behind the subject. -->
+    <g stroke="#ffd200" stroke-width="1" opacity="0.05">
+      <path d="M0 700 H1920 M0 800 H1920 M0 900 H1920"/>
+      <path d="M480 0 V1080 M960 0 V1080 M1440 0 V1080"/>
+    </g>
+
+    <!-- Concentric rings. Consensus, settlement, orbit — read as you like. -->
+    <g transform="translate(960 512)">
+      <circle r="392" fill="none" stroke="url(#ringFade)" stroke-width="1.5" opacity="0.55"
+              transform="rotate(-24)"/>
+      <circle r="316" fill="none" stroke="url(#ringFade)" stroke-width="2.5" opacity="0.8"
+              transform="rotate(142)"/>
+      <circle r="242" fill="none" stroke="#ffd200" stroke-width="1" opacity="0.18"/>
+
+      <!-- Broken arcs: a ring that is not quite closed is more alive. -->
+      <path d="M -352 0 A 352 352 0 0 1 -96 -338" fill="none" stroke="#ffd200"
+            stroke-width="3" stroke-linecap="round" opacity="0.85" filter="url(#tightGlow)"/>
+      <path d="M 352 0 A 352 352 0 0 1 168 309" fill="none" stroke="#ffd200"
+            stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+
+      <!-- Nodes on the orbit. -->
+      <circle cx="-96" cy="-338" r="6" fill="#fff0a8"/>
+      <circle cx="316"  cy="0"    r="4" fill="#ffd200" opacity="0.9"/>
+      <circle cx="-242" cy="0"    r="3" fill="#ffd200" opacity="0.6"/>
+      <circle cx="168"  cy="309"  r="5" fill="#ffd200" opacity="0.75"/>
+    </g>
+
+    <!-- Ambient bloom behind the monolith. -->
+    <ellipse cx="960" cy="530" rx="250" ry="300" fill="#ffd200" opacity="0.14" filter="url(#softGlow)"/>
+
+    <!--
+      The subject: a faceted monolith, three planes meeting at a lit spine.
+      Drawn as separate polygons rather than one shape so each plane can take
+      its own gradient — that disagreement between planes is what makes it
+      read as a solid object rather than a flat icon.
+    -->
+    <g transform="translate(960 512)">
+      <polygon points="0,-330 118,-196 118,214 0,330" fill="url(#facetLit)"/>
+      <polygon points="0,-330 -118,-196 -118,214 0,330" fill="url(#facetDark)"/>
+      <polygon points="118,-196 168,-118 168,182 118,214" fill="url(#facetMid)"/>
+      <polygon points="-118,-196 -168,-118 -168,182 -118,214" fill="url(#facetDark)" opacity="0.85"/>
+
+      <!-- The lit spine and the crown edges. -->
+      <path d="M0 -330 V330" stroke="url(#goldEdge)" stroke-width="3" fill="none" filter="url(#tightGlow)"/>
+      <path d="M0 -330 L118 -196 L168 -118" stroke="url(#goldEdge)" stroke-width="2.5" fill="none"/>
+      <path d="M0 -330 L-118 -196 L-168 -118" stroke="#ffd200" stroke-width="1.2" fill="none" opacity="0.35"/>
+      <path d="M0 330 L118 214 L168 182" stroke="#ffd200" stroke-width="1.5" fill="none" opacity="0.55"/>
+
+      <!-- Internal seams: fabrication, not decoration. -->
+      <g stroke="#ffd200" opacity="0.22" stroke-width="1">
+        <path d="M-118 -60 H118 M-118 40 H118 M-118 140 H118"/>
+      </g>
+      <circle cy="-40" r="26" fill="none" stroke="#ffd200" stroke-width="1.5" opacity="0.65"/>
+      <circle cy="-40" r="7"  fill="#fff0a8" filter="url(#tightGlow)"/>
+    </g>
+
+    <!-- Shards: fragments in the light, giving parallax. -->
+    <g opacity="0.85">
+      <polygon points="1330,300 1392,338 1356,404 1300,364" fill="#2b2820" stroke="#ffd200"
+               stroke-width="1.2" stroke-opacity="0.6"/>
+      <polygon points="560,430 612,404 636,462 580,486" fill="#232119" stroke="#ffd200"
+               stroke-width="1" stroke-opacity="0.4"/>
+      <polygon points="1452,640 1500,668 1470,716 1424,690" fill="#1d1b16" stroke="#ffd200"
+               stroke-width="1" stroke-opacity="0.3"/>
+      <polygon points="470,236 508,214 528,252 490,276" fill="#201e18" stroke="#ffd200"
+               stroke-width="1" stroke-opacity="0.28"/>
+    </g>
+
+    <!-- Motes. Sparse — a handful reads as atmosphere, a hundred reads as dust. -->
+    <g fill="#ffd200">
+      <circle cx="1240" cy="196" r="2.5" opacity="0.75"/>
+      <circle cx="700"  cy="290" r="2"   opacity="0.5"/>
+      <circle cx="1560" cy="470" r="3"   opacity="0.6"/>
+      <circle cx="420"  cy="560" r="2"   opacity="0.4"/>
+      <circle cx="1120" cy="140" r="1.8" opacity="0.55"/>
+      <circle cx="1660" cy="820" r="2.2" opacity="0.35"/>
+    </g>
+
+    <!-- Floor: the object stands on something, without a mirrored copy. -->
+    <ellipse cx="960" cy="852" rx="330" ry="26" fill="url(#floorFade)"/>
+    <path d="M600 852 H1320" stroke="#ffd200" stroke-width="1" opacity="0.28"/>
+    <ellipse cx="960" cy="852" rx="120" ry="10" fill="#ffd200" opacity="0.25" filter="url(#tightGlow)"/>
+
+    <rect width="1920" height="1080" fill="url(#vignette)"/>
+
+    <!-- Text-safe wash: headline and standfirst sit here without a scrim. -->
+    <rect width="1920" height="1080" fill="url(#textSafe)"/>
+
+    <rect width="1920" height="1080" filter="url(#grain)" opacity="0.05"
+          style="mix-blend-mode:overlay"/>
+  </g>
+</svg>

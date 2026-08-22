@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { IdempotencyService } from './idempotency.service';
@@ -9,6 +9,8 @@ import { AiNewsroomService } from '../ai-newsroom/ai-newsroom.service';
 import { CurrentAgent } from './decorators/current-agent.decorator';
 import { SubmitArticleDto } from './dto/submit-article.dto';
 import { AgentAuthGuard } from './guards/agent-auth.guard';
+import { AutoPublishService, type PublishGateEvidence } from '../ai-newsroom/auto-publish.service';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 /**
  * The surface agents actually call. Kept separate from `AgentsController`
@@ -24,6 +26,7 @@ import { AgentAuthGuard } from './guards/agent-auth.guard';
 export class AgentSubmissionController {
   constructor(
     private readonly agents: AgentsService,
+    private readonly autoPublish: AutoPublishService,
     private readonly idempotency: IdempotencyService,
     private readonly automation: AiNewsroomService
   ) {}
@@ -61,6 +64,59 @@ export class AgentSubmissionController {
         environment: agent.environment,
       },
     };
+  }
+
+  /**
+   * Stores an editorial banner the newsroom generated.
+   *
+   * A separate call from the article submission on purpose. The CMS needs a
+   * `Media` row before an article can reference one, and combining the two
+   * would mean either a multipart article payload or an image inlined as
+   * base64 in JSON — both awkward, and both making a retry of the article
+   * re-upload the image.
+   *
+   * The returned id goes into the article's `featuredImageId`.
+   */
+  @Post('media')
+  @UseInterceptors(FileInterceptor('file'))
+  @ResponseMessage('Media stored')
+  @ApiOperation({ summary: 'Store an image for use as an article banner' })
+  async submitMedia(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { altText?: string; title?: string },
+    @CurrentAgent() agent: AgentContext
+  ) {
+    return this.agents.submitMedia(file, agent, body);
+  }
+
+  /**
+   * Asks the CMS to consider a draft for publication.
+   *
+   * Deliberately a *request*, not an instruction. The agent cannot publish —
+   * it holds neither `news.publish` nor any route that sets a status. This
+   * hands the CMS an article id and the newsroom's gate evidence, and the CMS
+   * decides using its own settings and its own re-checks.
+   *
+   * A refusal is a 200 with `published: false` and the reasons, because a
+   * draft that does not qualify is the expected outcome and must be left
+   * exactly where it is for a human.
+   */
+  @Post('articles/:id/request-publish')
+  @ResponseMessage('Publication considered')
+  @ApiOperation({ summary: 'Ask the CMS to publish a draft, subject to its own gates' })
+  async requestPublish(
+    @Param('id') id: string,
+    @Body() evidence: PublishGateEvidence,
+    @CurrentAgent() agent: AgentContext
+  ) {
+    if (!agent.permissions.includes('news.create')) {
+      throw new ForbiddenException({
+        message: 'This agent is not permitted to submit articles',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    return this.autoPublish.consider(id, evidence);
   }
 
   @Post('articles')

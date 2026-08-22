@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { AuditAction, CategoryKind, Prisma } from '@prisma/client';
+import { AuditAction, CategoryKind, ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
 
@@ -45,12 +45,42 @@ const KEYS = {
   lastPublishedAt: `${AI_SETTING_PREFIX}lastPublishedAt`,
   lastPublishedTitle: `${AI_SETTING_PREFIX}lastPublishedTitle`,
   lastError: `${AI_SETTING_PREFIX}lastError`,
+  /**
+   * The emergency stop.
+   *
+   * Separate from `enabled` on purpose. `enabled` is the ordinary switch an
+   * operator toggles while tuning; this is the one they reach for when
+   * something is wrong, and it is checked first and independently so that
+   * nothing else — mode, limits, gates — can reason around it.
+   */
+  emergencyPause: `${AI_SETTING_PREFIX}emergencyPause`,
+  /** Ceiling on articles the newsroom may publish without a human, per day. */
+  autoPublishDailyLimit: `${AI_SETTING_PREFIX}autoPublishDailyLimit`,
+  /** Opportunity score an article must reach to be published automatically. */
+  autoPublishMinScore: `${AI_SETTING_PREFIX}autoPublishMinScore`,
 } as const;
+
+/**
+ * Defaults, chosen to be safe rather than convenient.
+ *
+ * A limit of 5 is deliberately low: the point of a first day in auto mode is
+ * to find out what gets published, and a cap that binds is easier to raise
+ * than a bad afternoon is to undo.
+ */
+export const AUTO_PUBLISH_DEFAULTS = { dailyLimit: 5, minScore: 70 } as const;
 
 export interface AutomationStatus {
   /** Global switch. Defaults to false — automation is opt-in, never opt-out. */
   enabled: boolean;
   publishMode: AiPublishMode;
+  /** True while the emergency stop is engaged; nothing publishes. */
+  emergencyPaused: boolean;
+  /** Ceiling on automatic publications per day. */
+  autoPublishDailyLimit: number;
+  /** How many have gone out today, against that ceiling. */
+  autoPublishedToday: number;
+  /** Opportunity score required before an article publishes itself. */
+  autoPublishMinScore: number;
   /**
    * Modes the admin screen may currently offer. `AUTO_PUBLISH` is absent until
    * the generation, fact-check and image stages exist — the UI greys it out
@@ -173,13 +203,99 @@ export class AiNewsroomService {
   /**
    * Modes that may currently be selected.
    *
-   * `AUTO_PUBLISH` is withheld because the stages it depends on — article
-   * generation, fact checking and image production — are not implemented. An
-   * admin who selected it would enable nothing while believing otherwise,
-   * which is worse than the option being visibly unavailable.
+   * `AUTO_PUBLISH` was withheld while the stages it depends on did not exist.
+   * Article generation, fact checking and image production are now all
+   * implemented and verified end to end, so the option is offered — and
+   * remains off by default, selectable only by a SUPER_ADMIN, and subject to
+   * the gates in `AutoPublishService` every single time.
    */
   availablePublishModes(): AiPublishMode[] {
-    return ['DRAFT_ONLY', 'REVIEW_REQUIRED'];
+    return ['DRAFT_ONLY', 'REVIEW_REQUIRED', 'AUTO_PUBLISH'];
+  }
+
+  /** True while the emergency stop is engaged. */
+  async isEmergencyPaused(): Promise<boolean> {
+    return this.raw<boolean>(KEYS.emergencyPause, false);
+  }
+
+  /**
+   * Engages or releases the emergency stop.
+   *
+   * Engaging is deliberately not the same as setting the mode back to
+   * DRAFT_ONLY: the mode is an editorial decision that survives, and this is a
+   * temporary halt an operator can lift without having to remember what the
+   * mode was.
+   */
+  async setEmergencyPause(paused: boolean, context: AuditContext): Promise<AutomationStatus> {
+    await this.write(
+      KEYS.emergencyPause,
+      paused,
+      context,
+      paused ? 'Engaged the AI emergency publishing pause' : 'Released the AI emergency publishing pause'
+    );
+    return this.status();
+  }
+
+  async autoPublishDailyLimit(): Promise<number> {
+    const stored = await this.raw<number>(KEYS.autoPublishDailyLimit, AUTO_PUBLISH_DEFAULTS.dailyLimit);
+    return Number.isFinite(stored) && stored >= 0 ? stored : AUTO_PUBLISH_DEFAULTS.dailyLimit;
+  }
+
+  async autoPublishMinScore(): Promise<number> {
+    const stored = await this.raw<number>(KEYS.autoPublishMinScore, AUTO_PUBLISH_DEFAULTS.minScore);
+    return Number.isFinite(stored) && stored >= 0 ? stored : AUTO_PUBLISH_DEFAULTS.minScore;
+  }
+
+  async setAutoPublishLimits(
+    limits: { dailyLimit?: number; minScore?: number },
+    context: AuditContext
+  ): Promise<AutomationStatus> {
+    if (limits.dailyLimit !== undefined) {
+      await this.write(
+        KEYS.autoPublishDailyLimit,
+        limits.dailyLimit,
+        context,
+        `Set the AI daily auto-publish limit to ${limits.dailyLimit}`
+      );
+    }
+    if (limits.minScore !== undefined) {
+      await this.write(
+        KEYS.autoPublishMinScore,
+        limits.minScore,
+        context,
+        `Set the AI auto-publish minimum score to ${limits.minScore}`
+      );
+    }
+    return this.status();
+  }
+
+  /** Agent-created articles published since midnight UTC. */
+  private async countAutoPublishedToday(): Promise<number> {
+    const midnight = new Date();
+    midnight.setUTCHours(0, 0, 0, 0);
+
+    return this.prisma.article.count({
+      where: {
+        status: ContentStatus.PUBLISHED,
+        publishedAt: { gte: midnight },
+        // A human publishing their own work is not automation.
+        createdById: null,
+      },
+    });
+  }
+
+  /** Records a successful automatic publication, for the admin screen. */
+  async recordAutoPublished(title: string): Promise<void> {
+    await this.prisma.setting.upsert({
+      where: { key: KEYS.lastPublishedAt },
+      create: { key: KEYS.lastPublishedAt, value: new Date().toISOString() },
+      update: { value: new Date().toISOString() },
+    });
+    await this.prisma.setting.upsert({
+      where: { key: KEYS.lastPublishedTitle },
+      create: { key: KEYS.lastPublishedTitle, value: title },
+      update: { value: title },
+    });
   }
 
   private assertPublishModeAllowed(mode: AiPublishMode): void {
@@ -216,6 +332,14 @@ export class AiNewsroomService {
         this.raw<string | null>(KEYS.lastError, null),
       ]);
 
+    const [emergencyPaused, autoPublishDailyLimit, autoPublishMinScore, autoPublishedToday] =
+      await Promise.all([
+        this.isEmergencyPaused(),
+        this.autoPublishDailyLimit(),
+        this.autoPublishMinScore(),
+        this.countAutoPublishedToday(),
+      ]);
+
     // Driven by the real category list, so a category deleted in the CMS
     // disappears from the screen instead of lingering as an orphaned toggle.
     const withFlags = categories.map(category => ({
@@ -228,6 +352,10 @@ export class AiNewsroomService {
     return {
       enabled,
       publishMode: mode,
+      emergencyPaused,
+      autoPublishDailyLimit,
+      autoPublishedToday,
+      autoPublishMinScore,
       availablePublishModes: this.availablePublishModes(),
       categories: withFlags,
       lastRunAt,
@@ -235,14 +363,31 @@ export class AiNewsroomService {
       lastPublishedTitle,
       lastError,
       effective: {
-        // Publishing is not implemented at all yet; this reports the *setting*
-        // state, and the publication adapter refuses regardless.
-        canPublish: enabled && anyCategory,
-        reason: !enabled
-          ? 'Global automation is off'
-          : !anyCategory
-            ? 'No category has automation enabled'
-            : 'Global and at least one category are enabled',
+        /*
+         * Whether an article could publish itself right now.
+         *
+         * Every condition here is necessary and none is sufficient: the
+         * per-article gates in `AutoPublishService` run afterwards, on every
+         * attempt. This answers "is the door unlocked?", never "will this
+         * particular article go through it?".
+         */
+        canPublish:
+          enabled &&
+          anyCategory &&
+          mode === 'AUTO_PUBLISH' &&
+          !emergencyPaused &&
+          autoPublishedToday < autoPublishDailyLimit,
+        reason: emergencyPaused
+          ? 'Emergency pause is engaged'
+          : !enabled
+            ? 'Global automation is off'
+            : !anyCategory
+              ? 'No category has automation enabled'
+              : mode !== 'AUTO_PUBLISH'
+                ? `Publish mode is ${mode}; articles are filed as drafts for review`
+                : autoPublishedToday >= autoPublishDailyLimit
+                  ? `Daily auto-publish limit reached (${autoPublishedToday}/${autoPublishDailyLimit})`
+                  : 'Automatic publishing is active',
       },
     };
   }

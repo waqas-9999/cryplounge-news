@@ -208,6 +208,44 @@ export class MediaService {
     return { ...media, url: this.storage.url(media.path) };
   }
 
+  /**
+   * An upload from an AI agent.
+   *
+   * Distinct from `uploadAnonymous` only in that it carries alt text, which
+   * matters: an editorial banner without a description is inaccessible, and
+   * the agent is the only thing that knows what it drew.
+   *
+   * Runs `assertAcceptable` and the same storage path as every other upload,
+   * so the mime allowlist and the extension restriction both still apply.
+   */
+  async uploadForAgent(
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    options: { folder: string; altText?: string; title?: string }
+  ) {
+    this.assertAcceptable(file);
+
+    const stored = await this.storage.save({
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      folder: options.folder,
+    });
+
+    const media = await this.prisma.media.create({
+      data: {
+        path: stored.path,
+        filename: file.originalname.slice(0, 255),
+        mimeType: file.mimetype,
+        size: stored.size,
+        altText: options.altText,
+        title: options.title,
+        folder: options.folder,
+      },
+    });
+
+    return { ...media, url: this.storage.url(media.path) };
+  }
+
   async update(id: string, dto: UpdateMediaDto, context: AuditContext) {
     await this.findById(id);
 

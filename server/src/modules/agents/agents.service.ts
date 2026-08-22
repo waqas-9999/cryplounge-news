@@ -18,6 +18,7 @@ import { SlugService } from '../content-core/slug.service';
 import type { CreateAgentDto, UpdateAgentDto } from './dto/agent.dto';
 import type { SubmitArticleDto } from './dto/submit-article.dto';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { MediaService } from '../media/media.service';
 
 const PUBLISH_MODE_TO_STATUS: Record<AgentPublishMode, ContentStatus> = {
   DRAFT: ContentStatus.DRAFT,
@@ -53,7 +54,8 @@ export class AgentsService {
     private readonly slugs: SlugService,
     private readonly publishing: PublishingService,
     private readonly audit: AuditService,
-    private readonly webhooks: WebhooksService
+    private readonly webhooks: WebhooksService,
+    private readonly media: MediaService
   ) {}
 
   async list() {
@@ -228,6 +230,39 @@ export class AgentsService {
    * Attribution instead lives in the audit entry's `actorLabel` and in
    * `AgentRequestLog`.
    */
+  /**
+   * Stores an editorial banner an agent generated.
+   *
+   * Separate permission from `news.create`, and deliberately so: an agent that
+   * may file copy does not automatically get to put bytes on the filesystem.
+   * Granting `media.upload` is a distinct decision.
+   *
+   * The image is stored through the same `MediaService` path as a human
+   * upload, which means it inherits the mime allowlist and the extension
+   * restriction — an agent cannot land an `.svg` or an `.html` any more than a
+   * person can.
+   */
+  async submitMedia(
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    agent: AgentContext,
+    options: { altText?: string; title?: string }
+  ) {
+    if (!agent.permissions.includes('media.upload')) {
+      throw new ForbiddenException({
+        message: 'This agent is not permitted to upload media',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const media = await this.media.uploadForAgent(file, {
+      folder: 'editorial',
+      altText: options.altText,
+      title: options.title,
+    });
+
+    return { id: media.id, url: media.url, mimeType: media.mimeType, size: media.size };
+  }
+
   async submitArticle(agent: AgentContext, dto: SubmitArticleDto) {
     if (!agent.permissions.includes('news.create')) {
       throw new ForbiddenException({

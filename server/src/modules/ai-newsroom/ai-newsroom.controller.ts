@@ -8,8 +8,10 @@ import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { auditContext } from '../articles/articles.controller';
 import { AiNewsroomService } from './ai-newsroom.service';
 import {
+  SetAutoPublishLimitsDto,
   SetAutomationDto,
   SetCategoryAutomationDto,
+  SetEmergencyPauseDto,
   SetPublishModeDto,
 } from './dto/ai-automation.dto';
 
@@ -65,8 +67,9 @@ export class AiNewsroomController {
   @ApiOperation({
     summary: 'Set how far automation may take a story',
     description:
-      'Super admin only. AUTO_PUBLISH is rejected until generation, fact ' +
-      'checking and image production are implemented and verified.',
+      'Super admin only. AUTO_PUBLISH lets articles that clear every gate publish ' +
+      'without a human. It remains subject to the emergency pause, the daily limit ' +
+      'and the per-article checks in AutoPublishService.',
   })
   setPublishMode(
     @Body() dto: SetPublishModeDto,
@@ -74,6 +77,41 @@ export class AiNewsroomController {
     @Req() request: Request
   ) {
     return this.newsroom.setPublishMode(dto.mode, auditContext(user, request));
+  }
+
+  /**
+   * The emergency stop.
+   *
+   * A separate endpoint from the publish mode so it can be hit without knowing
+   * or caring what the mode currently is — which is the state an operator is
+   * in when they need it. The mode is preserved and restored by releasing.
+   */
+  @Put('emergency-pause')
+  @ApiBearerAuth()
+  @RequirePermissions('ai.automation.manage')
+  @ResponseMessage('Emergency pause updated')
+  @ApiOperation({ summary: 'Engage or release the emergency publishing stop' })
+  setEmergencyPause(
+    @Body() dto: SetEmergencyPauseDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.newsroom.setEmergencyPause(dto.paused, auditContext(user, request));
+  }
+
+  @Put('auto-publish-limits')
+  @ApiBearerAuth()
+  @RequirePermissions('ai.automation.manage')
+  @ResponseMessage('Auto-publish limits updated')
+  @ApiOperation({
+    summary: 'Set the daily automatic publication ceiling and the minimum score',
+  })
+  setAutoPublishLimits(
+    @Body() dto: SetAutoPublishLimitsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.newsroom.setAutoPublishLimits(dto, auditContext(user, request));
   }
 
   @Put('category')

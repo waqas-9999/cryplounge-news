@@ -38,6 +38,11 @@ type PublishMode = 'DRAFT_ONLY' | 'REVIEW_REQUIRED' | 'AUTO_PUBLISH';
 interface AutomationStatus {
   enabled: boolean;
   publishMode: PublishMode;
+  /** True while the emergency stop is engaged; nothing publishes. */
+  emergencyPaused: boolean;
+  autoPublishDailyLimit: number;
+  autoPublishedToday: number;
+  autoPublishMinScore: number;
   availablePublishModes: PublishMode[];
   categories: Array<{ id: string; slug: string; name: string; enabled: boolean }>;
   lastRunAt: string | null;
@@ -61,7 +66,8 @@ const PUBLISH_MODES: Array<{ value: PublishMode; label: string; description: str
   {
     value: 'AUTO_PUBLISH',
     label: 'Auto publish',
-    description: 'High-confidence stories go live with no human in the loop.',
+    description:
+      'Stories clearing every gate go live with no human in the loop. Subject to the daily limit and the emergency stop.',
   },
 ];
 
@@ -78,6 +84,9 @@ function formatWhen(value: string | null): string {
 
 export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutomationPageProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Set when an admin selects auto publish; cleared by confirming or
+  // cancelling. Nothing is sent while this is true.
+  const [pendingAuto, setPendingAuto] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
 
   const status = useAnalyticsQuery<AutomationStatus>(
@@ -288,13 +297,30 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                             name="publishMode"
                             checked={selected}
                             disabled={!available || readOnly || saving === 'mode'}
-                            onChange={() =>
-                              mutate('mode', () =>
+                            onChange={() => {
+                              /*
+                               * Auto publish asks first.
+                               *
+                               * Every other option here is reversible by
+                               * clicking a different radio button. This one
+                               * puts articles in front of readers with nobody
+                               * in between, and a mis-click is a plausible way
+                               * to trigger it. The other modes stay one click,
+                               * because making the safe direction as slow as
+                               * the dangerous one teaches people to click
+                               * through confirmations without reading them.
+                               */
+                              if (mode.value === 'AUTO_PUBLISH') {
+                                setPendingAuto(true);
+                                return;
+                              }
+
+                              void mutate('mode', () =>
                                 apiClient.put<AutomationStatus>('admin/ai/automation/publish-mode', {
                                   mode: mode.value,
                                 })
-                              )
-                            }
+                              );
+                            }}
                             className="mt-0.5 w-4 h-4 accent-yellow-500 disabled:cursor-not-allowed"
                           />
                           <div className="min-w-0">
@@ -315,16 +341,110 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                     })}
                   </div>
 
-                  {!data.availablePublishModes.includes('AUTO_PUBLISH') && (
-                    <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-900/40">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-800 dark:text-amber-300">
-                        Auto publish is unavailable until article generation, fact checking and image
-                        production are implemented and verified. The server rejects it, so it is shown
-                        here rather than offered as a control that would do nothing.
-                      </p>
+                  {pendingAuto && (
+                    <div className="mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/15 border border-red-300 dark:border-red-900/50">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-red-900 dark:text-red-200">
+                            Turn on automatic publishing?
+                          </p>
+                          <p className="text-xs text-red-800 dark:text-red-300 mt-1">
+                            Articles clearing every gate will go live on CrypLounge without anyone
+                            reading them first. The gates are: score at or above{' '}
+                            {data.autoPublishMinScore}, fact score 90+, quality score 85+, source
+                            attribution present, a validated image, and no duplicate already
+                            published.
+                          </p>
+                          <p className="text-xs text-red-800 dark:text-red-300 mt-2">
+                            At most {data.autoPublishDailyLimit} per day. The emergency stop below
+                            halts everything immediately.
+                          </p>
+
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              onClick={() => {
+                                setPendingAuto(false);
+                                void mutate('mode', () =>
+                                  apiClient.put<AutomationStatus>(
+                                    'admin/ai/automation/publish-mode',
+                                    { mode: 'AUTO_PUBLISH' }
+                                  )
+                                );
+                              }}
+                              className="px-3 py-1.5 text-xs rounded-lg bg-red-600 text-white hover:bg-red-700"
+                            >
+                              Yes, publish without review
+                            </button>
+                            <button
+                              onClick={() => setPendingAuto(false)}
+                              className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
+                </Card>
+
+                {/* ------------------------------------------ emergency stop -- */}
+                <Card className="p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <h2 className="text-sm text-gray-900 dark:text-gray-100">Emergency stop</h2>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Halts all automatic publishing at once. The publishing mode is preserved, so
+                        releasing this returns things to how they were.
+                      </p>
+                    </div>
+
+                    <button
+                      role="switch"
+                      aria-checked={data.emergencyPaused}
+                      aria-label="Emergency stop"
+                      disabled={readOnly || saving === 'pause'}
+                      onClick={() =>
+                        mutate('pause', () =>
+                          apiClient.put<AutomationStatus>('admin/ai/automation/emergency-pause', {
+                            paused: !data.emergencyPaused,
+                          })
+                        )
+                      }
+                      className={`relative shrink-0 w-14 h-8 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        data.emergencyPaused ? 'bg-red-600' : 'bg-gray-300 dark:bg-gray-700'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${
+                          data.emergencyPaused ? 'translate-x-7' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {data.emergencyPaused && (
+                    <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/15 text-xs text-red-800 dark:text-red-300">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>Engaged. Nothing publishes automatically until this is released.</span>
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Published automatically today:{' '}
+                      <span className="text-gray-900 dark:text-gray-200">
+                        {data.autoPublishedToday} of {data.autoPublishDailyLimit}
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Minimum score to publish:{' '}
+                      <span className="text-gray-900 dark:text-gray-200">
+                        {data.autoPublishMinScore}
+                      </span>
+                    </p>
+                  </div>
                 </Card>
 
                 {/* ---------------------------------------------------- status -- */}
