@@ -98,6 +98,21 @@ const envSchema = z.object({
   /** Comma-separated staff addresses that receive contact-form notifications. */
   CONTACT_NOTIFY_EMAILS: z.string().optional(),
 
+  /**
+   * Google Analytics 4, the source of truth for visitor metrics.
+   *
+   * Both are optional so an environment without them still boots — the
+   * analytics endpoints fall back to the internal counters and say so, rather
+   * than the whole API refusing to start over a reporting integration.
+   *
+   * `GOOGLE_APPLICATION_CREDENTIALS` is a path to a service-account key file.
+   * It is read by the Google client library itself and never passed through
+   * our code, which is the point: the key never reaches a log, a response, or
+   * the browser.
+   */
+  GA_PROPERTY_ID: z.string().optional(),
+  GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
+
   SWAGGER_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

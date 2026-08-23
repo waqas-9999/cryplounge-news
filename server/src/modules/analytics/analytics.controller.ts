@@ -18,6 +18,8 @@ import { ResponseMessage } from '@/common/decorators/response-message.decorator'
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsReportsService } from './analytics-reports.service';
+import { Ga4AnalyticsService } from './ga4-analytics.service';
+import { Ga4Client } from './ga4.client';
 import {
   AnalyticsRangeQueryDto,
   ArticleAnalyticsQueryDto,
@@ -34,8 +36,32 @@ import { contextFrom, isBot, userAgentOf, type HeaderCarrier } from './request-c
 export class AnalyticsController {
   constructor(
     private readonly analytics: AnalyticsService,
-    private readonly reports: AnalyticsReportsService
+    private readonly reports: AnalyticsReportsService,
+    private readonly ga4: Ga4AnalyticsService,
+    private readonly gaClient: Ga4Client
   ) {}
+
+  /**
+   * Google Analytics if it is configured and answering, the internal counters
+   * otherwise.
+   *
+   * GA4 is the source of truth for visitor metrics, but "source of truth" must
+   * not mean "single point of failure for the admin panel". A property that is
+   * unconfigured, over quota, or briefly unreachable falls back to the figures
+   * we already collect, and the failure is logged with no part of the
+   * credential in it. The response keeps the shape the dashboard already
+   * consumes either way, so no component knows which answered.
+   */
+  private async preferGa<T>(report: string, fromGa: () => Promise<T>, fallback: () => Promise<T> | T): Promise<T> {
+    if (!this.ga4.available) return fallback();
+
+    try {
+      return await fromGa();
+    } catch (error) {
+      this.gaClient.logFailure(report, error);
+      return fallback();
+    }
+  }
 
   @Public()
   @Post('analytics/view')
@@ -64,7 +90,11 @@ export class AnalyticsController {
   @ResponseMessage('Analytics overview')
   @ApiOperation({ summary: 'Total views in range, broken down by content type' })
   overview(@Query() query: AnalyticsRangeQueryDto) {
-    return this.analytics.overview(query);
+    return this.preferGa(
+      'overview',
+      () => this.ga4.overview(query),
+      () => this.analytics.overview(query)
+    );
   }
 
   @Get('admin/analytics/trend')
@@ -91,7 +121,11 @@ export class AnalyticsController {
   @ResponseMessage('Realtime activity')
   @ApiOperation({ summary: 'Active visitors right now, plus the pages they are on' })
   realtime() {
-    return this.analytics.realtime();
+    return this.preferGa(
+      'realtime',
+      () => this.ga4.realtime(),
+      () => this.analytics.realtime()
+    );
   }
 
   @Get('admin/analytics/content')
@@ -120,7 +154,11 @@ export class AnalyticsController {
   @ResponseMessage('Geographic analytics')
   @ApiOperation({ summary: 'Visitors by country, region and city' })
   geography(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.geography(query);
+    return this.preferGa(
+      'geography',
+      () => this.ga4.geography(query),
+      () => this.reports.geography(query)
+    );
   }
 
   @Get('admin/analytics/devices')
@@ -129,7 +167,11 @@ export class AnalyticsController {
   @ResponseMessage('Device analytics')
   @ApiOperation({ summary: 'Desktop / mobile / tablet breakdown' })
   devices(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.devices(query);
+    return this.preferGa(
+      'devices',
+      () => this.ga4.devices(query),
+      () => this.reports.devices(query)
+    );
   }
 
   @Get('admin/analytics/browsers')
@@ -138,7 +180,11 @@ export class AnalyticsController {
   @ResponseMessage('Browser analytics')
   @ApiOperation({ summary: 'Visitors by browser family' })
   browsers(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.browsers(query);
+    return this.preferGa(
+      'browsers',
+      () => this.ga4.browsers(query),
+      () => this.reports.browsers(query)
+    );
   }
 
   @Get('admin/analytics/operating-systems')
@@ -147,7 +193,11 @@ export class AnalyticsController {
   @ResponseMessage('Operating system analytics')
   @ApiOperation({ summary: 'Visitors by operating system' })
   operatingSystems(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.operatingSystems(query);
+    return this.preferGa(
+      'operatingSystems',
+      () => this.ga4.operatingSystems(query),
+      () => this.reports.operatingSystems(query)
+    );
   }
 
   @Get('admin/analytics/languages')
@@ -156,7 +206,11 @@ export class AnalyticsController {
   @ResponseMessage('Language analytics')
   @ApiOperation({ summary: 'Visitors by browser language' })
   languages(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.languages(query);
+    return this.preferGa(
+      'languages',
+      () => this.ga4.languages(query),
+      () => this.reports.languages(query)
+    );
   }
 
   @Get('admin/analytics/audience')
@@ -174,7 +228,11 @@ export class AnalyticsController {
   @ResponseMessage('Acquisition analytics')
   @ApiOperation({ summary: 'Traffic grouped into marketing channels' })
   acquisition(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.acquisition(query);
+    return this.preferGa(
+      'acquisition',
+      () => this.ga4.sources(query),
+      () => this.reports.acquisition(query)
+    );
   }
 
   @Get('admin/analytics/referrers')
@@ -183,7 +241,11 @@ export class AnalyticsController {
   @ResponseMessage('Referrer analytics')
   @ApiOperation({ summary: 'Individual referring domains' })
   referrers(@Query() query: AnalyticsRangeQueryDto) {
-    return this.reports.referrers(query);
+    return this.preferGa(
+      'referrers',
+      () => this.ga4.referrers(query),
+      () => this.reports.referrers(query)
+    );
   }
 
   @Get('admin/analytics/social')
