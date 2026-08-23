@@ -194,7 +194,10 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
   });
 
   it('refuses an article with no featured image', async () => {
-    const { service } = build({}, { ...DRAFT_ARTICLE, featuredImage: null });
+    // Under HIGH_CONFIDENCE, where image *presence* is required. At
+    // ALL_DRAFTS it is an editorial call the operator has already made — see
+    // 'a draft with no featured image' below.
+    const { service } = build({ strictness: 'HIGH_CONFIDENCE' }, { ...DRAFT_ARTICLE, featuredImage: null });
     const decision = await service.consider('article-1', GOOD_EVIDENCE);
     expect(decision.reasons).toContain('the article has no featured image');
   });
@@ -509,5 +512,133 @@ describe('off-topic articles never publish', () => {
       offTopic('Macron says France will send more missiles', 'Missiles will arrive.')
     );
     expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+  });
+});
+
+/* ------------------------------------------ the regression this fixes ----- */
+
+/**
+ * The live failure: AUTO_PUBLISH selected, nothing publishing.
+ *
+ * On production, 54 of 56 agent drafts had no featured image, and the
+ * presence check ran unconditionally while `imageValidated` next to it was
+ * consulted only under HIGH_CONFIDENCE. Every article was refused for a
+ * reason no admin screen showed. These fix the inconsistency in place: a
+ * missing image is an editorial judgement and follows strictness, while a
+ * *broken* image is a correctness failure and still refuses at any strictness.
+ */
+describe('a draft with no featured image', () => {
+  const NO_IMAGE = { ...DRAFT_ARTICLE, featuredImage: null };
+
+  it('publishes under ALL_DRAFTS, because presence is an editorial call', async () => {
+    const { service, updated } = build({ strictness: 'ALL_DRAFTS' }, NO_IMAGE);
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(true);
+    expect(decision.status).toBe(ContentStatus.PUBLISHED);
+    expect(updated).toHaveLength(1);
+  });
+
+  it('is still held under HIGH_CONFIDENCE', async () => {
+    const { service, updated } = build({ strictness: 'HIGH_CONFIDENCE' }, NO_IMAGE);
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(false);
+    expect(decision.reasons).toContain('the article has no featured image');
+    expect(updated).toHaveLength(0);
+  });
+
+  it('still refuses a broken image at any strictness', async () => {
+    // Not a taste judgement: this would serve a reader a file that is not an
+    // image, so no strictness setting waives it.
+    for (const strictness of ['ALL_DRAFTS', 'HIGH_CONFIDENCE']) {
+      const { service, updated } = build(
+        { strictness },
+        { ...DRAFT_ARTICLE, featuredImage: { id: 'm', mimeType: 'application/pdf', size: 90_000 } }
+      );
+
+      const decision = await service.consider('article-1', GOOD_EVIDENCE);
+      expect(decision.published).toBe(false);
+      expect(decision.reasons.join(' ')).toMatch(/not an image/);
+      expect(updated).toHaveLength(0);
+    }
+  });
+
+  it('still refuses an implausibly small image at any strictness', async () => {
+    for (const strictness of ['ALL_DRAFTS', 'HIGH_CONFIDENCE']) {
+      const { service } = build(
+        { strictness },
+        { ...DRAFT_ARTICLE, featuredImage: { id: 'm', mimeType: 'image/webp', size: 40 } }
+      );
+
+      const decision = await service.consider('article-1', GOOD_EVIDENCE);
+      expect(decision.published).toBe(false);
+      expect(decision.reasons.join(' ')).toMatch(/implausibly small/);
+    }
+  });
+});
+
+/* ---------------------------------------- the five behaviours requested --- */
+
+describe('the publishing contract, end to end', () => {
+  it('1. AUTO_PUBLISH publishes an approved article', async () => {
+    const { service, updated } = build({ mode: 'AUTO_PUBLISH' });
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(true);
+    expect(decision.status).toBe(ContentStatus.PUBLISHED);
+    expect(updated[0]!.data).toMatchObject({ status: ContentStatus.PUBLISHED });
+  });
+
+  it('2. DRAFT_ONLY keeps the article a draft', async () => {
+    const { service, updated } = build({ mode: 'DRAFT_ONLY' });
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(false);
+    expect(decision.status).toBe(ContentStatus.DRAFT);
+    expect(decision.reasons).toContain('publish mode is DRAFT_ONLY, not AUTO_PUBLISH');
+    // The draft must be left exactly as it was, not touched in any way.
+    expect(updated).toHaveLength(0);
+  });
+
+  it('3. failed validation keeps the article a draft', async () => {
+    const { service, updated } = build(
+      { mode: 'AUTO_PUBLISH', strictness: 'HIGH_CONFIDENCE' },
+      { ...DRAFT_ARTICLE, categoryId: null }
+    );
+
+    const decision = await service.consider('article-1', {
+      ...GOOD_EVIDENCE,
+      factScore: FACT_SCORE_MIN - 1,
+      qualityScore: QUALITY_SCORE_MIN - 1,
+    });
+
+    expect(decision.published).toBe(false);
+    expect(decision.status).toBe(ContentStatus.DRAFT);
+    expect(decision.reasons).toContain('the article has no category');
+    expect(decision.reasons.join(' ')).toMatch(/fact score/);
+    expect(decision.reasons.join(' ')).toMatch(/quality score/);
+    expect(updated).toHaveLength(0);
+  });
+
+  it('4. the emergency stop blocks publishing, ahead of everything else', async () => {
+    const { service, updated } = build({ mode: 'AUTO_PUBLISH', paused: true });
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(false);
+    expect(decision.status).toBe(ContentStatus.DRAFT);
+    // Sole reason: once the operator has hit stop, nothing else is evaluated.
+    expect(decision.reasons).toEqual(['emergency pause is active']);
+    expect(updated).toHaveLength(0);
+  });
+
+  it('5. the daily limit blocks publishing', async () => {
+    const { service, updated } = build({ mode: 'AUTO_PUBLISH', limit: 5, publishedToday: 5 });
+    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+
+    expect(decision.published).toBe(false);
+    expect(decision.status).toBe(ContentStatus.DRAFT);
+    expect(decision.reasons.join(' ')).toMatch(/daily auto-publish limit reached \(5\/5\)/);
+    expect(updated).toHaveLength(0);
   });
 });

@@ -220,9 +220,30 @@ export class AutoPublishService {
       reasons.push('no source attribution found in the article body');
     }
 
+    /*
+     * The featured image.
+     *
+     * Two different questions, deliberately gated differently, because
+     * conflating them is what stopped automatic publishing entirely.
+     *
+     * *Presence* is an editorial judgement — an article without a hero image
+     * looks unfinished, but it is not unsafe — so it belongs with the other
+     * quality gates under HIGH_CONFIDENCE. It used to be checked
+     * unconditionally, one line below a check that `imageValidated` was only
+     * consulted under HIGH_CONFIDENCE. The result was that an operator who
+     * selected AUTO_PUBLISH at the default ALL_DRAFTS strictness got the
+     * strict image policy anyway, and since the newsroom was filing drafts
+     * with no image attached, every single article was refused for a reason
+     * no admin screen surfaced.
+     *
+     * *Validity* stays unconditional. If an image is attached it must be a
+     * real raster file of plausible size, whatever the strictness — that is a
+     * correctness check on what a reader would be served, not a matter of
+     * editorial taste, and nothing here weakens it.
+     */
     const image = article.featuredImage;
     if (!image) {
-      reasons.push('the article has no featured image');
+      if (strictness === 'HIGH_CONFIDENCE') reasons.push('the article has no featured image');
     } else if (!image.mimeType.startsWith('image/')) {
       reasons.push(`the featured image is not an image (${image.mimeType})`);
     } else if (image.size < 2048) {
@@ -237,7 +258,39 @@ export class AutoPublishService {
     }
 
     if (reasons.length > 0) {
-      this.logger.log(`Auto-publish refused for ${articleId}: ${reasons.join('; ')}`);
+      /*
+       * One structured line per refusal.
+       *
+       * The failure this replaces was invisible: automatic publishing was
+       * refusing every article for a single structural reason, and the only
+       * trace was a sentence in the server log that nobody correlated with
+       * the admin screen still showing drafts. Emitting the mode, the article
+       * and every reason as one object makes "why is nothing publishing?"
+       * answerable from the logs alone.
+       */
+      this.logger.log(
+        JSON.stringify({
+          event: 'auto_publish_decision',
+          publishMode: mode,
+          strictness,
+          articleId,
+          requestPublishCalled: true,
+          validationResults: {
+            enabled,
+            paused,
+            publishedToday,
+            dailyLimit: limit,
+            hasCategory: Boolean(article.categoryId),
+            hasImage: Boolean(image),
+            attribution: this.hasAttribution(article.content),
+            score: evidence.score,
+            factScore: evidence.factScore,
+            qualityScore: evidence.qualityScore,
+          },
+          publishDecision: 'HELD_AS_DRAFT',
+          rejectionReason: reasons,
+        })
+      );
       return { published: false, status: ContentStatus.DRAFT, reasons };
     }
 
@@ -271,7 +324,18 @@ export class AutoPublishService {
     });
 
     await this.newsroom.recordAutoPublished(article.title);
-    this.logger.warn(`Auto-published ${articleId}: ${article.title}`);
+    this.logger.warn(
+      JSON.stringify({
+        event: 'auto_publish_decision',
+        publishMode: mode,
+        strictness,
+        articleId,
+        requestPublishCalled: true,
+        validationResults: { allGatesPassed: true, publishedToday, dailyLimit: limit },
+        publishDecision: 'PUBLISHED',
+        rejectionReason: null,
+      })
+    );
 
     return { published: true, status: ContentStatus.PUBLISHED, reasons: [] };
   }
