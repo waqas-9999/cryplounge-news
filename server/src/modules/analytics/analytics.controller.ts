@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  ServiceUnavailableException,
   Param,
   Post,
   Query,
@@ -42,24 +43,44 @@ export class AnalyticsController {
   ) {}
 
   /**
-   * Google Analytics if it is configured and answering, the internal counters
-   * otherwise.
+   * A visitor metric, from Google Analytics.
    *
-   * GA4 is the source of truth for visitor metrics, but "source of truth" must
-   * not mean "single point of failure for the admin panel". A property that is
-   * unconfigured, over quota, or briefly unreachable falls back to the figures
-   * we already collect, and the failure is logged with no part of the
-   * credential in it. The response keeps the shape the dashboard already
-   * consumes either way, so no component knows which answered.
+   * ## Why there is no fallback
+   *
+   * There used to be one: a GA failure quietly served the internal counters
+   * instead. That was wrong, and it is the single most dangerous kind of
+   * wrong a dashboard can be — the numbers were real, they were just from a
+   * different system, and nothing on screen said so. An editor comparing the
+   * dashboard against GA would see a discrepancy and have no way to tell
+   * whether traffic had changed or the integration had broken.
+   *
+   * So a broken integration now *looks* broken. GA unconfigured or refusing
+   * raises 503, the dashboard renders the error state it already has, and the
+   * problem gets fixed instead of being averaged into the reporting.
+   *
+   * The internal counters are not deleted — they still power the per-article
+   * CMS metrics that GA cannot know (shares, bookmarks, comments). They are
+   * simply no longer allowed to impersonate visitor analytics.
    */
-  private async preferGa<T>(report: string, fromGa: () => Promise<T>, fallback: () => Promise<T> | T): Promise<T> {
-    if (!this.ga4.available) return fallback();
+  private async fromGa<T>(report: string, run: () => Promise<T>): Promise<T> {
+    if (!this.ga4.available) {
+      throw new ServiceUnavailableException({
+        message:
+          'Google Analytics is not configured. Set GA_PROPERTY_ID and GOOGLE_SERVICE_ACCOUNT_JSON.',
+        code: 'ANALYTICS_NOT_CONFIGURED',
+      });
+    }
 
     try {
-      return await fromGa();
+      return await run();
     } catch (error) {
+      // Logged with the credential stripped; the client never sees Google's
+      // raw message, which can echo request URLs and account identifiers.
       this.gaClient.logFailure(report, error);
-      return fallback();
+      throw new ServiceUnavailableException({
+        message: `Google Analytics could not return the ${report} report. Check the service account has Viewer access to the property.`,
+        code: 'ANALYTICS_UPSTREAM_ERROR',
+      });
     }
   }
 
@@ -84,17 +105,31 @@ export class AnalyticsController {
     return this.analytics.track(dto, contextFrom(carrier));
   }
 
+  /**
+   * Is the Google Analytics integration actually working?
+   *
+   * Exists because "configured" and "working" fail identically from the
+   * outside — a service account that was never granted Viewer access on the
+   * property returns 403 on every report, which without this looks exactly
+   * like a quiet week. Returns which credential form is in use, never the
+   * credential.
+   */
+  @Get('admin/analytics/health')
+  @ApiBearerAuth()
+  @RequirePermissions('analytics.read')
+  @ResponseMessage('Analytics integration health')
+  @ApiOperation({ summary: 'Whether Google Analytics is configured and answering' })
+  health() {
+    return this.gaClient.healthy();
+  }
+
   @Get('admin/analytics/overview')
   @ApiBearerAuth()
   @RequirePermissions('analytics.read')
   @ResponseMessage('Analytics overview')
   @ApiOperation({ summary: 'Total views in range, broken down by content type' })
   overview(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'overview',
-      () => this.ga4.overview(query),
-      () => this.analytics.overview(query)
-    );
+    return this.fromGa('overview', () => this.ga4.overview(query));
   }
 
   @Get('admin/analytics/trend')
@@ -121,11 +156,7 @@ export class AnalyticsController {
   @ResponseMessage('Realtime activity')
   @ApiOperation({ summary: 'Active visitors right now, plus the pages they are on' })
   realtime() {
-    return this.preferGa(
-      'realtime',
-      () => this.ga4.realtime(),
-      () => this.analytics.realtime()
-    );
+    return this.fromGa('realtime', () => this.ga4.realtime());
   }
 
   @Get('admin/analytics/content')
@@ -154,11 +185,7 @@ export class AnalyticsController {
   @ResponseMessage('Geographic analytics')
   @ApiOperation({ summary: 'Visitors by country, region and city' })
   geography(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'geography',
-      () => this.ga4.geography(query),
-      () => this.reports.geography(query)
-    );
+    return this.fromGa('geography', () => this.ga4.geography(query));
   }
 
   @Get('admin/analytics/devices')
@@ -167,11 +194,7 @@ export class AnalyticsController {
   @ResponseMessage('Device analytics')
   @ApiOperation({ summary: 'Desktop / mobile / tablet breakdown' })
   devices(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'devices',
-      () => this.ga4.devices(query),
-      () => this.reports.devices(query)
-    );
+    return this.fromGa('devices', () => this.ga4.devices(query));
   }
 
   @Get('admin/analytics/browsers')
@@ -180,11 +203,7 @@ export class AnalyticsController {
   @ResponseMessage('Browser analytics')
   @ApiOperation({ summary: 'Visitors by browser family' })
   browsers(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'browsers',
-      () => this.ga4.browsers(query),
-      () => this.reports.browsers(query)
-    );
+    return this.fromGa('browsers', () => this.ga4.browsers(query));
   }
 
   @Get('admin/analytics/operating-systems')
@@ -193,11 +212,7 @@ export class AnalyticsController {
   @ResponseMessage('Operating system analytics')
   @ApiOperation({ summary: 'Visitors by operating system' })
   operatingSystems(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'operatingSystems',
-      () => this.ga4.operatingSystems(query),
-      () => this.reports.operatingSystems(query)
-    );
+    return this.fromGa('operatingSystems', () => this.ga4.operatingSystems(query));
   }
 
   @Get('admin/analytics/languages')
@@ -206,11 +221,7 @@ export class AnalyticsController {
   @ResponseMessage('Language analytics')
   @ApiOperation({ summary: 'Visitors by browser language' })
   languages(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'languages',
-      () => this.ga4.languages(query),
-      () => this.reports.languages(query)
-    );
+    return this.fromGa('languages', () => this.ga4.languages(query));
   }
 
   @Get('admin/analytics/audience')
@@ -228,11 +239,7 @@ export class AnalyticsController {
   @ResponseMessage('Acquisition analytics')
   @ApiOperation({ summary: 'Traffic grouped into marketing channels' })
   acquisition(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'acquisition',
-      () => this.ga4.sources(query),
-      () => this.reports.acquisition(query)
-    );
+    return this.fromGa('acquisition', () => this.ga4.sources(query));
   }
 
   @Get('admin/analytics/referrers')
@@ -241,11 +248,7 @@ export class AnalyticsController {
   @ResponseMessage('Referrer analytics')
   @ApiOperation({ summary: 'Individual referring domains' })
   referrers(@Query() query: AnalyticsRangeQueryDto) {
-    return this.preferGa(
-      'referrers',
-      () => this.ga4.referrers(query),
-      () => this.reports.referrers(query)
-    );
+    return this.fromGa('referrers', () => this.ga4.referrers(query));
   }
 
   @Get('admin/analytics/social')

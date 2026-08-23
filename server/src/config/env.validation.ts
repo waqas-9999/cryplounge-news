@@ -105,12 +105,20 @@ const envSchema = z.object({
    * analytics endpoints fall back to the internal counters and say so, rather
    * than the whole API refusing to start over a reporting integration.
    *
-   * `GOOGLE_APPLICATION_CREDENTIALS` is a path to a service-account key file.
-   * It is read by the Google client library itself and never passed through
-   * our code, which is the point: the key never reaches a log, a response, or
-   * the browser.
+   * `GOOGLE_SERVICE_ACCOUNT_JSON` holds the key itself, as JSON. This is what
+   * production uses: Vercel has no writable filesystem for a key file, and a
+   * VPS deploy that depends on a file at a fixed path breaks the first time
+   * the container is rebuilt without it.
+   *
+   * `GOOGLE_APPLICATION_CREDENTIALS` is a path to a key file, read by the
+   * Google library itself. Local development only.
+   *
+   * Both are optional so an environment without them still boots. The
+   * analytics endpoints then return 503 rather than inventing figures — see
+   * `AnalyticsController.fromGa`.
    */
   GA_PROPERTY_ID: z.string().optional(),
+  GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
 
   SWAGGER_ENABLED: z

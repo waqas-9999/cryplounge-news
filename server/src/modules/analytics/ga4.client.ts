@@ -15,11 +15,21 @@ import { BetaAnalyticsDataClient } from '@google-analytics/data';
  *
  * ## Credentials
  *
- * `GOOGLE_APPLICATION_CREDENTIALS` names a service-account key file, and the
- * Google client library reads it directly. This code never opens it, never
- * logs it and never puts any part of it in a response — the frontend calls our
- * API, and our API calls Google. A key that reached the browser would be a key
- * anyone could use to read the property.
+ * Two ways in, in this order:
+ *
+ *  1. `GOOGLE_SERVICE_ACCOUNT_JSON` — the key itself, as JSON, in an
+ *     environment variable. **This is the one production uses.** Vercel has no
+ *     writable filesystem to put a key file on, and a VPS deploy that depends
+ *     on a file sitting at the right path breaks the first time someone
+ *     rebuilds the container without it.
+ *  2. `GOOGLE_APPLICATION_CREDENTIALS` — a path to a key file, which the
+ *     Google library reads itself. Kept for local development, where a file
+ *     is more convenient than pasting JSON into a shell.
+ *
+ * Either way the key stays server-side. This code never logs it, never returns
+ * it, and nothing in `src/` (the Next.js app) can reach it — the browser calls
+ * our API, and our API calls Google. A key that reached the frontend would be
+ * a key anyone could use to read the property.
  *
  * ## When GA is not configured
  *
@@ -70,9 +80,22 @@ export class Ga4Client {
 
   constructor(private readonly config: ConfigService) {}
 
-  /** True when a property id and credentials are both present. */
+  /** True when a property id and some form of credential are both present. */
   get configured(): boolean {
-    return Boolean(this.propertyId && this.config.get<string>('GOOGLE_APPLICATION_CREDENTIALS'));
+    return Boolean(this.propertyId && this.credentialSource !== 'none');
+  }
+
+  /**
+   * Which credential is in play.
+   *
+   * Reported by the health check so an operator can tell "GA is off" from "GA
+   * is on but Google refused us", which are very different problems with the
+   * same symptom.
+   */
+  get credentialSource(): 'inline-json' | 'key-file' | 'none' {
+    if (this.config.get<string>('GOOGLE_SERVICE_ACCOUNT_JSON')) return 'inline-json';
+    if (this.config.get<string>('GOOGLE_APPLICATION_CREDENTIALS')) return 'key-file';
+    return 'none';
   }
 
   private get propertyId(): string | undefined {
@@ -91,8 +114,74 @@ export class Ga4Client {
    * first analytics request.
    */
   private instance(): BetaAnalyticsDataClient {
-    this.client ??= new BetaAnalyticsDataClient();
+    this.client ??= this.build();
     return this.client;
+  }
+
+  private build(): BetaAnalyticsDataClient {
+    const inline = this.config.get<string>('GOOGLE_SERVICE_ACCOUNT_JSON');
+
+    if (!inline) {
+      // No credentials argument: the library picks up
+      // GOOGLE_APPLICATION_CREDENTIALS itself.
+      return new BetaAnalyticsDataClient();
+    }
+
+    let parsed: { client_email?: string; private_key?: string };
+    try {
+      parsed = JSON.parse(inline) as typeof parsed;
+    } catch {
+      // Deliberately says nothing about the value. A malformed key is still a
+      // key, and echoing it into a boot error would put it in the logs.
+      throw new Error(
+        'GOOGLE_SERVICE_ACCOUNT_JSON is set but is not valid JSON. ' +
+          'Paste the whole service-account key file as a single-line JSON string.'
+      );
+    }
+
+    if (!parsed.client_email || !parsed.private_key) {
+      throw new Error(
+        'GOOGLE_SERVICE_ACCOUNT_JSON is missing client_email or private_key. ' +
+          'It should be the service-account key file, not the OAuth client config.'
+      );
+    }
+
+    return new BetaAnalyticsDataClient({
+      credentials: {
+        client_email: parsed.client_email,
+        // Shell and dashboard paste turns real newlines into the two
+        // characters backslash-n, and the key silently fails to parse.
+        private_key: parsed.private_key.replace(/\\n/g, '\n'),
+      },
+    });
+  }
+
+  /**
+   * Whether Google actually answers, as opposed to merely being configured.
+   *
+   * One cheap report. Used by the admin health indicator so a broken
+   * integration is visible on the dashboard rather than showing as a page of
+   * zeros that looks like a quiet week.
+   */
+  async healthy(): Promise<{ ok: boolean; credentialSource: string; error?: string }> {
+    if (!this.configured) {
+      return { ok: false, credentialSource: this.credentialSource, error: 'not configured' };
+    }
+
+    try {
+      await this.runReport({
+        dateRanges: [{ startDate: 'yesterday', endDate: 'today' }],
+        metrics: ['activeUsers'],
+        cacheSeconds: 60,
+      });
+      return { ok: true, credentialSource: this.credentialSource };
+    } catch (error) {
+      return {
+        ok: false,
+        credentialSource: this.credentialSource,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   /**

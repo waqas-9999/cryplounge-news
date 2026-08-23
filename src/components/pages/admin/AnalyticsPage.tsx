@@ -167,6 +167,15 @@ export function AnalyticsPage({ currentPage, onNavigate, onLogout }: AnalyticsPa
     [dimensionFilters, range]
   );
 
+  /*
+   * When the overview last arrived.
+   *
+   * Tracked from the data rather than from a timer, so it reflects an actual
+   * successful read — a failed refresh must not advance it and make stale
+   * numbers look fresh.
+   */
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
   // Requests are keyed on the serialized filters so a panel refetches on any
   // change to range *or* filters, without each one listing them individually.
   const key = useMemo(() => JSON.stringify(filters), [filters]);
@@ -302,6 +311,16 @@ export function AnalyticsPage({ currentPage, onNavigate, onLogout }: AnalyticsPa
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
   const kpis = overview.data;
+
+  // Stamped only when a read actually succeeds, so a failed refresh cannot
+  // make stale numbers look fresh.
+  useEffect(() => {
+    if (overview.data && !overview.error) setLastUpdated(new Date());
+  }, [overview.data, overview.error]);
+
+  const lastUpdatedLabel = lastUpdated
+    ? lastUpdated.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+    : '—';
   const [trafficMetric, setTrafficMetric] = useState<TrafficMetric>('visitors');
 
   return (
@@ -350,6 +369,18 @@ export function AnalyticsPage({ currentPage, onNavigate, onLogout }: AnalyticsPa
               compare ? 'Compared against the immediately preceding period.' : 'Totals for the selected period.'
             }
           />
+
+          {/*
+            When these figures were last read from Google Analytics.
+            Reports are cached for five minutes and GA itself processes with a
+            lag, so "now" is never quite now — showing the read time is what
+            stops an editor treating a stale panel as a live one.
+          */}
+          {overview.data && !overview.error && (
+            <p className="-mt-2 mb-3 text-xs text-gray-500 dark:text-gray-400">
+              Last updated {lastUpdatedLabel}
+            </p>
+          )}
 
           {overview.error ? (
             <Card className="p-6">

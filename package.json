@@ -38,7 +38,6 @@
     "d3-geo": "^3.1.1",
     "dompurify": "^3.4.12",
     "framer-motion": "^13.1.0",
-    "google-auth-library": "^11.0.2",
     "googleapis": "^176.0.0",
     "isomorphic-dompurify": "^3.19.0",
     "jose": "^6.2.5",
