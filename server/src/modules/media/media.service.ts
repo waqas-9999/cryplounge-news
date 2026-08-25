@@ -6,6 +6,7 @@ import {
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
+import { readImageDimensions } from './image-dimensions';
 import { AuditAction, Prisma } from '@prisma/client';
 import { storageConfig } from '@/config/configuration';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -154,9 +155,15 @@ export class MediaService {
       folder: options.folder ?? 'general',
     });
 
+    // Read from the stored bytes, never from the request: a caller that is
+    // wrong or lying would have the page reserve the wrong space, and the
+    // value is persisted as though it were a property of the image.
+    const dimensions = readImageDimensions(file.buffer, file.mimetype);
+
     const media = await this.prisma.media.create({
       data: {
         path: stored.path,
+        ...(dimensions ?? {}),
         filename: file.originalname.slice(0, 255),
         mimeType: file.mimetype,
         size: stored.size,
@@ -195,9 +202,15 @@ export class MediaService {
       folder: options.folder,
     });
 
+    // Read from the stored bytes, never from the request: a caller that is
+    // wrong or lying would have the page reserve the wrong space, and the
+    // value is persisted as though it were a property of the image.
+    const dimensions = readImageDimensions(file.buffer, file.mimetype);
+
     const media = await this.prisma.media.create({
       data: {
         path: stored.path,
+        ...(dimensions ?? {}),
         filename: file.originalname.slice(0, 255),
         mimeType: file.mimetype,
         size: stored.size,
@@ -231,9 +244,15 @@ export class MediaService {
       folder: options.folder,
     });
 
+    // Read from the stored bytes, never from the request: a caller that is
+    // wrong or lying would have the page reserve the wrong space, and the
+    // value is persisted as though it were a property of the image.
+    const dimensions = readImageDimensions(file.buffer, file.mimetype);
+
     const media = await this.prisma.media.create({
       data: {
         path: stored.path,
+        ...(dimensions ?? {}),
         filename: file.originalname.slice(0, 255),
         mimeType: file.mimetype,
         size: stored.size,

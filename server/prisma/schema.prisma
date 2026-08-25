@@ -213,6 +213,7 @@ model Article {
   founders    Founder[]
 
   versions ArticleVersion[]
+  visuals  ArticleVisual[]
 
   seoTitle       String?
   seoDescription String?
@@ -247,6 +248,58 @@ model ArticleVersion {
   createdAt  DateTime @default(now())
 
   @@index([articleId, createdAt])
+}
+
+/// What an inline visual is. Mirrors the writer's visual brief, minus `none`,
+/// which produces no row at all.
+enum ArticleVisualType {
+  PHOTO
+  CHART
+  INFOGRAPHIC
+  TIMELINE
+}
+
+/// Where a visual sits in the article. The hero image stays on
+/// `Article.featuredImageId`; this is for everything that appears in the body.
+enum ArticleVisualPlacement {
+  HERO
+  INLINE
+}
+
+/// A visual placed in an article.
+///
+/// Deliberately thin: the asset itself — path, alt text, caption, dimensions —
+/// lives on `Media` and is not copied here. This model answers only "which
+/// visual, where, in what order", so a caption edited on the Media record does
+/// not have to be reconciled with a duplicate.
+model ArticleVisual {
+  id        String  @id @default(cuid())
+  articleId String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  mediaId String
+  media   Media  @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  type      ArticleVisualType
+  placement ArticleVisualPlacement @default(INLINE)
+
+  /// Render order within a placement. Never rely on insertion order.
+  position Int @default(0)
+
+  /// Why this visual belongs, from the writer's brief. Editorial rationale,
+  /// not reader-facing text.
+  relevanceReason String? @db.Text
+
+  /// Chart specification and source, when this visual is a chart. Kept as the
+  /// record of what was plotted; the rendered PNG on `Media` is what ships.
+  chartMeta Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One row per media asset per article: makes a retried cycle idempotent.
+  @@unique([articleId, mediaId])
+  @@index([articleId, placement, position])
 }
 
 enum ProjectStatus {
@@ -646,12 +699,16 @@ model Media {
   height   Int?
   altText  String?
   title    String?
+  /// Editorial caption: what the reader is looking at and why it is relevant.
+  /// Distinct from altText, which describes the image for a screen reader.
+  caption  String? @db.Text
   folder   String  @default("/")
 
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   articleFeatures Article[]
+  articleVisuals  ArticleVisual[]
   projectLogos    Project[]   @relation("ProjectLogo")
   projectCovers   Project[]   @relation("ProjectCover")
   researchCovers  Research[]

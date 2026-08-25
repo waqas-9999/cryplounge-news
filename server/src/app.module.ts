@@ -32,6 +32,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { SearchModule } from './modules/search/search.module';
 import { DiscoveryModule } from './modules/discovery/discovery.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { RetentionModule } from './modules/retention/retention.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { ContactModule } from './modules/contact/contact.module';
@@ -95,6 +96,7 @@ import { AiNewsroomModule } from './modules/ai-newsroom/ai-newsroom.module';
     SearchModule,
     DiscoveryModule,
     AnalyticsModule,
+    RetentionModule,
     WebhooksModule,
     AgentsModule,
     ContactModule,

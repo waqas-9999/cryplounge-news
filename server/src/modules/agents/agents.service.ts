@@ -245,7 +245,7 @@ export class AgentsService {
   async submitMedia(
     file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
     agent: AgentContext,
-    options: { altText?: string; title?: string }
+    options: { altText?: string; title?: string; caption?: string }
   ) {
     if (!agent.permissions.includes('media.upload')) {
       throw new ForbiddenException({
@@ -260,7 +260,104 @@ export class AgentsService {
       title: options.title,
     });
 
+    // The caption is a separate column and `uploadForAgent` predates it.
+    // Written here rather than widening that signature, which several other
+    // callers share.
+    if (options.caption) {
+      await this.prisma.media.update({
+        where: { id: media.id },
+        data: { caption: options.caption },
+      });
+    }
+
     return { id: media.id, url: media.url, mimeType: media.mimeType, size: media.size };
+  }
+
+  /**
+   * Attaches an already-uploaded asset to an article as an inline visual.
+   *
+   * Separate from the upload because they answer different questions: the
+   * upload stores a file, this places it. Splitting them also means a retried
+   * cycle that re-uploads does not silently create a second placement.
+   *
+   * Idempotent on `(articleId, mediaId)` — the unique constraint is the
+   * mechanism, so two concurrent cycles cannot both win.
+   */
+  async attachVisual(
+    agent: AgentContext,
+    articleId: string,
+    dto: {
+      mediaId: string;
+      type: 'PHOTO' | 'CHART' | 'INFOGRAPHIC' | 'TIMELINE';
+      placement?: 'HERO' | 'INLINE';
+      position?: number;
+      relevanceReason?: string;
+      /*
+       * Loosely typed on the way in and narrowed at the write.
+       *
+       * `Prisma.InputJsonValue` is a recursive union that a validated DTO
+       * cannot satisfy structurally, and widening the DTO to match it would
+       * make the API contract unreadable for the sake of the type checker.
+       */
+      chartMeta?: Record<string, unknown>;
+    }
+  ) {
+    if (!agent.permissions.includes('news.create')) {
+      throw new ForbiddenException({
+        message: 'This agent is not permitted to modify articles',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const article = await this.prisma.article.findFirst({
+      where: { id: articleId, deletedAt: null },
+      select: { id: true, status: true },
+    });
+
+    if (!article) {
+      throw new BadRequestException({ message: 'Article not found', code: 'NOT_FOUND' });
+    }
+
+    // An agent may illustrate a draft it filed, never a published article.
+    // Changing what a reader is already looking at is an editor's decision.
+    if (article.status !== ContentStatus.DRAFT) {
+      throw new BadRequestException({
+        message: `Visuals may only be attached to a draft; this article is ${article.status}`,
+        code: 'NOT_A_DRAFT',
+      });
+    }
+
+    const media = await this.prisma.media.findFirst({
+      where: { id: dto.mediaId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!media) {
+      throw new BadRequestException({ message: 'Media not found', code: 'NOT_FOUND' });
+    }
+
+    const visual = await this.prisma.articleVisual.upsert({
+      where: { articleId_mediaId: { articleId, mediaId: dto.mediaId } },
+      create: {
+        articleId,
+        mediaId: dto.mediaId,
+        type: dto.type,
+        placement: dto.placement ?? 'INLINE',
+        position: dto.position ?? 0,
+        relevanceReason: dto.relevanceReason,
+        ...(dto.chartMeta === undefined ? {} : { chartMeta: dto.chartMeta as Prisma.InputJsonValue }),
+      },
+      update: {
+        type: dto.type,
+        placement: dto.placement ?? 'INLINE',
+        position: dto.position ?? 0,
+        relevanceReason: dto.relevanceReason,
+        ...(dto.chartMeta === undefined ? {} : { chartMeta: dto.chartMeta as Prisma.InputJsonValue }),
+      },
+      select: { id: true, type: true, placement: true, position: true },
+    });
+
+    return visual;
   }
 
   async submitArticle(agent: AgentContext, dto: SubmitArticleDto) {

@@ -21,7 +21,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:purge-news": "tsx prisma/purge-news.ts",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "newsroom:cleanup-drafts": "ts-node -r tsconfig-paths/register src/modules/retention/retention.cli.ts"
   },
   "dependencies": {
     "@google-analytics/data": "^7.0.0",

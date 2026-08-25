@@ -44,6 +44,40 @@ const DETAIL_INCLUDE = {
   featuredImage: true,
   tags: { select: { id: true, slug: true, name: true } },
   labels: { select: { id: true, slug: true, name: true, color: true } },
+  /*
+   * Inline visuals, in render order.
+   *
+   * Detail only. The list endpoints return a card, and a card shows the hero
+   * image — loading every article's charts to render a grid would be a join
+   * nobody looks at.
+   *
+   * Ordered here rather than left to the client, and by `position` rather than
+   * insertion order: a retried cycle can write rows in a different sequence,
+   * and a chart that moves between renders is a bug a reader would notice.
+   */
+  visuals: {
+    orderBy: [{ placement: 'asc' }, { position: 'asc' }],
+    select: {
+      id: true,
+      type: true,
+      placement: true,
+      position: true,
+      relevanceReason: true,
+      chartMeta: true,
+      media: {
+        select: {
+          id: true,
+          path: true,
+          altText: true,
+          caption: true,
+          title: true,
+          width: true,
+          height: true,
+          mimeType: true,
+        },
+      },
+    },
+  },
   ...ARTICLE_CROSS_RELATION_INCLUDE,
 } satisfies Prisma.ArticleInclude;
 

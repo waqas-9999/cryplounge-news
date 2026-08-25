@@ -2,6 +2,8 @@
 
 import { ArrowLeft, Heart, MessageCircle, Twitter, Facebook, Instagram, Share2, ChevronLeft, ChevronRight, Link2, Printer, Bookmark, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+import { ArticleVisuals } from '@/components/ArticleVisualRenderer';
+import type { ArticleVisual } from '@/types/article';
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent, recordContentView, trackReadingDepth, trackShare, trackBookmark } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
@@ -45,6 +47,11 @@ interface ArticleDetailPageProps {
     asianBusinessmanImage: string;
   };
   onNavigate?: (page: string) => void;
+  /**
+   * Inline editorial visuals, already ordered by the API. Optional so every
+   * existing caller and every article without visuals is unaffected.
+   */
+  visuals?: ArticleVisual[];
 }
 
 export function ArticleDetailPage({
@@ -61,7 +68,8 @@ export function ArticleDetailPage({
   authorAvatarUrl,
   tags = ['Crypto', 'News'],
   images,
-  onNavigate
+  onNavigate,
+  visuals
 }: ArticleDetailPageProps) {
   const { vrImage, businessmanImage, solanaImage, phoneImage, speakerImage, documentImage, asianBusinessmanImage } = images;
   const displayTime = publishedTime ? timeAgo(publishedTime) : '';
@@ -426,6 +434,20 @@ export function ArticleDetailPage({
               className="prose dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
+
+            {/*
+              Inline editorial visuals — charts, timelines, secondary images.
+
+              Rendered after the body rather than spliced into it: the body is
+              sanitised HTML injected wholesale, and there is no marker in it
+              saying where a chart belongs. Placing them here shows the reader
+              the visual reliably; positioning within the prose needs the
+              writer to emit an anchor, which is a newsroom change.
+
+              The hero image is `featuredImageId` and is rendered above. These
+              are filtered to INLINE so it is never drawn twice.
+            */}
+            <ArticleVisuals visuals={visuals} />
             
             {/* Fallback content if no article content */}
             {!articleContent && (

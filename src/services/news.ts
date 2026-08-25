@@ -1,5 +1,11 @@
 import { apiClient, mediaUrl } from '@/lib/api-client';
-import { articleSlug, type Article, type ArticleStatus } from '@/types/article';
+import {
+  articleSlug,
+  type Article,
+  type ArticleStatus,
+  type ArticleVisual,
+  type ArticleVisualType,
+} from '@/types/article';
 import type { Project } from '@/types/project';
 
 /**
@@ -43,11 +49,64 @@ interface BackendArticle {
   category: { id: string; slug: string; name: string } | null;
   author: { id: string; slug: string; name: string; avatarUrl?: string | null } | null;
   featuredImage: { id: string; path: string; altText?: string | null } | null;
+  /** Present on detail reads only; list endpoints return a card. */
+  visuals?: BackendArticleVisual[];
   tags: { id: string; slug: string; name: string }[];
   seoTitle?: string | null;
   seoDescription?: string | null;
   canonicalUrl?: string | null;
   noindex?: boolean;
+}
+
+interface BackendArticleVisual {
+  id: string;
+  type: string;
+  placement: string;
+  position: number;
+  relevanceReason?: string | null;
+  media: {
+    id: string;
+    path: string;
+    altText?: string | null;
+    caption?: string | null;
+    title?: string | null;
+    width?: number | null;
+    height?: number | null;
+    mimeType?: string | null;
+  } | null;
+}
+
+const VISUAL_TYPES = ['CHART', 'PHOTO', 'INFOGRAPHIC', 'TIMELINE'] as const;
+
+/**
+ * Maps one visual, dropping anything the renderer could not use.
+ *
+ * Returns null for a visual with no media or an unrecognised type rather than
+ * passing it through for the component to guard against. A type added to the
+ * CMS enum before the frontend knows about it is the expected case here, and
+ * it should be quietly absent, not a broken figure.
+ */
+function toVisual(v: BackendArticleVisual): ArticleVisual | null {
+  if (!v.media?.path) return null;
+  if (!(VISUAL_TYPES as readonly string[]).includes(v.type)) return null;
+
+  return {
+    id: v.id,
+    type: v.type as ArticleVisualType,
+    placement: v.placement === 'HERO' ? 'HERO' : 'INLINE',
+    position: v.position,
+    relevanceReason: v.relevanceReason ?? undefined,
+    media: {
+      id: v.media.id,
+      url: mediaUrl(v.media.path),
+      altText: v.media.altText ?? undefined,
+      caption: v.media.caption ?? undefined,
+      title: v.media.title ?? undefined,
+      width: v.media.width ?? undefined,
+      height: v.media.height ?? undefined,
+      mimeType: v.media.mimeType ?? undefined,
+    },
+  };
 }
 
 function toArticle(a: BackendArticle): Article {
@@ -65,6 +124,8 @@ function toArticle(a: BackendArticle): Article {
     updatedAt: a.updatedAt,
     tags: a.tags.map(t => t.name),
     imageUrl: mediaUrl(a.featuredImage?.path),
+    // Order comes from the API (placement, then position). Never re-sorted.
+    visuals: a.visuals?.map(toVisual).filter((v): v is ArticleVisual => v !== null),
     status: a.status.toLowerCase() as ArticleStatus,
     featured: a.featured,
     content: a.content,

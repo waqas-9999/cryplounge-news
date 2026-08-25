@@ -3,6 +3,7 @@ import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { IdempotencyService } from './idempotency.service';
 import { Public } from '@/common/decorators/public.decorator';
+import { AttachVisualDto } from './dto/attach-visual.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { AgentsService, type AgentContext } from './agents.service';
 import { AiNewsroomService } from '../ai-newsroom/ai-newsroom.service';
@@ -101,6 +102,25 @@ export class AgentSubmissionController {
    * draft that does not qualify is the expected outcome and must be left
    * exactly where it is for a human.
    */
+  /**
+   * Places an already-uploaded asset in an article.
+   *
+   * The upload endpoint stores the file; this one says where it goes. Kept
+   * apart so a retried cycle that re-uploads cannot create a second placement,
+   * and so the agent never needs a route that both writes files and edits
+   * articles.
+   */
+  @Post('articles/:id/visuals')
+  @ResponseMessage('Visual attached')
+  @ApiOperation({ summary: 'Attach an uploaded media asset to a draft as an inline visual' })
+  async attachVisual(
+    @Param('id') id: string,
+    @Body() dto: AttachVisualDto,
+    @CurrentAgent() agent: AgentContext
+  ) {
+    return this.agents.attachVisual(agent, id, dto);
+  }
+
   @Post('articles/:id/request-publish')
   @ResponseMessage('Publication considered')
   @ApiOperation({ summary: 'Ask the CMS to publish a draft, subject to its own gates' })

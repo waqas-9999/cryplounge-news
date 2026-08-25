@@ -172,6 +172,7 @@ export function ArticleView({ category, article }: { category: string; article: 
       authorAvatarUrl={article.authorAvatarUrl}
       tags={article.tags}
       images={images}
+      visuals={article.visuals}
       onNavigate={useAppNavigate()}
     />
   );

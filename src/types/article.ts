@@ -1,5 +1,38 @@
 export type ArticleStatus = 'draft' | 'review' | 'scheduled' | 'published' | 'archived';
 
+/** Inline visual kinds the newsroom produces. Mirrors the CMS enum. */
+export type ArticleVisualType = 'CHART' | 'PHOTO' | 'INFOGRAPHIC' | 'TIMELINE';
+
+export type ArticleVisualPlacement = 'HERO' | 'INLINE';
+
+/**
+ * A visual placed in an article body.
+ *
+ * The asset lives on `media`; this describes where it sits. Every field the
+ * CMS may omit is optional here rather than defaulted, because a caption the
+ * writer never produced and a caption that failed to load are different
+ * things, and the renderer treats them differently.
+ */
+export interface ArticleVisual {
+  id: string;
+  type: ArticleVisualType;
+  placement: ArticleVisualPlacement;
+  position: number;
+  /** Editorial rationale from the writer. Not reader-facing. */
+  relevanceReason?: string;
+  media: {
+    id: string;
+    /** Resolved absolute URL. Absent when the asset cannot be located. */
+    url?: string;
+    altText?: string;
+    caption?: string;
+    title?: string;
+    width?: number;
+    height?: number;
+    mimeType?: string;
+  };
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -29,6 +62,12 @@ export interface Article {
 
   content?: string;
   featured?: boolean;
+
+  /**
+   * Inline visuals, already ordered by the API on `placement` then `position`.
+   * The frontend preserves that order and never re-sorts.
+   */
+  visuals?: ArticleVisual[];
   updatedAt?: string;
 
   /** SEO overrides — fall back to `title`/`summary` when absent. */

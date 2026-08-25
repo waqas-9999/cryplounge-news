@@ -121,6 +121,26 @@ const envSchema = z.object({
   GOOGLE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
 
+  /**
+   * Draft retention.
+   *
+   * Off by default, and dry-run by default when switched on: this is the only
+   * scheduled job in the system that removes editorial content, and the safe
+   * failure mode for a misconfiguration is doing nothing.
+   *
+   * See `docs/RETENTION.md` for the phased rollout.
+   */
+  NEWSROOM_RETENTION_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform(value => value === 'true'),
+  NEWSROOM_RETENTION_DRY_RUN: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform(value => value === 'true'),
+  NEWSROOM_DRAFT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(3),
+  NEWSROOM_RETENTION_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
+
   SWAGGER_ENABLED: z
     .enum(['true', 'false'])
     .default('true')
