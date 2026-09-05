@@ -14,6 +14,21 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid connection string'),
 
+  /*
+   * The internal imagery service in `cryplounge-ai`.
+   *
+   * Optional: the CMS runs perfectly well without image generation, and a
+   * deployment that has not enabled it should boot rather than crash.
+   * `ImageryClient.configured` reports false and the endpoint returns a
+   * service-unavailable result instead.
+   *
+   * Declared here because `validateEnv` returns the parsed object and zod
+   * strips anything undeclared — an omitted key would simply be invisible to
+   * ConfigService, which is a confusing way to be misconfigured.
+   */
+  AI_IMAGERY_URL: z.string().url().optional().or(z.literal('')),
+  AI_IMAGERY_API_KEY: z.string().min(16).optional().or(z.literal('')),
+
   /**
    * Read-only connection to the AI newsroom's own database.
    *

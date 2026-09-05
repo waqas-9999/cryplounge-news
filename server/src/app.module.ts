@@ -50,8 +50,11 @@ import { AiNewsroomModule } from './modules/ai-newsroom/ai-newsroom.module';
  * Guard order matters — throttling runs before authentication so that
  * unauthenticated floods are rejected before any database work.
  */
+import { ImageryModule } from './modules/imagery/imagery.module';
+
 @Module({
   imports: [
+    ImageryModule,
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,

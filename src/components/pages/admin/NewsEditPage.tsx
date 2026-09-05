@@ -8,6 +8,7 @@ import { SeoChecklist } from '@/components/admin/SeoChecklist';
 import { SlugField } from '@/components/admin/SlugField';
 import { apiClient, errorMessage, mediaUrl } from '@/lib/api-client';
 import { toast } from 'sonner';
+import { ImageStudio } from '@/components/admin/ImageStudio';
 import {
   Save,
   Eye,
@@ -505,6 +506,28 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                         {featuredImage ? 'Change Image' : 'Upload Image'}
                       </button>
                     </div>
+
+                    {/*
+                      Sits under the featured image because that is the thing it
+                      changes. Rendered only for a saved article: generation reads
+                      the headline and summary from the database, so there is
+                      nothing to generate from until the article exists.
+                    */}
+                    {articleId && (
+                      <ImageStudio
+                        articleId={articleId}
+                        featuredImageId={formData.featuredImageId}
+                        onAttached={media => {
+                          setFeaturedImage({
+                            id: media.id,
+                            path: '',
+                            altText: media.altText,
+                            url: media.url,
+                          } as MediaAsset);
+                          setFormData(prev => ({ ...prev, featuredImageId: media.id }));
+                        }}
+                      />
+                    )}
                   </div>
 
                   <div className="bg-white dark:bg-[#1A1A1C] rounded-xl p-6 border border-gray-200 dark:border-gray-800">

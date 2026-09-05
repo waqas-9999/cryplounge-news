@@ -13,11 +13,11 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // The pooled Neon endpoint (-pooler, pgbouncer=true, connection_limit=1).
   // Serverless opens a connection per cold start; against the direct endpoint
   // that exhausts Neon's connection limit and makes cold starts fragile.
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
   // The direct endpoint. Migrations cannot run through a transaction pooler,
   // so Prisma uses this one for `migrate` and `db push` only.
   // Falls back to DATABASE_URL when unset, which keeps a single-URL
@@ -693,6 +693,18 @@ model Founder {
 
 // ----------------------------------------------------------------- media ---
 
+/// Where an AI-generated image stands with the visual reviewer.
+///
+/// Rejection is a state, not an absence: `null` would be indistinguishable
+/// from "an ordinary uploaded file", and the Studio has to be able to show an
+/// editor *why* a candidate cannot be used.
+enum MediaReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ERROR
+}
+
 model Media {
   id       String  @id @default(cuid())
   /// Opaque identifier the active StorageProvider uses to build a URL or
@@ -712,13 +724,33 @@ model Media {
   caption  String? @db.Text
   folder   String  @default("/")
 
+  /// True only for images this newsroom generated. Drives the "AI-generated
+  /// illustration" disclosure in the UI; deliberately never drawn into the
+  /// pixels, which stay clean editorial artwork.
+  isAiGenerated         Boolean            @default(false)
+  generationProvider    String?
+  generationModel       String?
+  /// Verdict from the Gemini vision reviewer in `cryplounge-ai`.
+  reviewStatus          MediaReviewStatus?
+  /// 0-100 from `assessImageQuality`, kept so an editor can compare candidates.
+  reviewScore           Int?
+  /// Why a candidate was refused, in editorial language rather than model output.
+  reviewReasons         String[]
+  /// The article this candidate was generated for.
+  ///
+  /// Not a relation: a candidate outlives the attachment decision and must not
+  /// cascade when an article changes its featured image. It exists so the
+  /// attach endpoint can verify a candidate belongs to the article it is being
+  /// attached to, rather than trusting the browser's `mediaId`.
+  generatedForArticleId String?
+
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   articleFeatures Article[]
   articleVisuals  ArticleVisual[]
-  projectLogos    Project[]   @relation("ProjectLogo")
-  projectCovers   Project[]   @relation("ProjectCover")
+  projectLogos    Project[]       @relation("ProjectLogo")
+  projectCovers   Project[]       @relation("ProjectCover")
   researchCovers  Research[]
   eventBanners    Event[]
   founderPhotos   Founder[]

@@ -265,6 +265,80 @@ export class MediaService {
     return { ...media, url: this.storage.url(media.path) };
   }
 
+  /**
+   * Stores an AI-generated candidate.
+   *
+   * Deliberately a sibling of `uploadForAgent` rather than a flag on it: the
+   * provenance columns only make sense for generated images, and a shared
+   * method would need every caller to pass nulls for fields that do not apply
+   * to a file a human uploaded.
+   *
+   * `generatedForArticleId` is what makes the attach endpoint safe. A
+   * candidate records the article it was made for, so attaching it elsewhere
+   * can be refused server-side instead of trusting the browser's `mediaId`.
+   */
+  async saveGeneratedCandidate(params: {
+    buffer: Buffer;
+    mimeType: string;
+    articleId: string;
+    altText?: string;
+    provider: string;
+    model: string;
+    reviewScore?: number;
+  }) {
+    const file = {
+      buffer: params.buffer,
+      originalname: `ai-${params.articleId}-${Date.now()}.webp`,
+      mimetype: params.mimeType,
+      size: params.buffer.length,
+    };
+    this.assertAcceptable(file);
+
+    const stored = await this.storage.save({
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      folder: '/articles',
+    });
+
+    // From the bytes, never from the generator's claim about them.
+    const dimensions = readImageDimensions(file.buffer, file.mimetype);
+
+    const media = await this.prisma.media.create({
+      data: {
+        path: stored.path,
+        ...(dimensions ?? {}),
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        size: stored.size,
+        altText: params.altText,
+        folder: '/articles',
+        isAiGenerated: true,
+        generationProvider: params.provider,
+        generationModel: params.model,
+        // Only an approved candidate is ever persisted: the AI service returns
+        // 422 with no image when nothing survived review, so a rejected frame
+        // never reaches this method and cannot acquire a row to attach.
+        reviewStatus: 'APPROVED',
+        reviewScore: params.reviewScore,
+        reviewReasons: [],
+        generatedForArticleId: params.articleId,
+      },
+    });
+
+    return { ...media, url: this.storage.url(media.path) };
+  }
+
+  /** Candidates generated for one article, newest first. */
+  async candidatesForArticle(articleId: string, limit = 12) {
+    const items = await this.prisma.media.findMany({
+      where: { generatedForArticleId: articleId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    return items.map(item => ({ ...item, url: this.storage.url(item.path) }));
+  }
+
   async update(id: string, dto: UpdateMediaDto, context: AuditContext) {
     await this.findById(id);
 
