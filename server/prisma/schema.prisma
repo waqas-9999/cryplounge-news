@@ -14,7 +14,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // The pooled Neon endpoint (-pooler, pgbouncer=true, connection_limit=1).
+  // Serverless opens a connection per cold start; against the direct endpoint
+  // that exhausts Neon's connection limit and makes cold starts fragile.
   url      = env("DATABASE_URL")
+  // The direct endpoint. Migrations cannot run through a transaction pooler,
+  // so Prisma uses this one for `migrate` and `db push` only.
+  // Falls back to DATABASE_URL when unset, which keeps a single-URL
+  // deployment working unchanged.
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------- people ---
