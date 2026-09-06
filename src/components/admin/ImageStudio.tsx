@@ -85,6 +85,17 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
    * client-side illusion that a refresh would undo. Seeded lazily on the
    * first apply, because until then there is nothing to step back to.
    */
+  /**
+   * The direction that produced the newest candidate.
+   *
+   * Held in state rather than persisted: it explains the image currently on
+   * screen, and once the editor moves on it has served its purpose. Storing
+   * it would need a Media column for a caption that only matters for a few
+   * seconds.
+   */
+  const [lastDirection, setLastDirection] = useState<string | null>(null);
+  const [discarded, setDiscarded] = useState<Set<string>>(new Set());
+
   const [history, setHistory] = useState<HeroEntry[]>([]);
   const [cursor, setCursor] = useState(-1);
 
@@ -117,7 +128,8 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
         // there, so this steers the picture without steering the model.
         visualSubject: direction.trim() || undefined,
       });
-      toast.success('Image generated and passed editorial review');
+      setLastDirection(direction.trim() || null);
+      toast.success('New hero image ready to preview');
       await loadCandidates();
     } catch (error) {
       const message = readableError(error);
@@ -173,6 +185,19 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
     setStatus('idle');
   }
 
+  /**
+   * Removes a candidate from view without touching anything durable.
+   *
+   * The media row stays: it may already be the hero, or become it later via
+   * redo, and deleting an asset an article might reference is the one
+   * irreversible mistake available here. Discard is a view decision.
+   */
+  function discard(candidate: Candidate) {
+    setDiscarded(previous => new Set(previous).add(candidate.id));
+    if (candidate.id === candidates[0]?.id) setLastDirection(null);
+    toast.info('Candidate discarded — the hero image is unchanged');
+  }
+
   /** Steps through applied heroes. `delta` is -1 for undo, +1 for redo. */
   async function step(delta: number) {
     const target = cursor + delta;
@@ -189,6 +214,7 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
   const busy = status !== 'idle';
   // Enabled only where a real step exists, so the controls never suggest a
   // history the editor does not have.
+  const visible = candidates.filter(candidate => !discarded.has(candidate.id));
   const canUndo = cursor > 0;
   const canRedo = cursor >= 0 && cursor < history.length - 1;
 
@@ -275,8 +301,9 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
           className="mt-1 w-full px-3 py-2 bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:opacity-50"
         />
         <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-          Describes how the image should look. The story, and the editorial safety
-          rules, always come from the article itself.
+          Tell the AI how you would like this version to look. The article title,
+          summary and category are always used automatically — this only refines
+          them.
         </p>
       </div>
 
@@ -315,15 +342,16 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
         </div>
       )}
 
-      {candidates.length > 0 && (
+      {visible.length > 0 && (
         <div className="mt-4">
           <h4 className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Generated candidates
           </h4>
 
           <ul className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {candidates.map(candidate => {
+            {visible.map(candidate => {
               const attached = candidate.id === featuredImageId;
+              const newest = candidate.id === visible[0]?.id;
 
               return (
                 <li
@@ -356,14 +384,35 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
                       {candidate.width && ` · ${candidate.width}×${candidate.height}`}
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={() => attach(candidate)}
-                      disabled={busy || attached}
-                      className="w-full px-3 py-1.5 text-xs rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {attached ? 'In use' : 'Use this image'}
-                    </button>
+                    {/* Only the newest candidate carries a remembered direction. */}
+                    {newest && lastDirection && (
+                      <p className="text-[11px] italic text-gray-600 dark:text-gray-400 line-clamp-2">
+                        Direction: “{lastDirection}”
+                      </p>
+                    )}
+
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => attach(candidate)}
+                        disabled={busy || attached}
+                        className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {attached ? 'In use' : 'Use as hero image'}
+                      </button>
+
+                      {!attached && (
+                        <button
+                          type="button"
+                          onClick={() => discard(candidate)}
+                          disabled={busy}
+                          aria-label="Discard this candidate"
+                          className="px-3 py-1.5 text-xs rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors disabled:opacity-50"
+                        >
+                          Discard
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </li>
               );

@@ -77,6 +77,23 @@ export function sanitiseDirection(raw: string | undefined): string | undefined {
   return cleaned.slice(0, 300);
 }
 
+/**
+ * Alt text for a generated hero.
+ *
+ * Derived from the headline because that is what the picture is *about*, and
+ * a screen reader announcing "AI generated image" on every article tells a
+ * reader nothing. Editors can still overwrite it through the existing media
+ * alt-text field; this is the default, not a lock.
+ *
+ * Not the headline verbatim — a hero is an illustration of the story, not a
+ * photograph of it, and saying so keeps the alt text honest.
+ */
+export function heroAltText(title: string): string {
+  const trimmed = title.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return 'Editorial illustration for this article';
+  return `Editorial illustration for: ${trimmed}`.slice(0, 300);
+}
+
 @ApiTags('News')
 @Controller('articles')
 export class ImageryController {
@@ -133,8 +150,9 @@ export class ImageryController {
       buffer: result.candidate.bytes,
       mimeType: result.candidate.mimeType,
       articleId: article.id,
-      // The service does not return alt text; the media layer keeps its own.
-      altText: undefined,
+      // The service returns no alt text, so it is derived here from the
+      // headline the image was generated for.
+      altText: heroAltText(article.title),
       provider: result.provider,
       model: result.model,
       reviewScore: result.qualityScore,

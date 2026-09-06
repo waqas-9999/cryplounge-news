@@ -1,5 +1,5 @@
 import { ForbiddenException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import { ImageryController, sanitiseDirection } from './imagery.controller';
+import { ImageryController, heroAltText, sanitiseDirection } from './imagery.controller';
 
 /**
  * The Image Studio API.
@@ -268,5 +268,39 @@ describe('the editor direction', () => {
     await controller.generate('article-1', { visualSubject: direction });
 
     expect((imagery.generate as jest.Mock).mock.calls[0][0].visualSubject).toBe('darker newsroom');
+  });
+});
+
+/* ------------------------------------------------------------ alt text -- */
+
+describe('hero alt text', () => {
+  it('describes what the image is about, using the headline', () => {
+    expect(heroAltText('Bitcoin ETF inflows reach a new monthly high')).toBe(
+      'Editorial illustration for: Bitcoin ETF inflows reach a new monthly high'
+    );
+  });
+
+  it('says illustration rather than presenting the image as the event', () => {
+    // A hero illustrates a story; it does not photograph it, and the alt text
+    // should not imply otherwise to someone who cannot see the image.
+    expect(heroAltText('Exchange suffers a security breach')).toMatch(/^Editorial illustration/);
+  });
+
+  it('normalises whitespace and falls back on an empty headline', () => {
+    expect(heroAltText('  Ethereum   upgrade  ')).toBe('Editorial illustration for: Ethereum upgrade');
+    expect(heroAltText('   ')).toBe('Editorial illustration for this article');
+  });
+
+  it('stays within the column bound for a very long headline', () => {
+    expect(heroAltText('x'.repeat(500)).length).toBeLessThanOrEqual(300);
+  });
+
+  it('is what the generated candidate is stored with', async () => {
+    const { controller, media } = build();
+    await controller.generate('article-1', {});
+
+    expect((media.saveGeneratedCandidate as jest.Mock).mock.calls[0][0].altText).toBe(
+      heroAltText(ARTICLE.title)
+    );
   });
 });
