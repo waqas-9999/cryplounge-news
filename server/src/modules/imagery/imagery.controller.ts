@@ -130,10 +130,11 @@ export class ImageryController {
      * only in the UI.
      */
     const media = await this.media.saveGeneratedCandidate({
-      buffer: Buffer.from(result.candidate.data, 'base64'),
+      buffer: result.candidate.bytes,
       mimeType: result.candidate.mimeType,
       articleId: article.id,
-      altText: result.candidate.altText,
+      // The service does not return alt text; the media layer keeps its own.
+      altText: undefined,
       provider: result.provider,
       model: result.model,
       reviewScore: result.qualityScore,

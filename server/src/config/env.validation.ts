@@ -26,8 +26,8 @@ const envSchema = z.object({
    * strips anything undeclared — an omitted key would simply be invisible to
    * ConfigService, which is a confusing way to be misconfigured.
    */
-  AI_IMAGERY_URL: z.string().url().optional().or(z.literal('')),
-  AI_IMAGERY_API_KEY: z.string().min(16).optional().or(z.literal('')),
+  IMAGERY_API_URL: z.string().url().optional().or(z.literal('')),
+  IMAGERY_API_KEY: z.string().min(16).optional().or(z.literal('')),
 
   /**
    * Read-only connection to the AI newsroom's own database.

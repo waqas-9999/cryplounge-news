@@ -34,11 +34,15 @@ export type ImageryFailure =
   | 'unknown';
 
 export interface ImageryCandidate {
-  data: string;
+  /**
+   * The image itself.
+   *
+   * Bytes rather than base64: the service returns binary and the media layer
+   * wants binary, so encoding in between would cost a third more memory per
+   * image to arrive back where it started.
+   */
+  bytes: Buffer;
   mimeType: string;
-  width: number;
-  height: number;
-  altText?: string;
 }
 
 export type ImageryResult =
@@ -58,6 +62,8 @@ export interface ImageryRequest {
   category?: string;
   articleId?: string;
   visualSubject?: string;
+  /** Why that subject helps, passed through to the service for tone. */
+  visualReason?: string;
 }
 
 /**
@@ -84,11 +90,11 @@ export class ImageryClient {
   }
 
   private get baseUrl(): string | undefined {
-    return this.config.get<string>('AI_IMAGERY_URL');
+    return this.config.get<string>('IMAGERY_API_URL');
   }
 
   private get apiKey(): string | undefined {
-    return this.config.get<string>('AI_IMAGERY_API_KEY');
+    return this.config.get<string>('IMAGERY_API_KEY');
   }
 
 
@@ -115,14 +121,28 @@ export class ImageryClient {
     const startedAt = Date.now();
 
     try {
-      const response = await fetch(`${this.baseUrl}/internal/imagery/generate`, {
+      const response = await fetch(`${this.baseUrl}/generate`, {
         method: 'POST',
         headers: {
           // Header, never body: an echoed request cannot carry the key.
           Authorization: `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
+          Accept: 'image/webp, application/json',
         },
-        body: JSON.stringify(request),
+        /*
+         * Mapped at the boundary, not renamed throughout: the CMS calls it a
+         * headline and the imagery service calls it a title. Translating here
+         * keeps the service's vocabulary out of the article model, and the
+         * mismatch cost a real 400 ("title is required") before it was caught.
+         */
+        body: JSON.stringify({
+          articleId: request.articleId,
+          title: request.headline,
+          category: request.category,
+          summary: request.summary,
+          visualSubject: request.visualSubject,
+          visualReason: request.visualReason,
+        }),
         signal: controller.signal,
       });
 
@@ -131,27 +151,43 @@ export class ImageryClient {
         return { approved: false, failure: 'unavailable', reasons: ['imagery response was too large'] };
       }
 
-      const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+      const contentType = response.headers.get('content-type') ?? '';
 
-      if (response.status === 200 && payload?.success === true) {
-        const image = payload.image as ImageryCandidate | undefined;
-        if (!image?.data || !image.mimeType?.startsWith('image/')) {
-          return { approved: false, failure: 'unknown', reasons: ['imagery response had no usable image'] };
+      /*
+       * The service answers with the image itself, not JSON describing one.
+       * Success is `image/webp` bytes; everything about the generation —
+       * provider, model, quality, attempts — rides in X-CrypLounge-* headers.
+       *
+       * Reading this as JSON was the original defect: `response.json()` threw
+       * on binary, the catch produced `null`, and every generation surfaced as
+       * a generic failure with the image discarded.
+       */
+      if (response.ok && contentType.startsWith('image/')) {
+        const bytes = Buffer.from(await response.arrayBuffer());
+
+        if (bytes.length === 0) {
+          return { approved: false, failure: 'unknown', reasons: ['imagery returned an empty image'] };
         }
 
+        const header = (name: string) => response.headers.get(name) ?? undefined;
+
         this.logger.log(
-          `imagery approved provider=${String(payload.provider)} quality=${String(payload.qualityScore)} in ${Date.now() - startedAt}ms`
+          `imagery approved provider=${header('x-cryplounge-provider') ?? 'unknown'} ` +
+            `quality=${header('x-cryplounge-quality') ?? 'n/a'} in ${Date.now() - startedAt}ms`
         );
 
         return {
           approved: true,
-          candidate: image,
-          provider: String(payload.provider ?? 'unknown'),
-          model: String(payload.model ?? 'unknown'),
-          qualityScore: Number(payload.qualityScore ?? 0),
-          durationMs: Number(payload.durationMs ?? Date.now() - startedAt),
+          candidate: { bytes, mimeType: contentType.split(';')[0]!.trim() },
+          provider: header('x-cryplounge-provider') ?? 'unknown',
+          model: header('x-cryplounge-model') ?? 'unknown',
+          qualityScore: Number(header('x-cryplounge-quality') ?? 0),
+          durationMs: Date.now() - startedAt,
         };
       }
+
+      // Anything else is an error, and the service reports those as JSON.
+      const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
       /*
        * 422 is an editorial verdict, not an outage: the pipeline ran and no
@@ -162,7 +198,7 @@ export class ImageryClient {
       const failure = this.classify(response.status);
       const reasons = Array.isArray(payload?.reasons)
         ? (payload.reasons as unknown[]).map(String).slice(0, 6)
-        : [String(payload?.error ?? 'image generation failed')];
+        : [String(payload?.error ?? payload?.message ?? 'image generation failed')];
 
       this.logger.warn(`imagery ${failure} (HTTP ${response.status}) in ${Date.now() - startedAt}ms`);
       return { approved: false, failure, reasons };

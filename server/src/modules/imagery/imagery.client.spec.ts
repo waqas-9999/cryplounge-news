@@ -15,41 +15,66 @@ const KEY = 'internal-test-key-not-a-real-credential';
 function client(values: Record<string, string | undefined> = {}) {
   const config = {
     get: (key: string) =>
-      ({ AI_IMAGERY_URL: 'http://127.0.0.1:4310', AI_IMAGERY_API_KEY: KEY, ...values })[key],
+      ({ IMAGERY_API_URL: 'http://127.0.0.1:4310', IMAGERY_API_KEY: KEY, ...values })[key],
   } as unknown as ConfigService;
   return new ImageryClient(config);
 }
 
+/** An error reply: the service reports failures as JSON. */
 function mockFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
   return jest.fn().mockResolvedValue({
     status,
-    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+    ok: status >= 200 && status < 300,
+    headers: {
+      get: (name: string) =>
+        ({ 'content-type': 'application/json', ...headers })[name.toLowerCase()] ?? null,
+    },
     json: async () => body,
+    arrayBuffer: async () => new ArrayBuffer(0),
   });
 }
 
-const approved = {
-  success: true,
-  status: 'approved',
-  image: { data: 'AAAA', mimeType: 'image/webp', width: 1920, height: 1080 },
-  provider: 'nvidia',
-  model: 'flux',
-  qualityScore: 78,
-  durationMs: 4200,
-};
+/**
+ * A success reply: raw `image/webp` bytes plus X-CrypLounge-* provenance.
+ *
+ * This is the shape the deployed service actually returns. The client
+ * originally called `response.json()` on it, which threw on binary and turned
+ * every successful generation into a generic failure.
+ */
+function mockImageFetch(bytes = Buffer.from('fake-webp'), headers: Record<string, string> = {}) {
+  const merged: Record<string, string> = {
+    'content-type': 'image/webp',
+    'x-cryplounge-provider': 'nvidia',
+    'x-cryplounge-model': 'black-forest-labs/flux.2-klein-4b',
+    'x-cryplounge-quality': '78',
+    ...headers,
+  };
+  return jest.fn().mockResolvedValue({
+    status: 200,
+    ok: true,
+    headers: { get: (name: string) => merged[name.toLowerCase()] ?? null },
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
+    json: async () => {
+      throw new Error('body is binary, not JSON');
+    },
+  });
+}
+
+// Kept so the error-path tests have a body to parse.
+const errorBody = { error: 'image generation failed' };
 
 afterEach(() => jest.restoreAllMocks());
 
 describe('configuration', () => {
   it('reports unconfigured when the URL or key is missing', () => {
-    expect(client({ AI_IMAGERY_URL: undefined }).configured).toBe(false);
-    expect(client({ AI_IMAGERY_API_KEY: undefined }).configured).toBe(false);
+    expect(client({ IMAGERY_API_URL: undefined }).configured).toBe(false);
+    expect(client({ IMAGERY_API_KEY: undefined }).configured).toBe(false);
     expect(client().configured).toBe(true);
   });
 
   it('fails without calling out when unconfigured', async () => {
     const spy = jest.spyOn(global, 'fetch' as never);
-    const result = await client({ AI_IMAGERY_URL: undefined }).generate({ headline: 'h' });
+    const result = await client({ IMAGERY_API_URL: undefined }).generate({ headline: 'h' });
 
     expect(result.approved).toBe(false);
     if (!result.approved) expect(result.failure).toBe('not_configured');
@@ -58,20 +83,43 @@ describe('configuration', () => {
 });
 
 describe('a successful generation', () => {
-  it('returns the candidate and its provenance', async () => {
-    global.fetch = mockFetch(200, approved) as never;
+  it('reads the binary image and its provenance headers', async () => {
+    global.fetch = mockImageFetch(Buffer.from('fake-webp-bytes')) as never;
     const result = await client().generate({ headline: 'Bitcoin mining facility opens' });
 
     expect(result.approved).toBe(true);
     if (result.approved) {
       expect(result.candidate.mimeType).toBe('image/webp');
+      expect(result.candidate.bytes).toBeInstanceOf(Buffer);
+      expect(result.candidate.bytes.toString()).toBe('fake-webp-bytes');
       expect(result.provider).toBe('nvidia');
+      expect(result.model).toContain('flux.2-klein-4b');
       expect(result.qualityScore).toBe(78);
     }
   });
 
+  it('does not parse the image body as JSON', async () => {
+    // The original defect: response.json() threw on binary, the catch
+    // produced null, and a good image was reported as a generic failure.
+    const fetchMock = mockImageFetch();
+    global.fetch = fetchMock as never;
+
+    const result = await client().generate({ headline: 'h' });
+    expect(result.approved).toBe(true);
+  });
+
+  it('calls /generate, the path the deployed service exposes', async () => {
+    const fetchMock = mockImageFetch();
+    global.fetch = fetchMock as never;
+    await client().generate({ headline: 'h' });
+
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe(
+      'http://127.0.0.1:4310/generate'
+    );
+  });
+
   it('sends the key as a header and never in the body', async () => {
-    const fetchMock = mockFetch(200, approved);
+    const fetchMock = mockImageFetch();
     global.fetch = fetchMock as never;
     await client().generate({ headline: 'h' });
 
@@ -80,10 +128,14 @@ describe('a successful generation', () => {
     expect(init.body as string).not.toContain(KEY);
   });
 
-  it('rejects a 200 that carries no usable image', async () => {
-    global.fetch = mockFetch(200, { success: true, image: { data: '', mimeType: 'text/html' } }) as never;
-    const result = await client().generate({ headline: 'h' });
-    expect(result.approved).toBe(false);
+  it('rejects an empty image body', async () => {
+    global.fetch = mockImageFetch(Buffer.alloc(0)) as never;
+    expect((await client().generate({ headline: 'h' })).approved).toBe(false);
+  });
+
+  it('rejects a 200 that is not an image at all', async () => {
+    global.fetch = mockFetch(200, { success: true }) as never;
+    expect((await client().generate({ headline: 'h' })).approved).toBe(false);
   });
 });
 
@@ -147,7 +199,7 @@ describe('failures are classified, not conflated', () => {
   });
 
   it('refuses an oversized response', async () => {
-    global.fetch = mockFetch(200, approved, { 'content-length': String(50 * 1024 * 1024) }) as never;
+    global.fetch = mockFetch(200, errorBody, { 'content-length': String(50 * 1024 * 1024) }) as never;
     const result = await client().generate({ headline: 'h' });
     expect(result.approved).toBe(false);
   });
