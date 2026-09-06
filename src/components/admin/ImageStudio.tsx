@@ -33,11 +33,20 @@ interface Candidate {
   height?: number | null;
   altText?: string | null;
   isAiGenerated?: boolean;
+  mimeType?: string | null;
   generationProvider?: string | null;
   generationModel?: string | null;
   reviewScore?: number | null;
   reviewStatus?: string | null;
   createdAt?: string;
+}
+
+/** What POST /visual/generate returns for an approved candidate. */
+interface GenerateResponse {
+  candidate: { id: string; url: string; width?: number | null; height?: number | null; altText?: string | null };
+  provider?: string;
+  model?: string;
+  qualityScore?: number;
 }
 
 /** One point in the hero image's history. */
@@ -49,6 +58,14 @@ interface HeroEntry {
 
 interface Props {
   articleId: string;
+  /**
+   * The context the server sends to the imagery service.
+   *
+   * Passed in so the editor can see what the image was generated *from*.
+   * The values are display-only — generation reads them from the database,
+   * never from the browser, so nothing here can steer the model.
+   */
+  article: { title: string; summary?: string; category?: string };
   featuredImageId: string;
   /** The hero as it stands, so undo can return to it. */
   currentHero: HeroEntry | null;
@@ -71,7 +88,7 @@ function readableError(error: unknown): string {
   return 'Image generation took too long or failed. Please try again.';
 }
 
-export function ImageStudio({ articleId, featuredImageId, currentHero, onAttached }: Props) {
+export function ImageStudio({ articleId, article, featuredImageId, currentHero, onAttached }: Props) {
   const [status, setStatus] = useState<Status>('idle');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [rejection, setRejection] = useState<string | null>(null);
@@ -93,18 +110,25 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
    * it would need a Media column for a caption that only matters for a few
    * seconds.
    */
-  const [lastDirection, setLastDirection] = useState<string | null>(null);
+  const [directions, setDirections] = useState<Record<string, string | null>>({});
   const [discarded, setDiscarded] = useState<Set<string>>(new Set());
+  /** Candidates whose stored URL did not load, so the failure is visible. */
+  const [unloadable, setUnloadable] = useState<Set<string>>(new Set());
 
   const [history, setHistory] = useState<HeroEntry[]>([]);
   const [cursor, setCursor] = useState(-1);
 
   const loadCandidates = useCallback(async () => {
     try {
-      const response = await apiClient.get<{ data: Candidate[] }>(
-        `articles/${articleId}/visual/candidates`
-      );
-      setCandidates(response.data ?? []);
+      /*
+       * `apiClient` already returns `envelope.data`, so the generic is the
+       * unwrapped payload. Typing it as `{ data: Candidate[] }` and reading
+       * `.data` again yielded undefined on every call, so the list was always
+       * empty and no generated image ever appeared — the images were being
+       * created and stored correctly the whole time.
+       */
+      const items = await apiClient.get<Candidate[]>(`articles/${articleId}/visual/candidates`);
+      setCandidates(items ?? []);
     } catch {
       // A failed history load must not break the editor; the Generate button
       // still works without it.
@@ -122,13 +146,22 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
     setRejection(null);
 
     try {
-      await apiClient.post(`articles/${articleId}/visual/generate`, {
-        // Guidance only. It is appended to the article-derived brief in
-        // cryplounge-ai and the assembled prompt is still safety-checked
-        // there, so this steers the picture without steering the model.
-        visualSubject: direction.trim() || undefined,
-      });
-      setLastDirection(direction.trim() || null);
+      const used = direction.trim();
+      const result = await apiClient.post<GenerateResponse>(
+        `articles/${articleId}/visual/generate`,
+        {
+          // Guidance only. It is appended to the article-derived brief in
+          // cryplounge-ai and the assembled prompt is still safety-checked
+          // there, so this steers the picture without steering the model.
+          visualSubject: used || undefined,
+        }
+      );
+
+      // Remembered per media id, so switching between candidates shows the
+      // direction that actually produced each one rather than the latest.
+      if (result?.candidate?.id) {
+        setDirections(previous => ({ ...previous, [result.candidate.id]: used || null }));
+      }
       toast.success('New hero image ready to preview');
       await loadCandidates();
     } catch (error) {
@@ -194,7 +227,6 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
    */
   function discard(candidate: Candidate) {
     setDiscarded(previous => new Set(previous).add(candidate.id));
-    if (candidate.id === candidates[0]?.id) setLastDirection(null);
     toast.info('Candidate discarded — the hero image is unchanged');
   }
 
@@ -358,12 +390,31 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
                   key={candidate.id}
                   className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden bg-gray-50 dark:bg-gray-800"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={candidate.url}
-                    alt={candidate.altText ?? 'AI-generated editorial illustration'}
-                    className="w-full aspect-video object-cover"
-                  />
+                  {unloadable.has(candidate.id) ? (
+                    /*
+                     * The asset exists — it was stored before this list could
+                     * name it. Saying so distinguishes a broken preview from a
+                     * failed generation, which are very different problems.
+                     */
+                    <div
+                      role="alert"
+                      className="w-full aspect-video flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4 text-center"
+                    >
+                      <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                        Generated image was saved, but the preview could not be loaded.
+                      </p>
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={candidate.url}
+                      alt={candidate.altText ?? 'AI-generated editorial illustration'}
+                      onError={() =>
+                        setUnloadable(previous => new Set(previous).add(candidate.id))
+                      }
+                      className="w-full aspect-video object-cover"
+                    />
+                  )}
 
                   <div className="p-3 space-y-2">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -379,17 +430,57 @@ export function ImageStudio({ articleId, featuredImageId, currentHero, onAttache
                     </div>
 
                     <p className="text-[11px] text-gray-500 dark:text-gray-400">
-                      {candidate.generationProvider ?? 'unknown'}
+                      {candidate.width ? `${candidate.width} × ${candidate.height}` : 'dimensions unknown'}
+                      {' · '}
+                      {(candidate.mimeType ?? 'image/webp').replace('image/', '').toUpperCase()}
                       {candidate.reviewScore != null && ` · quality ${candidate.reviewScore}/100`}
-                      {candidate.width && ` · ${candidate.width}×${candidate.height}`}
                     </p>
 
-                    {/* Only the newest candidate carries a remembered direction. */}
-                    {newest && lastDirection && (
-                      <p className="text-[11px] italic text-gray-600 dark:text-gray-400 line-clamp-2">
-                        Direction: “{lastDirection}”
-                      </p>
-                    )}
+                    <details className="group">
+                      <summary className="cursor-pointer text-[11px] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 select-none">
+                        Generation details
+                      </summary>
+
+                      <dl className="mt-2 space-y-1.5 text-[11px] text-gray-600 dark:text-gray-400">
+                        <div>
+                          <dt className="font-medium text-gray-700 dark:text-gray-300">Article</dt>
+                          <dd className="line-clamp-2">{article.title}</dd>
+                        </div>
+
+                        {article.category && (
+                          <div>
+                            <dt className="font-medium text-gray-700 dark:text-gray-300">Category</dt>
+                            <dd>{article.category}</dd>
+                          </div>
+                        )}
+
+                        {article.summary && (
+                          <div>
+                            <dt className="font-medium text-gray-700 dark:text-gray-300">Summary</dt>
+                            <dd className="line-clamp-3">{article.summary}</dd>
+                          </div>
+                        )}
+
+                        <div>
+                          <dt className="font-medium text-gray-700 dark:text-gray-300">
+                            Additional direction
+                          </dt>
+                          <dd className="italic">
+                            {directions[candidate.id]
+                              ? '“' + directions[candidate.id] + '”'
+                              : 'none — article context only'}
+                          </dd>
+                        </div>
+
+                        <div>
+                          <dt className="font-medium text-gray-700 dark:text-gray-300">Generated by</dt>
+                          <dd>
+                            {candidate.generationProvider ?? 'unknown'}
+                            {candidate.generationModel ? ' · ' + candidate.generationModel : ''}
+                          </dd>
+                        </div>
+                      </dl>
+                    </details>
 
                     <div className="flex gap-1.5">
                       <button

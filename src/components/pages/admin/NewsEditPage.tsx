@@ -516,6 +516,11 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                     {articleId && (
                       <ImageStudio
                         articleId={articleId}
+                        article={{
+                          title: formData.title,
+                          summary: formData.summary,
+                          category: formData.categoryId,
+                        }}
                         featuredImageId={formData.featuredImageId}
                         currentHero={
                           featuredImage
