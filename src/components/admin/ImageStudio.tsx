@@ -40,10 +40,19 @@ interface Candidate {
   createdAt?: string;
 }
 
+/** One point in the hero image's history. */
+interface HeroEntry {
+  id: string;
+  url: string;
+  altText: string | null;
+}
+
 interface Props {
   articleId: string;
   featuredImageId: string;
-  onAttached: (media: { id: string; url: string; altText: string | null }) => void;
+  /** The hero as it stands, so undo can return to it. */
+  currentHero: HeroEntry | null;
+  onAttached: (media: HeroEntry) => void;
 }
 
 /** Maps a failure to something an editor can act on, never a stack trace. */
@@ -62,11 +71,22 @@ function readableError(error: unknown): string {
   return 'Image generation took too long or failed. Please try again.';
 }
 
-export function ImageStudio({ articleId, featuredImageId, onAttached }: Props) {
+export function ImageStudio({ articleId, featuredImageId, currentHero, onAttached }: Props) {
   const [status, setStatus] = useState<Status>('idle');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [rejection, setRejection] = useState<string | null>(null);
   const [direction, setDirection] = useState('');
+
+  /*
+   * Hero history.
+   *
+   * Every entry is a media id that already exists in the CMS, so stepping
+   * through it is a real attach call and a real database change — not a
+   * client-side illusion that a refresh would undo. Seeded lazily on the
+   * first apply, because until then there is nothing to step back to.
+   */
+  const [history, setHistory] = useState<HeroEntry[]>([]);
+  const [cursor, setCursor] = useState(-1);
 
   const loadCandidates = useCallback(async () => {
     try {
@@ -111,21 +131,66 @@ export function ImageStudio({ articleId, featuredImageId, onAttached }: Props) {
     }
   }
 
-  async function attach(candidate: Candidate) {
-    if (status !== 'idle') return;
-    setStatus('attaching');
+  /** Persists one hero and tells the editor, without touching history. */
+  async function applyHero(entry: HeroEntry): Promise<boolean> {
     try {
-      await apiClient.post(`articles/${articleId}/visual/attach`, { mediaId: candidate.id });
-      onAttached({ id: candidate.id, url: candidate.url, altText: candidate.altText ?? null });
-      toast.success('Featured image updated');
+      await apiClient.post(`articles/${articleId}/visual/attach`, { mediaId: entry.id });
+      onAttached(entry);
+      return true;
     } catch (error) {
       toast.error(readableError(error));
-    } finally {
-      setStatus('idle');
+      return false;
     }
   }
 
+  async function attach(candidate: Candidate) {
+    if (status !== 'idle') return;
+    setStatus('attaching');
+
+    const entry: HeroEntry = {
+      id: candidate.id,
+      url: candidate.url,
+      altText: candidate.altText ?? null,
+    };
+
+    if (await applyHero(entry)) {
+      setHistory(previous => {
+        /*
+         * Seed with whatever the hero was before this apply, so the first
+         * undo returns to the image the editor started with rather than to
+         * nothing. Applying after an undo truncates the forward entries, the
+         * ordinary behaviour of an editing history.
+         */
+        const base = previous.length === 0 && currentHero ? [currentHero] : previous;
+        const kept = base.slice(0, cursor >= 0 ? cursor + 1 : base.length);
+        const next = [...kept, entry];
+        setCursor(next.length - 1);
+        return next;
+      });
+      toast.success('Hero image updated');
+    }
+
+    setStatus('idle');
+  }
+
+  /** Steps through applied heroes. `delta` is -1 for undo, +1 for redo. */
+  async function step(delta: number) {
+    const target = cursor + delta;
+    if (status !== 'idle' || target < 0 || target >= history.length) return;
+
+    setStatus('attaching');
+    if (await applyHero(history[target]!)) {
+      setCursor(target);
+      toast.success(delta < 0 ? 'Reverted to the previous hero image' : 'Restored the later hero image');
+    }
+    setStatus('idle');
+  }
+
   const busy = status !== 'idle';
+  // Enabled only where a real step exists, so the controls never suggest a
+  // history the editor does not have.
+  const canUndo = cursor > 0;
+  const canRedo = cursor >= 0 && cursor < history.length - 1;
 
   return (
     <section
@@ -153,6 +218,32 @@ export function ImageStudio({ articleId, featuredImageId, onAttached }: Props) {
         >
           {status === 'generating' ? 'Generating…' : 'Generate AI image'}
         </button>
+
+        {history.length > 1 && (
+          <div className="flex items-center gap-1" role="group" aria-label="Hero image history">
+            <button
+              type="button"
+              onClick={() => step(-1)}
+              disabled={busy || !canUndo}
+              aria-label="Undo hero image change"
+              className="px-3 py-2 text-sm bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ↶ Undo
+            </button>
+            <button
+              type="button"
+              onClick={() => step(1)}
+              disabled={busy || !canRedo}
+              aria-label="Redo hero image change"
+              className="px-3 py-2 text-sm bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Redo ↷
+            </button>
+            <span className="ml-1 text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              {cursor + 1} of {history.length}
+            </span>
+          </div>
+        )}
 
         {candidates.length > 0 && (
           <button

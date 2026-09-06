@@ -517,6 +517,15 @@ export function NewsEditPage({ currentPage, onNavigate, onLogout, articleId }: N
                       <ImageStudio
                         articleId={articleId}
                         featuredImageId={formData.featuredImageId}
+                        currentHero={
+                          featuredImage
+                            ? {
+                                id: featuredImage.id,
+                                url: featuredImage.url,
+                                altText: featuredImage.altText ?? null,
+                              }
+                            : null
+                        }
                         onAttached={media => {
                           setFeaturedImage({
                             id: media.id,
