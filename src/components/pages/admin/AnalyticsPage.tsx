@@ -312,6 +312,13 @@ export function AnalyticsPage({ currentPage, onNavigate, onLogout }: AnalyticsPa
 
   const kpis = overview.data;
 
+  /*
+   * Reported by the API rather than inferred here: only the server knows
+   * whether Google answered, and a guess would be exactly the kind of
+   * mislabelling this indicator exists to prevent.
+   */
+  const source = (overview.data as { source?: 'ga4' | 'internal' } | null)?.source ?? null;
+
   // Stamped only when a read actually succeeds, so a failed refresh cannot
   // make stale numbers look fresh.
   useEffect(() => {
@@ -343,6 +350,28 @@ export function AnalyticsPage({ currentPage, onNavigate, onLogout }: AnalyticsPa
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Understand your audience, content performance, traffic, and reader behavior.
             </p>
+
+            {/*
+              Where the numbers came from.
+              
+              The two sources are not interchangeable: GA counts visitors, the
+              internal table counts events this application recorded. Saying
+              which is on screen is what makes falling back to the internal
+              figures honest rather than misleading.
+            */}
+            {source && (
+              <p className="text-xs mt-2 inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                <span
+                  aria-hidden
+                  className={`inline-block w-1.5 h-1.5 rounded-full ${
+                    source === 'ga4' ? 'bg-green-500' : 'bg-amber-500'
+                  }`}
+                />
+                {source === 'ga4'
+                  ? 'Data source: Google Analytics 4'
+                  : 'Data source: Internal analytics — Google Analytics is unavailable, so these are events recorded by CrypLounge, not measured visitors.'}
+              </p>
+            )}
           </div>
 
           <div className="mb-8">
