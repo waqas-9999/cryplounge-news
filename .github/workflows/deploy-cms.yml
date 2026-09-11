@@ -1,0 +1,147 @@
+name: Deploy CrypLounge CMS to VPS
+
+# api.cryplounge.com is served from the VPS, not Vercel — the Vercel deployment
+# of this repo's server is a separate target, currently crashing on a missing
+# DATABASE_URL, and is not in the live request path. Without this workflow the
+# only route to the live API was a human with an SSH key, which is how the
+# analytics fallback sat finished on main without reaching production.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - '.github/workflows/deploy-cms.yml'
+  # The CMS is the API behind the admin UI, so a stuck deploy is user-visible.
+  # Re-running must not require an empty commit.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-cms
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          # Deliberately not hardcoded. This box's layout is not recorded in
+          # this repository, and a wrong guess would `git reset --hard` the
+          # wrong directory or restart the wrong unit.
+          REPO: ${{ vars.VPS_CMS_PATH }}
+          SERVICE: ${{ vars.VPS_CMS_SERVICE }}
+          HEALTH_URL: ${{ vars.VPS_CMS_HEALTH_URL }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          envs: EXPECTED_SHA,REPO,SERVICE,HEALTH_URL
+          script: |
+            set -euo pipefail
+
+            if [ -z "${REPO:-}" ] || [ -z "${SERVICE:-}" ] || [ -z "${HEALTH_URL:-}" ]; then
+              echo "✗ Deployment target is not configured."
+              echo "  Set VPS_CMS_PATH, VPS_CMS_SERVICE and VPS_CMS_HEALTH_URL under"
+              echo "  Settings → Secrets and variables → Actions → Variables."
+              exit 1
+            fi
+
+            echo "→ Connecting to VPS"
+            cd "$REPO"
+
+            echo "→ Checking VPS working tree"
+            # Before the reset, and fatal. This project has already lost a day
+            # of work that was written directly on the VPS and destroyed by a
+            # later sync. A dirty tree means the VPS holds something GitHub
+            # does not, and that needs a human rather than an overwrite.
+            DIRTY="$(git status --porcelain)"
+            if [ -n "$DIRTY" ]; then
+              echo "✗ The VPS working tree has uncommitted changes:"
+              echo "$DIRTY"
+              echo ""
+              echo "Deployment stopped rather than overwrite them. Commit and push"
+              echo "them, or discard them on the VPS, then re-run this workflow."
+              exit 1
+            fi
+
+            echo "→ Fetching origin/main"
+            git fetch origin main
+
+            echo "→ Synchronizing VPS with origin/main"
+            # reset, not pull: a pull can merge, and a merge would leave the
+            # live API running a commit that exists nowhere else.
+            git reset --hard origin/main
+
+            cd "$REPO/server"
+
+            echo "→ Installing dependencies"
+            npm ci
+
+            echo "→ Applying database migrations"
+            # deploy, never `migrate dev`: it replays only committed migrations
+            # and will not reset a database on drift. It reaches the VPS
+            # PostgreSQL instance through the server's own .env, which stays on
+            # the VPS and is never read, logged or printed by this workflow.
+            npx prisma migrate deploy
+
+            echo "→ Building project"
+            npm run build
+
+            echo "→ Restarting $SERVICE"
+            sudo systemctl restart "$SERVICE"
+
+            echo "→ Verifying service"
+            # A restart returns as soon as systemd has forked; startup can
+            # still fail afterwards — exactly how the Vercel copy of this
+            # service dies, on a missing DATABASE_URL.
+            sleep 5
+            if ! sudo systemctl is-active --quiet "$SERVICE"; then
+              echo "✗ $SERVICE is not active after restart"
+              sudo systemctl status "$SERVICE" --no-pager --lines 30 || true
+              exit 1
+            fi
+
+            # Loopback, not the public domain: api.cryplounge.com sits behind
+            # Cloudflare and would keep answering from cache or another origin
+            # even if this box were serving nothing.
+            #
+            # Point VPS_CMS_HEALTH_URL at /health/ready rather than /health.
+            # Both are excluded from the `api` prefix, but readiness pings
+            # Prisma, so it fails on an unreachable database — the exact class
+            # of failure that takes the admin pages down while the process
+            # itself stays happily "active".
+            if ! curl -fsS --max-time 10 "$HEALTH_URL" > /dev/null; then
+              echo "✗ $SERVICE did not answer on its health endpoint"
+              sudo journalctl -u "$SERVICE" --no-pager --lines 30 || true
+              exit 1
+            fi
+
+            echo "→ Verifying deployed commit"
+            cd "$REPO"
+            DEPLOYED_SHA="$(git rev-parse HEAD)"
+            ORIGIN_SHA="$(git rev-parse origin/main)"
+
+            echo "  GitHub commit : ${EXPECTED_SHA}"
+            echo "  origin/main   : ${ORIGIN_SHA}"
+            echo "  VPS deployed  : ${DEPLOYED_SHA}"
+
+            # Both comparisons earn their place. Matching origin/main proves
+            # the sync worked; matching the pushed SHA proves this run deployed
+            # the commit that triggered it, rather than one a concurrent push
+            # moved the branch to underneath it.
+            if [ "$DEPLOYED_SHA" != "$ORIGIN_SHA" ]; then
+              echo "✗ VPS HEAD does not match origin/main"
+              exit 1
+            fi
+
+            if [ "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]; then
+              echo "✗ VPS deployed ${DEPLOYED_SHA}, but this run was for ${EXPECTED_SHA}"
+              exit 1
+            fi
+
+            echo "✓ Deployment successful"
