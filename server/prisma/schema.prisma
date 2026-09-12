@@ -207,6 +207,19 @@ model Article {
   createdById String?
   createdBy   User?   @relation("ArticleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
+  /// The AI agent that filed this article, when one did.
+  ///
+  /// The authoritative agent-origin marker. `createdById IS NULL` is not: that
+  /// column is `SetNull` on user deletion, so a deleted editor's drafts, and
+  /// seeded or imported articles, would be indistinguishable from agent work.
+  /// Null means "not known to be agent-filed", and anything that lets an agent
+  /// act on an article must treat null as a refusal.
+  ///
+  /// `SetNull` on agent deletion fails closed the same way: the article stops
+  /// being attributable to any agent rather than cascading away.
+  createdByAgentId String?
+  createdByAgent   AiAgent? @relation("ArticleCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
+
   featuredImageId String?
   featuredImage   Media?  @relation(fields: [featuredImageId], references: [id], onDelete: SetNull)
 
@@ -241,6 +254,8 @@ model Article {
   @@index([categoryId])
   @@index([featured])
   @@index([deletedAt])
+  /// Agent-filed articles by state: the promotion path's lookup.
+  @@index([createdByAgentId, status])
 }
 
 /// Immutable snapshot taken on each save, powering version history.
@@ -747,6 +762,12 @@ model Media {
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
+  /// The AI agent that uploaded this file, when one did. Null for human
+  /// uploads and for agent uploads that predate this column — not backfilled,
+  /// so ownership checks built on it must treat null as "not this agent's".
+  uploadedByAgentId String?
+  uploadedByAgent   AiAgent? @relation("MediaUploadedByAgent", fields: [uploadedByAgentId], references: [id], onDelete: SetNull)
+
   articleFeatures Article[]
   articleVisuals  ArticleVisual[]
   projectLogos    Project[]       @relation("ProjectLogo")
@@ -765,6 +786,7 @@ model Media {
   createdAt DateTime @default(now())
 
   @@index([folder])
+  @@index([uploadedByAgentId])
 }
 
 // -------------------------------------------------- site configuration ---
@@ -1052,6 +1074,8 @@ model AiAgent {
   requests        AgentRequestLog[]
   webhooks        Webhook[]
   idempotencyKeys AgentIdempotencyKey[]
+  articles        Article[]             @relation("ArticleCreatedByAgent")
+  uploads         Media[]               @relation("MediaUploadedByAgent")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1133,6 +1157,71 @@ model AgentRequestLog {
 
   @@index([agentId, createdAt])
   @@index([statusCode])
+}
+
+/// One operational event from the autonomous newsroom.
+///
+/// Telemetry only. Every editorial record — NewsCluster, ResearchReport,
+/// ArticleDraft, AIJob — lives in the newsroom's own database and is referenced
+/// here by id, never copied. This table exists so an editor can see what the
+/// newsroom is doing; it is not a second copy of what the newsroom knows.
+///
+/// Written by the newsroom agent through POST /api/v1/agents/telemetry and read
+/// by the admin dashboard. Retained for 7 days by NewsroomTelemetryCleanupTask:
+/// at roughly 350 events per ten-minute cycle this table turns over about
+/// 58,000 rows a day, so it is the one table in this schema that must not keep
+/// everything.
+model NewsroomEvent {
+  /// Supplied by the newsroom, not generated here.
+  ///
+  /// This is the idempotency mechanism. The newsroom assigns the id once, when
+  /// the event enters its delivery buffer, and reuses it on every retry — so a
+  /// redelivered batch collides on the primary key and is skipped. No second
+  /// unique constraint to keep in sync.
+  id String @id @default(cuid())
+
+  /// Event name from the newsroom's own taxonomy, e.g. RESEARCH_STARTED,
+  /// ARTICLE_REJECTED, CYCLE_COMPLETE. Deliberately a string rather than an
+  /// enum: the newsroom owns the vocabulary and must be able to add an event
+  /// without a CMS migration.
+  type String
+
+  /// Correlates every event in one newsroom run.
+  workflowId String?
+  /// The story this concerns, in the newsroom's database.
+  clusterId  String?
+  /// The CMS article, once one exists.
+  articleId  String?
+
+  stage  String?
+  status String?
+  /// Publisher domain, for source-level events.
+  source String?
+  /// Model that did the work, e.g. nvidia/nemotron-3-super-120b-a12b.
+  model  String?
+
+  /// Stage duration, where the newsroom measured one.
+  durationMs Int?
+
+  /// Counts, reasons and scores. Size-capped on ingest.
+  metadata Json?
+
+  /// When the newsroom observed the event.
+  ///
+  /// Separate from `createdAt` because delivery is batched and retried, so
+  /// insert order does not preserve event order. Timelines sort on this.
+  occurredAt DateTime
+  /// When the CMS stored it. The canonical timestamp for retention.
+  createdAt  DateTime @default(now())
+
+  /// Retention sweep, and the default "latest events" read.
+  @@index([createdAt])
+  /// Activity-stream filters by event kind.
+  @@index([type, createdAt])
+  /// Every event of one cycle, in order.
+  @@index([workflowId, createdAt])
+  /// One story's journey, for the cluster inspector.
+  @@index([clusterId, createdAt])
 }
 
 enum WebhookEvent {

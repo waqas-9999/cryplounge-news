@@ -17,8 +17,9 @@ export class SetPublishModeDto {
   @ApiProperty({
     enum: AI_PUBLISH_MODES,
     description:
-      'DRAFT_ONLY and REVIEW_REQUIRED are selectable. AUTO_PUBLISH is rejected ' +
-      'until generation, fact checking and images are implemented.',
+      'AUTO_PUBLISH lets articles that clear every gate publish without review. ' +
+      'Enabling it is refused on malformed automation configuration. It grants no ' +
+      'agent any permission: an agent must separately hold news.publish.',
   })
   @IsIn(AI_PUBLISH_MODES)
   mode!: AiPublishMode;

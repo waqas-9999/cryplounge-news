@@ -197,6 +197,46 @@ export class NewsroomDiscoveryService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Every discovery record in a time window, unfiltered and unpaginated.
+   *
+   * For the intelligence view, which joins these to telemetry by cluster id.
+   * Same bounded read and the same parsing as `list`, so the two can never
+   * disagree about what a record says.
+   */
+  async storiesWithin(
+    minutes: number,
+    limit = 2000
+  ): Promise<{ stories: DiscoveryStory[]; available: boolean; reason?: string }> {
+    const client = this.connection();
+    if (!client) {
+      return { stories: [], available: false, reason: 'The newsroom database is not configured (AI_DATABASE_URL).' };
+    }
+
+    const since = new Date(Date.now() - minutes * 60_000);
+    const cap = Math.min(Math.max(limit, 1), 2000);
+
+    try {
+      const rows = await client.$queryRaw<{ clusterId: string | null; result: unknown; createdAt: Date }[]>`
+        SELECT "clusterId", "result", "createdAt"
+        FROM "AIJob"
+        WHERE "workflow" = ${DISCOVERY_WORKFLOW}
+          AND "createdAt" >= ${since}
+        ORDER BY "createdAt" DESC
+        LIMIT ${cap}
+      `;
+      return {
+        stories: rows.map(row => this.toStory(row)).filter((story): story is DiscoveryStory => story !== null),
+        available: true,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Could not read newsroom discovery records: ${error instanceof Error ? error.message : error}`
+      );
+      return { stories: [], available: false, reason: 'The newsroom database could not be reached.' };
+    }
+  }
+
   /** Distinct source domains and categories, for the filter dropdowns. */
   async facets(): Promise<{ sources: string[]; categories: string[] }> {
     const { items } = await this.list({ perPage: 100, withinMinutes: 7 * 24 * 60 });

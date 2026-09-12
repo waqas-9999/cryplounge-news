@@ -2,8 +2,10 @@ import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, 
 import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { IdempotencyService } from './idempotency.service';
+import { NewsroomTelemetryService } from './newsroom-telemetry.service';
 import { Public } from '@/common/decorators/public.decorator';
 import { AttachVisualDto } from './dto/attach-visual.dto';
+import { SubmitTelemetryDto } from './dto/submit-telemetry.dto';
 import { ResponseMessage } from '@/common/decorators/response-message.decorator';
 import { AgentsService, type AgentContext } from './agents.service';
 import { AiNewsroomService } from '../ai-newsroom/ai-newsroom.service';
@@ -29,7 +31,8 @@ export class AgentSubmissionController {
     private readonly agents: AgentsService,
     private readonly autoPublish: AutoPublishService,
     private readonly idempotency: IdempotencyService,
-    private readonly automation: AiNewsroomService
+    private readonly automation: AiNewsroomService,
+    private readonly telemetry: NewsroomTelemetryService
   ) {}
 
   /**
@@ -238,6 +241,66 @@ export class AgentSubmissionController {
 
       throw error;
     }
+  }
+
+  /**
+   * Operational telemetry from the newsroom.
+   *
+   * Exists because the newsroom's own `emit()` wrote only to its local logger,
+   * so nothing outside the VPS could see what the pipeline was doing. This is
+   * the ingestion half of that path: the newsroom batches events and posts them
+   * here, and the admin dashboard reads the table.
+   *
+   * Deliberately cheap to call and impossible to misuse for anything else. It
+   * requires `telemetry.write`, which grants no read of editorial data, and the
+   * service behind it only inserts.
+   *
+   * Two layers of idempotency, answering different questions. `Idempotency-Key`
+   * replays a whole HTTP request, which is what a caller retrying a timeout
+   * needs. Event ids deduplicate at row level, which is what a caller retrying
+   * a *partially delivered batch* needs — the two overlap and neither covers
+   * the other.
+   */
+  @Post('telemetry')
+  @ResponseMessage('Telemetry received')
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      'Stable identifier for this batch. Repeating a request with the same key replays ' +
+      'the original result. Event ids deduplicate individual rows regardless.',
+  })
+  @ApiOperation({ summary: 'Record newsroom operational events' })
+  async submitTelemetry(
+    @Body() dto: SubmitTelemetryDto,
+    @CurrentAgent() agent: AgentContext,
+    @Req() request: Request
+  ) {
+    if (!agent.permissions.includes('telemetry.write')) {
+      throw new ForbiddenException({
+        message: 'This agent is not permitted to write telemetry',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const idempotencyKey = readIdempotencyKey(request);
+
+    if (!idempotencyKey) return this.telemetry.ingest(dto.events, agent.name);
+
+    return (
+      await this.idempotency.execute(
+        {
+          agentId: agent.id,
+          operation: 'agents.telemetry.submit',
+          key: idempotencyKey,
+          requestBody: dto,
+        },
+        async () => {
+          const result = await this.telemetry.ingest(dto.events, agent.name);
+          return { entity: 'NewsroomEvent', entityId: dto.events[0]?.id, response: result };
+        }
+      )
+    ).result;
   }
 }
 

@@ -1,0 +1,3 @@
+2026-09-13 pending-review surface=admin/newsroom-intelligence axis=motion choice="idle globe rests on activity centroid with slow sway instead of continuous spin" reason="continuous rotation hid the active hemisphere half the time"
+2026-09-13 pending-review surface=admin/newsroom-intelligence axis=data-honesty choice="one VERIFICATION stage (fact check + quality) instead of separate FACT CHECK / QUALITY" reason="newsroom emits both scores on one event; separate stages would draw unrecorded states"
+2026-09-13 pending-review surface=admin/newsroom-intelligence axis=geography choice="nodes at lead-source publisher base, unmapped sources kept off-globe" reason="no story geography exists in the data"

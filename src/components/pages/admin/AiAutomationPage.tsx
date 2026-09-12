@@ -153,6 +153,16 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                   Controls whether AI-assisted reporting reaches the site.
                 </p>
+                <a
+                  href="/admin/newsroom-intelligence"
+                  onClick={event => {
+                    event.preventDefault();
+                    onNavigate('admin/newsroom-intelligence');
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-yellow-700 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
+                >
+                  Watch the newsroom live on the Intelligence globe →
+                </a>
               </div>
             </div>
 

@@ -38,6 +38,19 @@ export const AGENT_ALLOWED_PERMISSIONS = [
   'news.publish',
   'media.read',
   'media.upload',
+  /**
+   * Write operational telemetry, and nothing else.
+   *
+   * Append-only by construction: the telemetry endpoint inserts
+   * `NewsroomEvent` rows and exposes no read, update or delete. An agent
+   * holding this can describe what it did; it cannot discover what anyone else
+   * did, reach editorial content, or read its own history back.
+   *
+   * Separate from `news.*` on purpose. The newsroom needs to report its
+   * progress whether or not it is permitted to file a story, and a deployment
+   * that only observes should not have to hold a content permission to do it.
+   */
+  'telemetry.write',
 ] as const;
 
 export type AgentPermission = (typeof AGENT_ALLOWED_PERMISSIONS)[number];

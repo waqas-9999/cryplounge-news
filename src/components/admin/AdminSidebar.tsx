@@ -180,6 +180,7 @@ export function AdminSidebar({ currentPage, onNavigate, onLogout, isMobileOpen =
       label: 'AI Newsroom',
       icon: Bot,
       submenu: [
+        { label: 'Intelligence', page: 'admin/newsroom-intelligence' },
         { label: 'Qualified News', page: 'admin/news-discovery/qualified' },
         { label: 'All Discovered News', page: 'admin/news-discovery/all' },
         { label: 'Automation', page: 'admin/ai-automation' }

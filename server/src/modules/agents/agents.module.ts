@@ -4,6 +4,8 @@ import { AiNewsroomModule } from '../ai-newsroom/ai-newsroom.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { AgentSubmissionController } from './agent-submission.controller';
 import { AgentLogCleanupTask } from './agent-log-cleanup.task';
+import { NewsroomTelemetryCleanupTask } from './newsroom-telemetry-cleanup.task';
+import { NewsroomTelemetryService } from './newsroom-telemetry.service';
 import { AgentsController } from './agents.controller';
 import { AgentsService } from './agents.service';
 import { AgentAuthGuard } from './guards/agent-auth.guard';
@@ -17,6 +19,8 @@ import { PrismaIdempotencyStore } from './prisma-idempotency.store';
     AgentsService,
     AgentAuthGuard,
     AgentLogCleanupTask,
+    NewsroomTelemetryCleanupTask,
+    NewsroomTelemetryService,
     IdempotencyService,
     // Bound through a token because `IdempotencyStore` is an interface and is
     // erased at runtime. Swapping the implementation (for a test, or a

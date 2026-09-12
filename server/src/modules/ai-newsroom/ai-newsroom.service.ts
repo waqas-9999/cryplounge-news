@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { AuditAction, CategoryKind, ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
@@ -19,6 +19,15 @@ import { AuditService, type AuditContext } from '../content-core/audit.service';
  *  2. These keys are stripped from the public `GET /settings` payload, which
  *     is world-readable.
  */
+
+/** The actor in the audit log's own terms: a user id and email, or a label. */
+function actorOf(context: AuditContext): Prisma.InputJsonObject {
+  return {
+    userId: context.user?.id ?? null,
+    email: context.user?.email ?? null,
+    label: context.actorLabel ?? null,
+  };
+}
 
 /** Every automation key lives under this prefix, which is what makes both rules enforceable. */
 export const AI_SETTING_PREFIX = 'ai.automation.';
@@ -361,10 +370,173 @@ export class AiNewsroomService {
     }
   }
 
+  /**
+   * Sets how far automation may take a story. This is the one AUTO_PUBLISH
+   * switch; there is no other.
+   *
+   * ## What enabling AUTO_PUBLISH does, and what it deliberately does not
+   *
+   * It is an administrative automation switch and nothing more. It writes one
+   * setting. It does **not** grant `news.publish` to any agent, turn any
+   * category on, touch the global switch, or release the emergency pause.
+   * Automatic publication needs this *and* an agent separately granted
+   * `news.publish`, and even then every per-article gate still applies.
+   *
+   * ## Why enabling is validated and disabling is not
+   *
+   * Enabling widens what automation may do, so it is refused while the
+   * configuration it depends on is malformed or absent. Disabling narrows it,
+   * and a safety-reducing action must never be blocked by a broken setting —
+   * an operator reaching for "off" gets "off".
+   *
+   * Both transitions write a dedicated audit entry naming the actor, so "who
+   * turned automatic publishing on, and what did it look like at the time?" is
+   * answerable from the log alone.
+   */
   async setPublishMode(mode: AiPublishMode, context: AuditContext): Promise<AutomationStatus> {
     this.assertPublishModeAllowed(mode);
-    await this.write(KEYS.publishMode, mode, context, `Set AI publishing mode to ${mode}`);
+
+    const previous = await this.raw<unknown>(KEYS.publishMode, null);
+    const wasAutoPublish = previous === 'AUTO_PUBLISH';
+
+    if (mode !== 'AUTO_PUBLISH') {
+      await this.write(
+        KEYS.publishMode,
+        mode,
+        context,
+        wasAutoPublish
+          ? `Disabled AI automatic publishing (publishing mode set to ${mode})`
+          : `Set AI publishing mode to ${mode}`,
+        wasAutoPublish ? { transition: 'AUTO_PUBLISH_DISABLED', actor: actorOf(context) } : undefined
+      );
+      return this.status();
+    }
+
+    const configuration = await this.assertAutoPublishConfiguration();
+
+    await this.write(
+      KEYS.publishMode,
+      mode,
+      context,
+      wasAutoPublish
+        ? 'Re-confirmed AI automatic publishing'
+        : 'Enabled AI automatic publishing (publishing mode set to AUTO_PUBLISH)',
+      {
+        transition: wasAutoPublish ? 'AUTO_PUBLISH_REAFFIRMED' : 'AUTO_PUBLISH_ENABLED',
+        actor: actorOf(context),
+        configuration,
+        // Stated in the record because it is the misunderstanding that matters.
+        grantsAgentPermissions: false,
+      }
+    );
+
+    // Read back rather than assume: a write that did not land must not be
+    // reported to the operator as automatic publishing being on.
+    if ((await this.publishMode()) !== 'AUTO_PUBLISH') {
+      throw new InternalServerErrorException({
+        message: 'AUTO_PUBLISH was not persisted; the publishing mode is unchanged',
+        code: 'PUBLISH_MODE_NOT_PERSISTED',
+      });
+    }
+
     return this.status();
+  }
+
+  /**
+   * Refuses to enable AUTO_PUBLISH on a configuration that cannot be enforced.
+   *
+   * Checks only what already exists server-side, and changes none of it. A
+   * setting that is absent is fine — the reader's safe default applies. A
+   * setting that is present but malformed is not: every reader silently falls
+   * back to a default on a bad value, so the admin screen and the gates would
+   * disagree about what is configured.
+   *
+   * Zero enabled categories is allowed and recorded, not refused: the category
+   * switch then blocks every article, which is safe, and turning categories on
+   * is a separate decision this method must not make.
+   *
+   * Returns the snapshot recorded in the audit entry.
+   */
+  private async assertAutoPublishConfiguration(): Promise<Prisma.InputJsonObject> {
+    const rows = await this.prisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            KEYS.enabled,
+            KEYS.emergencyPause,
+            KEYS.categories,
+            KEYS.autoPublishDailyLimit,
+            KEYS.autoPublishMinScore,
+            KEYS.autoPublishStrictness,
+          ],
+        },
+      },
+    });
+    const stored = new Map<string, unknown>(rows.map(row => [row.key, row.value]));
+    const problems: string[] = [];
+
+    const expectBoolean = (key: string, label: string) => {
+      if (stored.has(key) && typeof stored.get(key) !== 'boolean') {
+        problems.push(`${label} setting is malformed`);
+      }
+    };
+    const expectNonNegative = (key: string, label: string) => {
+      const value = stored.get(key);
+      if (stored.has(key) && !(typeof value === 'number' && Number.isFinite(value) && value >= 0)) {
+        problems.push(`${label} setting is malformed`);
+      }
+    };
+
+    expectBoolean(KEYS.enabled, 'global automation');
+    expectBoolean(KEYS.emergencyPause, 'emergency pause');
+    expectNonNegative(KEYS.autoPublishDailyLimit, 'daily auto-publish limit');
+    expectNonNegative(KEYS.autoPublishMinScore, 'auto-publish minimum score');
+
+    if (
+      stored.has(KEYS.autoPublishStrictness) &&
+      !(AUTO_PUBLISH_STRICTNESS as readonly unknown[]).includes(stored.get(KEYS.autoPublishStrictness))
+    ) {
+      problems.push('auto-publish strictness setting is malformed');
+    }
+
+    const map = stored.has(KEYS.categories) ? stored.get(KEYS.categories) : {};
+    const mapIsValid =
+      typeof map === 'object' &&
+      map !== null &&
+      !Array.isArray(map) &&
+      Object.values(map).every(value => typeof value === 'boolean');
+    if (!mapIsValid) problems.push('category automation setting is malformed');
+
+    const newsCategories = await this.prisma.category.findMany({
+      where: { kind: CategoryKind.NEWS },
+      select: { slug: true },
+    });
+    if (newsCategories.length === 0) {
+      problems.push('no NEWS categories exist, so category automation cannot be configured');
+    }
+
+    if (problems.length > 0) {
+      throw new BadRequestException({
+        message: `AUTO_PUBLISH cannot be enabled: ${problems.join('; ')}`,
+        code: 'AUTO_PUBLISH_CONFIGURATION_INVALID',
+        errors: { configuration: problems },
+      });
+    }
+
+    const existing = new Set(newsCategories.map(category => category.slug));
+    const enabledCategories = Object.entries(map as Record<string, boolean>)
+      .filter(([slug, on]) => on === true && existing.has(slug))
+      .map(([slug]) => slug);
+
+    return {
+      globalAutomationEnabled: stored.get(KEYS.enabled) === true,
+      // Recorded, never changed: the pause is independent of the mode.
+      emergencyPaused: stored.get(KEYS.emergencyPause) === true,
+      enabledCategories,
+      dailyLimit: await this.autoPublishDailyLimit(),
+      minScore: await this.autoPublishMinScore(),
+      strictness: await this.autoPublishStrictness(),
+    };
   }
 
   async status(): Promise<AutomationStatus> {
@@ -453,7 +625,13 @@ export class AiNewsroomService {
 
   /* --------------------------------------------------------------- writes -- */
 
-  private async write(key: string, value: unknown, context: AuditContext, summary: string) {
+  private async write(
+    key: string,
+    value: unknown,
+    context: AuditContext,
+    summary: string,
+    extra?: Prisma.InputJsonObject
+  ) {
     const previous = await this.prisma.setting.findUnique({ where: { key } });
 
     await this.prisma.setting.upsert({
@@ -470,7 +648,7 @@ export class AiNewsroomService {
       entityId: key,
       summary,
       context,
-      metadata: { before: previous?.value ?? null, after: value } as Prisma.InputJsonValue,
+      metadata: { before: previous?.value ?? null, after: value, ...extra } as Prisma.InputJsonValue,
     });
   }
 

@@ -30,6 +30,7 @@ import { CampaignEditorPage } from '@/components/pages/admin/CampaignEditorPage'
 import { CampaignDetailPage } from '@/components/pages/admin/CampaignDetailPage';
 import { AnalyticsPage } from '@/components/pages/admin/AnalyticsPage';
 import { AiAutomationPage } from '@/components/pages/admin/AiAutomationPage';
+import { NewsroomIntelligencePage } from '@/components/pages/admin/NewsroomIntelligencePage';
 import { ArticleAnalyticsPage } from '@/components/pages/admin/ArticleAnalyticsPage';
 import { EventsAnalyticsPage } from '@/components/pages/admin/EventsAnalyticsPage';
 import { FoundersAnalyticsPage } from '@/components/pages/admin/FoundersAnalyticsPage';
@@ -177,6 +178,10 @@ export function AdminAllDiscoveredNewsView() {
 /** Admin → AI Automation. Super-admin controls for the AI newsroom. */
 export function AdminAiAutomationView() {
   return <AiAutomationPage {...useAdminChrome()} />;
+}
+
+export function AdminNewsroomIntelligenceView() {
+  return <NewsroomIntelligencePage {...useAdminChrome()} />;
 }
 
 /** The detailed analytics workspace. The dashboard keeps its own summary. */

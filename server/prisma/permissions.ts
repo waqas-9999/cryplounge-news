@@ -52,6 +52,13 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'newsletter.manage', module: 'Newsletter', description: 'Activate, unsubscribe or delete newsletter subscribers' },
   { key: 'agents.manage', module: 'AI Agents', description: 'Manage AI agent credentials and permissions' },
   { key: 'webhooks.manage', module: 'AI Agents', description: 'Manage webhook subscriptions' },
+  /**
+   * Held by agents, not staff: lets the newsroom append operational telemetry.
+   * Listed here because an agent may only be granted catalogue keys. Production
+   * gets the row from migration `20260912010000_add_telemetry_write_permission`,
+   * since deploys never run the seed.
+   */
+  { key: 'telemetry.write', module: 'AI Agents', description: 'Append newsroom operational telemetry' },
 
   /**
    * Turning automated publishing on is the single highest-consequence switch
