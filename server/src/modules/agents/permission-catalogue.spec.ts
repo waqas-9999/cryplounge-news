@@ -1,7 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PERMISSIONS } from '../../../prisma/permissions';
 import { AGENT_ALLOWED_PERMISSIONS } from './agent-permissions';
+
+/*
+ * Loaded at runtime, never imported statically.
+ *
+ * `nest build` compiles everything under src/ — specs included — and a static
+ * import of a file outside src/ pulls it into the program, which moves tsc's
+ * rootDir up a level. The output then lands at dist/src/app.module.js instead
+ * of dist/app.module.js, and the Vercel entrypoint (`api/index.ts`) can no
+ * longer find `../dist/app.module`. A runtime require is invisible to tsc.
+ */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PERMISSIONS } = require(join(__dirname, '..', '..', '..', 'prisma', 'permissions')) as {
+  PERMISSIONS: Array<{ key: string; module: string; description: string }>;
+};
 
 /**
  * The agent allow-list and the permission catalogue must agree.
