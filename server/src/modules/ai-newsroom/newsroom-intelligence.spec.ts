@@ -171,3 +171,58 @@ describe('corroboration links', () => {
     expect(result.stories[0]!.linkedBases.map(base => base.key)).toEqual(['new-york']);
   });
 });
+
+describe('story timelines', () => {
+  it('holds every recorded event for the story, oldest first, from all telemetry', () => {
+    const result = snapshot([
+      event('STORY_DISCOVERED', { source: 'sec.gov' }, 9),
+      event('RESEARCH_STARTED', { model: 'nemotron' }, 8),
+      event('ARTICLE_REJECTED', { metadata: { reasons: ['quality score 60 below 85'] } }, 3),
+    ]);
+    const story = result.stories[0]!;
+    expect(story.timeline.map(item => item.label)).toEqual(['Story discovered', 'Research started', 'Rejected']);
+    expect(story.model).toBe('nemotron');
+    expect(story.timelineTruncated).toBe(false);
+  });
+
+  it('shows no step that did not happen', () => {
+    const result = snapshot([event('STORY_DISCOVERED', {}, 2)]);
+    expect(result.stories[0]!.timeline).toHaveLength(1);
+  });
+
+  it('is not limited by the 150-event stream', () => {
+    const noise = Array.from({ length: 200 }, (_, i) => event('STORY_DISCOVERED', { clusterId: `other-${i}` }, 1));
+    const result = snapshot([event('STORY_DISCOVERED', {}, 50), ...noise], [record()]);
+    expect(result.events).toHaveLength(150);
+    expect(result.stories.find(s => s.clusterId === 'c1')!.timeline).toHaveLength(1);
+  });
+});
+
+describe('activity', () => {
+  it('counts transitions in the recent window from event timestamps', () => {
+    const result = snapshot([
+      event('STORY_DISCOVERED', { clusterId: 'a' }, 40),
+      event('STORY_DISCOVERED', { clusterId: 'b' }, 10),
+      event('RESEARCH_STARTED', { clusterId: 'b' }, 5),
+    ]);
+    expect(result.activity.recentMinutes).toBe(15);
+    expect(result.activity.recent).toEqual({ DISCOVERED: 1, RESEARCH: 1 });
+    expect(result.activity.buckets).toHaveLength(12);
+    expect(result.activity.buckets.reduce((n, b) => n + (b.stages.DISCOVERED ?? 0), 0)).toBe(2);
+  });
+
+  it('reports no movement when there is none', () => {
+    expect(snapshot([], []).activity.recent).toEqual({});
+  });
+
+  it('reports a cycle in progress only while its start is the newest lifecycle event', () => {
+    const running = snapshot([event('NEWSROOM_CYCLE_STARTED', { clusterId: null }, 2)]);
+    expect(running.cycle.startedAt).not.toBeNull();
+    const done = snapshot([
+      event('NEWSROOM_CYCLE_STARTED', { clusterId: null }, 5),
+      event('NEWSROOM_CYCLE_COMPLETED', { clusterId: null }, 1),
+    ]);
+    expect(done.cycle.startedAt).toBeNull();
+    expect(done.cycle.lastCompletedAt).not.toBeNull();
+  });
+});

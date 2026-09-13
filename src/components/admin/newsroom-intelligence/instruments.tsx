@@ -20,6 +20,8 @@ import {
   REJECTION_POINT_LABEL,
   STAGE_META,
   ago,
+  elapsed,
+  thresholdSignal,
   categoryLabel,
   clockTime,
   numberFormat,
@@ -103,8 +105,18 @@ export const CommandBar = memo(function CommandBar({
   const conn = CONNECTION_COPY[connection];
   const totals = snapshot?.totals;
   const system = snapshot ? STATE_COPY[snapshot.system.state] : null;
-  const metrics: Array<{ label: string; value: number | undefined; tone?: string }> = [
-    { label: 'In pipeline', value: totals?.active },
+  /*
+   * Live stages first, outcomes second. Counts are the snapshot's own; a value
+   * re-renders with a brief fade only when it actually changes (keyed on it).
+   */
+  const liveStages: Array<{ stage: PipelineStage; label: string }> = [
+    { stage: 'DISCOVERED', label: 'Discovery' },
+    { stage: 'RESEARCH', label: 'Research' },
+    { stage: 'VERIFICATION', label: 'Fact check' },
+    { stage: 'IMAGE', label: 'Image' },
+    { stage: 'FILING', label: 'Filing' },
+  ];
+  const outcomes: Array<{ label: string; value: number | undefined; tone: string }> = [
     { label: 'Drafts', value: totals?.drafts, tone: STAGE_META.DRAFT.color },
     { label: 'Published', value: totals?.published, tone: STAGE_META.PUBLISHED.color },
     { label: 'Rejected', value: totals?.rejected, tone: STAGE_META.REJECTED.color },
@@ -146,11 +158,33 @@ export const CommandBar = memo(function CommandBar({
         )}
       </div>
 
-      <dl className="ml-1 hidden min-w-0 items-center overflow-hidden xl:flex">
-        {metrics.map(metric => (
-          <div key={metric.label} className="flex items-baseline gap-2 whitespace-nowrap border-l border-white/[0.06] px-3.5 first:border-l-0">
-            <dt className={LABEL}>{metric.label}</dt>
-            <dd className={`${MONO} text-[13px] font-medium`} style={{ color: metric.tone ?? '#E8EAED' }}>
+      <dl className="ml-1 hidden min-w-0 items-center overflow-hidden xl:flex" aria-label="Pipeline counts">
+        {liveStages.map(({ stage, label }) => {
+          const value = snapshot?.stages[stage];
+          const moving = (value ?? 0) > 0;
+          return (
+            <div key={stage} className="flex items-center gap-1.5 whitespace-nowrap px-2 first:pl-0" title={STAGE_META[stage].hint}>
+              <span className="relative flex h-1.5 w-1.5">
+                {moving && (
+                  <span
+                    className="absolute inline-flex h-full w-full rounded-full opacity-50 motion-safe:animate-ping"
+                    style={{ background: STAGE_META[stage].color, animationDuration: '2.4s' }}
+                  />
+                )}
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: moving ? STAGE_META[stage].color : '#3A3F47' }} />
+              </span>
+              <dt className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#8B929C]">{label}</dt>
+              <dd key={value} className={`${MONO} text-[12px] ${moving ? 'text-[#E8EAED]' : 'text-[#767D88]'} motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300`}>
+                {value === undefined ? '—' : numberFormat.format(value)}
+              </dd>
+            </div>
+          );
+        })}
+        <span aria-hidden className="mx-2 hidden h-4 w-px bg-white/[0.08] min-[1800px]:block" />
+        {outcomes.map(metric => (
+          <div key={metric.label} className="hidden items-baseline gap-1.5 whitespace-nowrap px-2 min-[1800px]:flex">
+            <dt className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#8B929C]">{metric.label}</dt>
+            <dd key={metric.value} className={`${MONO} text-[12px] font-medium motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300`} style={{ color: metric.tone }}>
               {metric.value === undefined ? '—' : numberFormat.format(metric.value)}
             </dd>
           </div>
@@ -158,9 +192,7 @@ export const CommandBar = memo(function CommandBar({
       </dl>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <span className={`${MONO} hidden whitespace-nowrap text-[10px] text-[#767D88] 2xl:inline`}>
-          {lastSyncedAt ? `synced ${clockTime(lastSyncedAt)}` : ''}
-        </span>
+        <CycleClock snapshot={snapshot} lastSyncedAt={lastSyncedAt} />
         <button
           type="button"
           onClick={onPause}
@@ -201,6 +233,40 @@ export const CommandBar = memo(function CommandBar({
   );
 });
 
+/**
+ * Cycle timer and last-event age.
+ *
+ * Its own component with its own one-second clock, so the ticking re-renders
+ * two short strings rather than the whole command bar. Both values come from
+ * the snapshot: the cycle start is the newsroom's NEWSROOM_CYCLE_STARTED event,
+ * shown only while that is the newest lifecycle event.
+ */
+function CycleClock({ snapshot, lastSyncedAt }: { snapshot: IntelSnapshot | null; lastSyncedAt: string | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const cycleStart = snapshot?.cycle.startedAt;
+  const lastEvent = snapshot?.system.lastEventAt;
+
+  return (
+    <dl className="hidden items-center gap-3 lg:flex" aria-live="off">
+      {cycleStart && (
+        <div className="flex items-baseline gap-1.5 whitespace-nowrap" title="Time since the running cycle started">
+          <dt className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#8B929C]">Cycle</dt>
+          <dd className={`${MONO} text-[12px] text-[#4CC38A]`}>{elapsed(cycleStart, now)}</dd>
+        </div>
+      )}
+      <div className="flex items-baseline gap-1.5 whitespace-nowrap" title={lastSyncedAt ? `Synchronised ${clockTime(lastSyncedAt)}` : undefined}>
+        <dt className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[#8B929C]">Last event</dt>
+        <dd className={`${MONO} text-[12px] text-[#C9CDD3]`}>{lastEvent ? ago(lastEvent, now) : '—'}</dd>
+      </div>
+    </dl>
+  );
+}
+
 /* --------------------------------------------------------- pipeline rail -- */
 
 const RAIL_ORDER: PipelineStage[] = ['DISCOVERED', 'RESEARCH', 'VERIFICATION', 'IMAGE', 'FILING', 'DRAFT', 'PUBLISHED', 'REJECTED', 'HELD'];
@@ -213,6 +279,8 @@ export const PipelineRail = memo(function PipelineRail({
   unmapped,
   onUnmapped,
   clustersFormed,
+  activity,
+  moving,
 }: {
   counts: Record<PipelineStage, number> | null;
   total: number;
@@ -221,8 +289,16 @@ export const PipelineRail = memo(function PipelineRail({
   unmapped: number;
   onUnmapped: () => void;
   clustersFormed: number | null;
+  /** Stage transitions per time bucket, from the snapshot. */
+  activity: IntelSnapshot['activity'] | null;
+  /** Stages a real event entered in the latest poll. Drives the connector flow. */
+  moving: ReadonlySet<PipelineStage>;
 }) {
-  const max = Math.max(1, ...RAIL_ORDER.map(stage => counts?.[stage] ?? 0));
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <nav aria-label="Live pipeline" className={`${INSTRUMENT} flex w-full flex-col py-3`}>
@@ -242,6 +318,13 @@ export const PipelineRail = memo(function PipelineRail({
           const faded = stageFilter !== 'ALL' && !active;
           const terminalStart = stage === 'DRAFT';
           const failStart = stage === 'REJECTED';
+          const series = activity?.buckets.map(bucket => bucket.stages[stage] ?? 0) ?? [];
+          const seriesMax = Math.max(0, ...series);
+          const last = activity?.lastByStage[stage];
+          const isActiveStage = ACTIVE_STAGES.includes(stage);
+          const flowing = moving.has(stage);
+          const color = STAGE_META[stage].color;
+
           return (
             <li key={stage} className={terminalStart || failStart ? 'mt-2 border-t border-white/[0.05] pt-2' : ''}>
               <button
@@ -249,28 +332,70 @@ export const PipelineRail = memo(function PipelineRail({
                 onClick={() => onStage(active ? 'ALL' : stage)}
                 aria-pressed={active}
                 title={STAGE_META[stage].hint}
-                className={`group relative flex w-full items-center gap-2.5 px-3.5 py-[7px] text-left transition-[background-color,opacity] duration-150 hover:bg-white/[0.03] ${
+                className={`group relative flex w-full flex-col px-3.5 py-[6px] text-left transition-[background-color,opacity] duration-150 hover:bg-white/[0.03] ${
                   faded ? 'opacity-40' : ''
                 } ${active ? 'bg-white/[0.04]' : ''}`}
               >
                 {active && <span aria-hidden className="absolute inset-y-1 left-0 w-[2px] rounded-r bg-[#EFB81A]" />}
-                <span className="relative flex w-3 justify-center">
-                  <StageDot stage={stage} />
-                  {index < 4 && !terminalStart && (
-                    <span aria-hidden className="absolute top-[11px] h-[20px] w-px bg-white/[0.06]" />
+
+                <span className="flex w-full items-center gap-2.5">
+                  <span className="relative flex w-3 justify-center">
+                    {/* Pulse only where stories are actually sitting in a live stage. */}
+                    {isActiveStage && count > 0 && (
+                      <span
+                        aria-hidden
+                        className="absolute inline-flex h-1.5 w-1.5 rounded-full opacity-50 motion-safe:animate-ping"
+                        style={{ background: color, animationDuration: '2.4s' }}
+                      />
+                    )}
+                    <StageDot stage={stage} />
+                    {/* Connector into the next live stage; carries a travelling
+                        dot only when a real event just moved a story here. */}
+                    {index < 4 && (
+                      <span aria-hidden className="absolute top-[10px] h-[30px] w-px overflow-hidden bg-white/[0.07]">
+                        {moving.has(RAIL_ORDER[index + 1]!) && (
+                          <span
+                            className="nir-flow absolute left-1/2 h-1.5 w-[3px] -translate-x-1/2 rounded-full"
+                            style={{ background: STAGE_META[RAIL_ORDER[index + 1]!].color }}
+                          />
+                        )}
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex-1 text-[11px] font-medium uppercase tracking-[0.07em] text-[#C9CDD3] group-hover:text-[#E8EAED]">
+                    {STAGE_META[stage].label}
+                  </span>
+                  <span
+                    key={count}
+                    className={`${MONO} text-[12px] ${count ? 'text-[#E8EAED]' : 'text-[#767D88]'} ${flowing ? 'motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300' : ''}`}
+                  >
+                    {count}
+                  </span>
+                </span>
+
+                <span className="mt-1 flex w-full items-end gap-2 pl-[22px]">
+                  {/* Transitions into this stage across the window, oldest → newest. */}
+                  {seriesMax > 0 ? (
+                    <span aria-hidden className="flex h-[12px] flex-1 items-end gap-[2px]" title={`Transitions per ${activity!.bucketMinutes < 1 ? `${Math.round(activity!.bucketMinutes * 60)}s` : `${Math.round(activity!.bucketMinutes)}m`}`}>
+                      {series.map((value, i) => (
+                        <span
+                          key={i}
+                          className="flex-1 rounded-[1px]"
+                          style={{
+                            height: value ? `${Math.max(2, (value / seriesMax) * 12)}px` : '1px',
+                            background: value ? `${color}${i === series.length - 1 ? 'E6' : '80'}` : 'rgba(255,255,255,0.06)',
+                          }}
+                        />
+                      ))}
+                    </span>
+                  ) : (
+                    <span aria-hidden className="h-px flex-1 self-center bg-white/[0.05]" />
                   )}
+                  <span className={`${MONO} w-[46px] shrink-0 text-right text-[9.5px] text-[#767D88]`}>
+                    {last ? ago(last, now) : '—'}
+                  </span>
                 </span>
-                <span className="flex-1 text-[11px] font-medium uppercase tracking-[0.07em] text-[#C9CDD3] group-hover:text-[#E8EAED]">
-                  {STAGE_META[stage].label}
-                </span>
-                <span className={`${MONO} text-[12px] ${count ? 'text-[#E8EAED]' : 'text-[#767D88]'}`}>{count}</span>
               </button>
-              <div aria-hidden className="mx-3.5 -mt-0.5 mb-0.5 ml-[38px] h-[2px] overflow-hidden rounded-full bg-white/[0.03]">
-                <div
-                  className="h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                  style={{ width: `${(count / max) * 100}%`, background: `${STAGE_META[stage].color}99` }}
-                />
-              </div>
             </li>
           );
         })}
@@ -410,6 +535,154 @@ export type Selection =
 
 const PAGE = 40;
 
+/* ------------------------------------------------------ story dossier -- */
+
+const FLOW: PipelineStage[] = ['DISCOVERED', 'RESEARCH', 'VERIFICATION', 'IMAGE', 'FILING'];
+const FLOW_SHORT: Record<string, string> = {
+  DISCOVERED: 'Discovery',
+  RESEARCH: 'Research',
+  VERIFICATION: 'Checks',
+  IMAGE: 'Image',
+  FILING: 'Filing',
+};
+
+/**
+ * Where the story is in the pipeline.
+ *
+ * "Resolved" means the timeline recorded that stage, not that position implies
+ * it: a story rejected at research never shows checks as done. The live stage
+ * pulses; a terminal outcome is appended as its own marker.
+ */
+function PipelineProgress({ story }: { story: IntelStory }) {
+  const reached = new Set(story.timeline.map(event => event.stage).filter(Boolean));
+  const terminal = story.stage === 'DRAFT' || story.stage === 'PUBLISHED' || story.stage === 'REJECTED' || story.stage === 'HELD';
+
+  return (
+    <section aria-label="Pipeline progress" className="mt-4">
+      <p className={`${LABEL} mb-2`}>Pipeline</p>
+      <ol className="flex items-center">
+        {FLOW.map((stage, index) => {
+          const current = story.stage === stage;
+          const done = !current && reached.has(stage);
+          const color = STAGE_META[stage].color;
+          return (
+            <li key={stage} className="flex min-w-0 flex-1 items-center">
+              <span className="flex min-w-0 flex-col items-center gap-1">
+                <span className="relative flex h-2 w-2">
+                  {current && (
+                    <span className="absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping" style={{ background: color, animationDuration: '2s' }} />
+                  )}
+                  <span
+                    className="relative inline-flex h-2 w-2 rounded-full border"
+                    style={{
+                      background: current || done ? color : 'transparent',
+                      borderColor: current || done ? color : 'rgba(255,255,255,0.18)',
+                      opacity: done ? 0.7 : 1,
+                    }}
+                  />
+                </span>
+                <span className={`truncate text-[9px] uppercase tracking-[0.06em] ${current ? 'text-[#E8EAED]' : done ? 'text-[#8B929C]' : 'text-[#50555D]'}`}>
+                  {FLOW_SHORT[stage]}
+                </span>
+              </span>
+              {index < FLOW.length - 1 && (
+                <span aria-hidden className="mx-1 mb-3.5 h-px flex-1" style={{ background: done ? `${color}66` : 'rgba(255,255,255,0.08)' }} />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {terminal && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.08em]" style={{ color: STAGE_META[story.stage].color }}>
+          <StageDot stage={story.stage} size={5} /> {STAGE_META[story.stage].label}
+          {story.rejection && <span className="normal-case tracking-normal text-[#8B929C]">at {REJECTION_POINT_LABEL[story.rejection.at]}</span>}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Numeric signals stated in the rejection reasons.
+ *
+ * Only a reason that itself names a value and a bar ("fact-check score 71
+ * below 90") produces a meter. Reasons without numbers stay as text above.
+ */
+function RejectionSignals({ reasons }: { reasons: string[] }) {
+  const signals = reasons.map(thresholdSignal).filter((signal): signal is NonNullable<typeof signal> => signal !== null);
+  if (signals.length === 0) return null;
+
+  return (
+    <div className="mt-2.5 space-y-2 border-t border-[#E5605A]/15 pt-2">
+      <p className="text-[9px] uppercase tracking-[0.1em] text-[#8B929C]">Rejection signal</p>
+      {signals.slice(0, 4).map(signal => {
+        const scale = Math.max(signal.required, signal.value, 100);
+        return (
+          <div key={`${signal.label}-${signal.value}`}>
+            <div className="flex items-baseline justify-between gap-2 text-[10.5px]">
+              <span className="uppercase tracking-[0.06em] text-[#C9CDD3]">{signal.label}</span>
+              <span className={`${MONO} text-[#E8EAED]`}>
+                {signal.value} <span className="text-[#8B929C]">/ required {signal.required}</span>
+              </span>
+            </div>
+            <div className="relative mt-1 h-[5px] rounded-sm bg-white/[0.06]">
+              <div className="absolute inset-y-0 left-0 rounded-sm bg-[#E5605A]/80" style={{ width: `${(signal.value / scale) * 100}%` }} />
+              <div aria-hidden className="absolute -inset-y-[3px] w-px bg-[#E8EAED]" style={{ left: `${(signal.required / scale) * 100}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The story's recorded events, oldest first.
+ *
+ * From the server's per-story timeline, which reads every telemetry row in the
+ * window — so a step that is missing here did not happen in this window, it
+ * was not pushed out of the stream.
+ */
+function StoryTimeline({ story }: { story: IntelStory }) {
+  if (story.timeline.length === 0) {
+    return (
+      <section className="mt-5">
+        <p className={`${LABEL} mb-1.5`}>Timeline</p>
+        <p className="text-[11.5px] text-[#8B929C]">No telemetry recorded for this story in the selected window.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="Story timeline" className="mt-5">
+      <p className={`${LABEL} mb-2`}>Timeline</p>
+      {story.timelineTruncated && <p className="mb-1.5 text-[10px] text-[#767D88]">Showing the most recent events.</p>}
+      <ol className="relative ml-1 border-l border-white/[0.08]">
+        {story.timeline.map((event, index) => {
+          const color = event.tone === 'fail' ? '#E5605A' : event.stage ? STAGE_META[event.stage].color : '#767D88';
+          const latest = index === story.timeline.length - 1;
+          return (
+            <li key={event.id} className="relative pb-2.5 pl-3.5 last:pb-0">
+              <span
+                aria-hidden
+                className="absolute -left-[4px] top-[5px] h-[7px] w-[7px] rounded-full border-2 border-[#0B0D10]"
+                style={{ background: color }}
+              />
+              <p className="flex items-baseline gap-2">
+                <span className={`${MONO} text-[10px] text-[#767D88]`}>{clockTime(event.occurredAt)}</span>
+                <span className={`text-[10.5px] font-semibold uppercase tracking-[0.07em] ${latest ? 'text-[#F2F4F7]' : 'text-[#C9CDD3]'}`} style={event.tone === 'fail' ? { color } : undefined}>
+                  {event.label}
+                </span>
+              </p>
+              {event.detail && <p className="mt-0.5 text-[11px] leading-snug text-[#8B929C]">{event.detail}</p>}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
 function StoryRow({ story, onOpen }: { story: IntelStory; onOpen: () => void }) {
   return (
     <li>
@@ -490,6 +763,9 @@ export function IntelPanel({
           <h3 className="text-[15px] font-medium leading-snug text-[#F2F4F7]">
             {story.title ?? `Untitled cluster ${story.clusterId.slice(0, 8)}`}
           </h3>
+          <p className="mt-1.5 text-[11.5px] leading-snug text-[#8B929C]">{STAGE_META[story.stage].hint}.</p>
+
+          <PipelineProgress story={story} />
 
           {story.rejection && (
             <section className="mt-4 rounded border border-[#E5605A]/25 bg-[#E5605A]/[0.06] px-3 py-2.5">
@@ -502,6 +778,7 @@ export function IntelPanel({
                   ))}
                 </ul>
               )}
+              <RejectionSignals reasons={story.rejection.reasons} />
               <dl className="mt-2 grid grid-cols-2 gap-2 border-t border-[#E5605A]/15 pt-2">
                 <div>
                   <dt className="text-[9px] uppercase tracking-[0.1em] text-[#8B929C]">Rejected at</dt>
@@ -524,6 +801,7 @@ export function IntelPanel({
             <Field label="Publisher base">{story.base ? story.base.label : <span className="text-[#8B929C]">Unmapped</span>}</Field>
             <Field label="Lead source">{story.leadDomain ?? '—'}</Field>
             <Field label="Sources"><span className={MONO}>{story.sourceCount}</span></Field>
+            {story.model && <Field label="Research model"><span className={`${MONO} text-[11px]`}>{story.model}</span></Field>}
             {story.score !== null && <Field label="Opportunity score"><span className={MONO}>{story.score}</span></Field>}
             {story.factCheckScore !== null && <Field label="Fact check"><span className={MONO}>{story.factCheckScore}</span></Field>}
             {story.qualityScore !== null && <Field label="Quality"><span className={MONO}>{story.qualityScore}</span></Field>}
@@ -541,6 +819,8 @@ export function IntelPanel({
               </ul>
             </div>
           )}
+
+          <StoryTimeline story={story} />
 
           {story.articleId && (
             <a

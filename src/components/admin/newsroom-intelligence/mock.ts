@@ -109,6 +109,9 @@ export function mockSnapshot(windowKey: IntelWindowKey): IntelSnapshot {
       qualityScore: ['VERIFICATION', 'IMAGE', 'FILING', 'DRAFT', 'PUBLISHED'].includes(stage) ? 85 + (i % 12) : null,
       firstSeenAt: last,
       lastActivityAt: last,
+      model: stage === 'DISCOVERED' ? null : 'nvidia/nemotron (mock)',
+      timeline: [],
+      timelineTruncated: false,
     });
   }
   stories.sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
@@ -179,7 +182,23 @@ export function mockSnapshot(windowKey: IntelWindowKey): IntelSnapshot {
       discovery: { available: true },
     },
     locations: [...locations.values()].sort((a, b) => b.storyCount - a.storyCount),
-    stories,
+    stories: stories.map(story => ({
+      ...story,
+      timeline: events.filter(event => event.clusterId === story.clusterId).reverse(),
+    })),
     events,
+    activity: {
+      buckets: Array.from({ length: 12 }, (_, i) => ({
+        start: new Date(now - (12 - i) * ((minutes * 60_000) / 12)).toISOString(),
+        stages: Object.fromEntries(
+          ACTIVE_STAGES.concat(['DRAFT', 'REJECTED']).map((stage, j) => [stage, Math.round(hash(i * 13 + j) * 6)])
+        ) as Partial<Record<PipelineStage, number>>,
+      })),
+      bucketMinutes: minutes / 12,
+      recent: stageCounts,
+      recentMinutes: Math.min(15, minutes),
+      lastByStage: Object.fromEntries(PIPELINE_STAGES.map((stage, i) => [stage, new Date(now - i * 47_000).toISOString()])),
+    },
+    cycle: { startedAt: new Date(now - ((tick * 6000) % 600_000)).toISOString(), lastCompletedAt: null },
   };
 }

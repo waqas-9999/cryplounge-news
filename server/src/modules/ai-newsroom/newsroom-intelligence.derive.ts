@@ -95,6 +95,18 @@ export interface IntelStory {
   qualityScore: number | null;
   firstSeenAt: string;
   lastActivityAt: string;
+  /** Model named by this story's most recent RESEARCH_STARTED event. */
+  model: string | null;
+  /**
+   * Every recorded event for this story in the window, oldest first.
+   *
+   * Built from all telemetry the snapshot read, not from the 150-event stream,
+   * so an early step is never missing just because the stream moved on. A
+   * stage that did not happen has no entry.
+   */
+  timeline: IntelEvent[];
+  /** True when the timeline was capped at MAX_TIMELINE_EVENTS. */
+  timelineTruncated: boolean;
 }
 
 export interface IntelLocation extends PublisherBase {
@@ -147,7 +159,27 @@ export interface IntelSnapshot {
   locations: IntelLocation[];
   stories: IntelStory[];
   events: IntelEvent[];
+  /**
+   * Movement, not inventory: stage transitions counted from event timestamps
+   * across every telemetry row in the window.
+   */
+  activity: {
+    /** Equal slices across the window, oldest first. */
+    buckets: Array<{ start: string; stages: Partial<Record<PipelineStage, number>> }>;
+    bucketMinutes: number;
+    /** Transitions in the most recent `recentMinutes` (15, or the whole window if shorter). */
+    recent: Partial<Record<PipelineStage, number>>;
+    recentMinutes: number;
+    /** Latest transition into each stage. */
+    lastByStage: Partial<Record<PipelineStage, string>>;
+  };
+  /** The cycle in progress, when the newsroom's own lifecycle events show one. */
+  cycle: { startedAt: string | null; lastCompletedAt: string | null };
 }
+
+/** Per-story timeline cap. A story emits roughly ten events end to end. */
+export const MAX_TIMELINE_EVENTS = 40;
+export const ACTIVITY_BUCKETS = 12;
 
 export const INTEL_WINDOWS = { live: 60, '5m': 5, '30m': 30, '1h': 60, '24h': 1440 } as const;
 export type IntelWindowKey = keyof typeof INTEL_WINDOWS;
@@ -335,6 +367,8 @@ export function buildSnapshot(input: {
     qualityScore: number | null;
     rejectedAt: number | null;
     title: string | null;
+    model: string | null;
+    rows: TelemetryRow[];
   }
   const drafts = new Map<string, Draft>();
 
@@ -350,6 +384,8 @@ export function buildSnapshot(input: {
         qualityScore: null,
         rejectedAt: null,
         title: null,
+        model: null,
+        rows: [],
       };
       drafts.set(clusterId, draft);
     }
@@ -368,6 +404,8 @@ export function buildSnapshot(input: {
     draft.factCheckScore = numberOf(m.factCheckScore) ?? draft.factCheckScore;
     draft.qualityScore = numberOf(m.qualityScore) ?? draft.qualityScore;
     if (typeof m.title === 'string') draft.title = m.title;
+    if (row.type === 'RESEARCH_STARTED' && row.model) draft.model = row.model;
+    draft.rows.push(row);
 
     const next = transitionFor(row);
     if (!next) continue;
@@ -428,6 +466,10 @@ export function buildSnapshot(input: {
       qualityScore: draft.qualityScore,
       firstSeenAt: new Date(draft.firstSeen).toISOString(),
       lastActivityAt: new Date(draft.lastActivity).toISOString(),
+      model: draft.model,
+      // Filled below, once titles are known.
+      timeline: [],
+      timelineTruncated: false,
     });
   }
 
@@ -481,38 +523,44 @@ export function buildSnapshot(input: {
   const titles = new Map(stories.map(story => [story.clusterId, story.title]));
   const stream: IntelEvent[] = [];
   for (let i = events.length - 1; i >= 0 && stream.length < 150; i -= 1) {
-    const row = events[i]!;
-    const known = EVENT_LABELS[row.type];
-    if (!known) continue;
-    // Cycle-level cluster notes without a count are planning chatter.
-    if (row.type === 'CLUSTER_CREATED' && numberOf(meta(row).count) === null) continue;
-
-    const transition = transitionFor(row);
-    const reasons = reasonsOf(row);
-    const m = meta(row);
-    let detail: string | null = reasons[0] ?? null;
-    if (row.type === 'CLUSTER_CREATED') detail = `${numberOf(m.count)} clusters`;
-    if (row.type === 'ARTICLE_VALIDATED' && numberOf(m.factCheckScore) !== null) {
-      detail = `Fact ${numberOf(m.factCheckScore)} · Quality ${numberOf(m.qualityScore) ?? '—'}`;
-    }
-    if (row.type === 'RESEARCH_STARTED' && row.model) detail = row.model;
-
-    let label = known.label;
-    if (row.type === 'PUBLICATION_SUCCEEDED') label = transition?.stage === 'PUBLISHED' ? 'Published' : 'Draft created';
-    if (row.type === 'ARTICLE_VALIDATED' && transition?.stage === 'IMAGE') label = 'Image stage complete';
-
-    stream.push({
-      id: row.id,
-      type: row.type,
-      label,
-      tone: known.tone,
-      occurredAt: row.occurredAt.toISOString(),
-      clusterId: row.clusterId,
-      title: row.clusterId ? titles.get(row.clusterId) ?? null : null,
-      detail,
-      stage: transition?.stage ?? null,
-    });
+    const labelled = labelEvent(events[i]!, titles);
+    if (labelled) stream.push(labelled);
   }
+
+  /* ---------------------------------------------------------- timelines -- */
+  for (const story of stories) {
+    const rows = drafts.get(story.clusterId)?.rows ?? [];
+    const labelled = rows
+      .map(row => labelEvent(row, titles))
+      .filter((event): event is IntelEvent => event !== null);
+    story.timelineTruncated = labelled.length > MAX_TIMELINE_EVENTS;
+    // Keep the newest when capped: the current state is what an editor is checking.
+    story.timeline = labelled.slice(-MAX_TIMELINE_EVENTS);
+  }
+
+  /* ----------------------------------------------------------- activity -- */
+  const bucketMs = (minutes * 60_000) / ACTIVITY_BUCKETS;
+  const buckets = Array.from({ length: ACTIVITY_BUCKETS }, (_, i) => ({
+    start: new Date(since.getTime() + i * bucketMs).toISOString(),
+    stages: {} as Partial<Record<PipelineStage, number>>,
+  }));
+  const recentMinutes = Math.min(15, minutes);
+  const recentSince = now.getTime() - recentMinutes * 60_000;
+  const recent: Partial<Record<PipelineStage, number>> = {};
+  const lastByStage: Partial<Record<PipelineStage, string>> = {};
+
+  for (const row of events) {
+    const transition = transitionFor(row);
+    if (!transition) continue;
+    const at = row.occurredAt.getTime();
+    const index = Math.min(ACTIVITY_BUCKETS - 1, Math.max(0, Math.floor((at - since.getTime()) / bucketMs)));
+    const bucket = buckets[index]!;
+    bucket.stages[transition.stage] = (bucket.stages[transition.stage] ?? 0) + 1;
+    if (at >= recentSince) recent[transition.stage] = (recent[transition.stage] ?? 0) + 1;
+    lastByStage[transition.stage] = row.occurredAt.toISOString();
+  }
+
+  const lastCompleted = latestOf(['NEWSROOM_CYCLE_COMPLETED']);
 
   return {
     generatedAt: now.toISOString(),
@@ -539,6 +587,53 @@ export function buildSnapshot(input: {
     locations: [...locations.values()].sort((a, b) => b.storyCount - a.storyCount),
     stories,
     events: stream,
+    activity: {
+      buckets,
+      bucketMinutes: minutes / ACTIVITY_BUCKETS,
+      recent,
+      recentMinutes,
+      lastByStage,
+    },
+    cycle: {
+      // A cycle is in progress only while its start is the newest lifecycle event.
+      startedAt: lifecycle?.type === 'NEWSROOM_CYCLE_STARTED' ? lifecycle.occurredAt.toISOString() : null,
+      lastCompletedAt: lastCompleted?.occurredAt.toISOString() ?? null,
+    },
+  };
+}
+
+/** One telemetry row as a displayable event, or null for rows that are not shown. */
+function labelEvent(row: TelemetryRow, titles: Map<string, string | null>): IntelEvent | null {
+  const known = EVENT_LABELS[row.type];
+  if (!known) return null;
+  // Cycle-level cluster notes without a count are planning chatter.
+  if (row.type === 'CLUSTER_CREATED' && numberOf(meta(row).count) === null) return null;
+
+  const transition = transitionFor(row);
+  const reasons = reasonsOf(row);
+  const m = meta(row);
+  let detail: string | null = reasons[0] ?? null;
+  if (row.type === 'CLUSTER_CREATED') detail = `${numberOf(m.count)} clusters`;
+  if (row.type === 'ARTICLE_VALIDATED' && numberOf(m.factCheckScore) !== null) {
+    detail = `Fact ${numberOf(m.factCheckScore)} · Quality ${numberOf(m.qualityScore) ?? '—'}`;
+  }
+  if (row.type === 'RESEARCH_STARTED' && row.model) detail = row.model;
+  if (row.type === 'STORY_DISCOVERED' && !detail && row.source) detail = row.source;
+
+  let label = known.label;
+  if (row.type === 'PUBLICATION_SUCCEEDED') label = transition?.stage === 'PUBLISHED' ? 'Published' : 'Draft created';
+  if (row.type === 'ARTICLE_VALIDATED' && transition?.stage === 'IMAGE') label = 'Image stage complete';
+
+  return {
+    id: row.id,
+    type: row.type,
+    label,
+    tone: known.tone,
+    occurredAt: row.occurredAt.toISOString(),
+    clusterId: row.clusterId,
+    title: row.clusterId ? titles.get(row.clusterId) ?? null : null,
+    detail,
+    stage: transition?.stage ?? null,
   };
 }
 

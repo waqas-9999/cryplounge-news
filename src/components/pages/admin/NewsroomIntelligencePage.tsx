@@ -47,6 +47,23 @@ import {
   type PipelineStage,
 } from '@/components/admin/newsroom-intelligence/model';
 import { POLL_INTERVAL_MS, useIntelligenceFeed } from '@/components/admin/newsroom-intelligence/use-intelligence-feed';
+import {
+  ActivityStrip,
+  HealthPanel,
+  NowProcessing,
+  SleepingBanner,
+  StoryFlow,
+} from '@/components/admin/newsroom-intelligence/operations';
+
+/** Travelling dot on a pipeline connector. Plays once per real transition. */
+const FLOW_KEYFRAMES = `
+@keyframes nir-flow { from { transform: translate(-50%, -8px); opacity: 0; } 30% { opacity: 1; } to { transform: translate(-50%, 30px); opacity: 0; } }
+.nir-flow { animation: nir-flow 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .nir-flow { animation: none; opacity: 0; } }
+`;
+
+/** How long a stage is marked as "just moved" after a real event enters it. */
+const MOVING_MS = 1_600;
 
 interface NewsroomIntelligencePageProps {
   currentPage: string;
@@ -232,7 +249,25 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
     return [(Math.atan2(y, x) * 180) / Math.PI, (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI];
   }, [nodes]);
 
+  const activeStories = useMemo(
+    () => filtered.filter(story => ACTIVE_STAGES.includes(story.stage)),
+    [filtered]
+  );
+
   /* ------------------------------------------ pulse on real arrivals only -- */
+  const [moving, setMoving] = useState<ReadonlySet<PipelineStage>>(new Set());
+  useEffect(() => {
+    if (!snapshot || feed.freshEventIds.size === 0) return;
+    const stages = new Set<PipelineStage>();
+    for (const event of snapshot.events) {
+      if (feed.freshEventIds.has(event.id) && event.stage) stages.add(event.stage);
+    }
+    if (stages.size === 0) return;
+    setMoving(stages);
+    const timer = setTimeout(() => setMoving(new Set()), MOVING_MS);
+    return () => clearTimeout(timer);
+  }, [feed.freshEventIds, snapshot]);
+
   useEffect(() => {
     if (!snapshot || feed.freshEventIds.size === 0) return;
     let fired = 0;
@@ -286,10 +321,12 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
   const compact = viewport < 1300;
   const narrow = viewport < 900;
   const railWidth = narrow ? 0 : compact ? 200 : 232;
-  const panelWidth = selection ? (compact ? 320 : 360) : 0;
+  // The right column is always present on desktop: the operations stack when
+  // nothing is selected, the dossier when something is.
+  const panelWidth = compact ? 300 : 340;
   const insets = {
     left: railWidth ? railWidth + 16 : 0,
-    right: narrow ? 0 : panelWidth ? panelWidth + 16 : 0,
+    right: narrow ? 0 : panelWidth + 16,
     top: narrow ? 96 : 44,
     bottom: 84,
   };
@@ -353,8 +390,11 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
 
           {hover && <NodeTooltip location={{ label: hover.node.label, count: hover.node.count, stages: hover.node.stages }} x={hover.x} y={hover.y} />}
 
-          {/* Filters, top centre over the globe's free area. */}
-          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
+          <style>{FLOW_KEYFRAMES}</style>
+
+          {/* Filters and live flow, top centre over the globe's free area. */}
+          <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex flex-col items-center gap-2" style={{ paddingLeft: insets.left, paddingRight: insets.right }}>
+            {snapshot && !narrow && <StoryFlow counts={snapshot.stages} />}
             <div className="pointer-events-auto">
               <FilterDock
                 categories={categories}
@@ -399,8 +439,26 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
                 unmapped={filtered.filter(story => !story.base).length}
                 onUnmapped={() => setSelection({ kind: 'unmapped' })}
                 clustersFormed={snapshot ? snapshot.totals.clustersFormed : null}
+                activity={snapshot?.activity ?? null}
+                moving={moving}
               />
               <Legend />
+            </div>
+          )}
+
+          {/* Operations stack: what the newsroom is doing, when nothing is selected. */}
+          {!selection && !narrow && snapshot && (
+            <div
+              className="absolute bottom-[84px] right-4 top-3 z-10 flex flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&>*]:shrink-0"
+              style={{ width: panelWidth }}
+            >
+              {snapshot.system.state === 'SLEEPING' && activeStories.length === 0 ? (
+                <SleepingBanner system={snapshot.system} />
+              ) : (
+                <NowProcessing stories={activeStories} onOpen={openStory} />
+              )}
+              <ActivityStrip activity={snapshot.activity} />
+              <HealthPanel connection={feed.connection} snapshot={snapshot} />
             </div>
           )}
 
@@ -448,7 +506,8 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
               </div>
             </div>
           )}
-          {empty && feed.connection !== 'unavailable' && (
+          {/* On desktop the operations stack already says the newsroom is sleeping; narrow screens need the notice. */}
+          {empty && feed.connection !== 'unavailable' && (narrow || snapshot.system.state !== 'SLEEPING') && (
             <CenterNotice
               title="No newsroom activity in this window"
               body={
@@ -462,7 +521,7 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
             <CenterNotice title="No stories match these filters" action={<button type="button" onClick={() => setParam({ category: null, stage: null, region: null })} className="text-[11px] uppercase tracking-[0.08em] text-[#EFB81A] hover:text-[#F5CC55]">Reset filters</button>} />
           )}
           {snapshot && !snapshot.system.discovery.available && (
-            <p className="absolute right-4 top-3 z-10 max-w-[260px] rounded border border-[#E0A33A]/25 bg-[#0B0D10]/80 px-2.5 py-1.5 text-[10.5px] text-[#E0A33A]" style={selection && !narrow ? { right: panelWidth + 32 } : undefined}>
+            <p className="absolute right-4 top-3 z-10 max-w-[260px] rounded border border-[#E0A33A]/25 bg-[#0B0D10]/80 px-2.5 py-1.5 text-[10.5px] text-[#E0A33A]" style={!narrow ? { right: panelWidth + 32 } : undefined}>
               Story titles unavailable: {snapshot.system.discovery.reason}
             </p>
           )}

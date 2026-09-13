@@ -63,6 +63,10 @@ export interface IntelStory {
   qualityScore: number | null;
   firstSeenAt: string;
   lastActivityAt: string;
+  model: string | null;
+  /** Every recorded event for this story in the window, oldest first. */
+  timeline: IntelEvent[];
+  timelineTruncated: boolean;
 }
 
 export interface IntelLocation extends PublisherBase {
@@ -113,6 +117,14 @@ export interface IntelSnapshot {
   locations: IntelLocation[];
   stories: IntelStory[];
   events: IntelEvent[];
+  activity: {
+    buckets: Array<{ start: string; stages: Partial<Record<PipelineStage, number>> }>;
+    bucketMinutes: number;
+    recent: Partial<Record<PipelineStage, number>>;
+    recentMinutes: number;
+    lastByStage: Partial<Record<PipelineStage, string>>;
+  };
+  cycle: { startedAt: string | null; lastCompletedAt: string | null };
 }
 
 /* ------------------------------------------------------------ semantics -- */
@@ -193,3 +205,30 @@ export function ago(iso: string, now = Date.now()): string {
 }
 
 export const numberFormat = new Intl.NumberFormat('en-US');
+
+/** Elapsed time as mm:ss, or h:mm:ss past an hour. */
+export function elapsed(iso: string, now = Date.now()): string {
+  const total = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
+  const h = Math.floor(total / 3600);
+  const mm = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const ss = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/**
+ * A threshold stated inside a real rejection reason, e.g.
+ * "fact-check score 71 below 90". Returned only when the reason text itself
+ * names both the value and the bar; nothing is estimated or inferred.
+ */
+export function thresholdSignal(reason: string): { label: string; value: number; required: number } | null {
+  const match = reason.match(
+    /^(.*?)\s*(\d+(?:\.\d+)?)\s*(?:is\s+)?(?:below|under|<)\s*(?:the\s+)?(?:configured\s+)?(?:minimum|threshold|required)?\s*(\d+(?:\.\d+)?)\b/i
+  );
+  if (!match) return null;
+  const value = Number(match[2]);
+  const required = Number(match[3]);
+  if (!Number.isFinite(value) || !Number.isFinite(required) || required <= 0) return null;
+  const label = match[1]!.replace(/[:\-–]+\s*$/, '').trim();
+  return { label: label || 'Score', value, required };
+}
+
