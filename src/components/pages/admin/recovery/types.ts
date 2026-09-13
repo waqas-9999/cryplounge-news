@@ -30,7 +30,36 @@ export interface PipelineHealth {
   bottleneck: { kind: string; label: string; count: number } | null;
 }
 
-export type HealthResponse = (PipelineHealth | Unavailable) & { pendingRecoveries: number };
+export interface SourceAccessSummary {
+  window: { minutes: number; since: string };
+  fetches: {
+    total: number;
+    success: number;
+    http403: number;
+    http404: number;
+    http429: number;
+    http5xx: number;
+    timeout: number;
+    other: number;
+    byOutcome: Record<string, number>;
+  };
+  leadsBlocked: { total: number; byOutcome: Record<string, number> };
+  expansion: { started: number; completed: number; sourcesAdded: number; recovered: number };
+  outcomes: {
+    writingStarted: number;
+    editorPassed: number;
+    rewriteRequired: number;
+    editorRejected: number;
+    hardRejected: number;
+    cmsDrafts: number;
+  };
+}
+
+export type HealthResponse = (PipelineHealth | Unavailable) & {
+  pendingRecoveries: number;
+  /** From CMS telemetry, so present even when the newsroom database is not. */
+  sourceAccess?: SourceAccessSummary | Unavailable;
+};
 
 export interface DecisionItem {
   clusterId: string;

@@ -6,6 +6,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { apiClient } from '@/lib/api-client';
 import { StoryInspector } from './recovery/StoryInspector';
+import { SourceAccessPanel } from './recovery/SourceAccessPanel';
 import {
   DECISION_CLASS_META,
   type DecisionsResponse,
@@ -314,6 +315,15 @@ export function EditorialRecoveryPage({ currentPage, onNavigate, onLogout }: Pag
               </div>
             </>
           )}
+
+          <SourceAccessPanel
+            summary={health?.sourceAccess}
+            codes={ready ? ready.codes : null}
+            onSelectCode={selected => {
+              setCode(selected);
+              setDecisionClass('RESEARCH');
+            }}
+          />
 
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <select value={decisionClass} onChange={event => setDecisionClass(event.target.value)} className={select} aria-label="Decision class">

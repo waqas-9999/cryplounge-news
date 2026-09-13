@@ -51,11 +51,15 @@ export class NewsroomRecoveryController {
   @ApiQuery({ name: 'window', required: false, enum: Object.keys(PIPELINE_WINDOWS) })
   @ApiOperation({ summary: 'Story states, refusals by class, queue and editorial health, and the main bottleneck' })
   async health(@Query('window') window?: string) {
-    const [health, pendingRecoveries] = await Promise.all([
-      this.reader.health(windowOf(window, '24h')),
+    const key = windowOf(window, '24h');
+    // Source access comes from the CMS's own telemetry table, so it is shown
+    // even when the newsroom database cannot be read.
+    const [health, pendingRecoveries, sourceAccess] = await Promise.all([
+      this.reader.health(key),
       this.prisma.newsroomRecoveryRequest.count({ where: { status: 'PENDING' } }),
+      this.recovery.sourceAccess(PIPELINE_WINDOWS[key]),
     ]);
-    return { ...health, pendingRecoveries };
+    return { ...health, pendingRecoveries, sourceAccess };
   }
 
   @Get('decisions')

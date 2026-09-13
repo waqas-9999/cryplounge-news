@@ -96,7 +96,13 @@ export function recoveryAssist(input: AssistInput): AssistResult {
       factors.push('The AI editor refused the draft (+5)');
       break;
     case 'RESEARCH':
-      factors.push('Research could not establish the story (+0)');
+      if (input.stateCode === 'SOURCE_BLOCKED') {
+        // The publisher refused the page; nothing was concluded about the story.
+        score += 10;
+        factors.push('The lead publisher refused the page; the story itself was not judged (+10)');
+      } else {
+        factors.push('Research could not establish the story (+0)');
+      }
       break;
     default:
       break;
