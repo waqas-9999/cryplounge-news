@@ -116,53 +116,59 @@ model Tag {
 }
 
 model Article {
-  id              String           @id @default(cuid())
-  slug            String           @unique
-  title           String
-  summary         String
-  content         String
-  status          ContentStatus    @default(DRAFT)
-  publishedAt     DateTime?
+  id               String           @id @default(cuid())
+  slug             String           @unique
+  title            String
+  summary          String
+  content          String
+  status           ContentStatus    @default(DRAFT)
+  publishedAt      DateTime?
   /// Set when status is SCHEDULED; a job publishes at this time.
-  scheduledFor    DateTime?
-  featured        Boolean          @default(false)
-  pinned          Boolean          @default(false)
+  scheduledFor     DateTime?
+  featured         Boolean          @default(false)
+  pinned           Boolean          @default(false)
   /// Manual ordering within a listing; higher sorts first.
-  priority        Int              @default(0)
-  readMinutes     Int              @default(3)
-  categoryId      String?
-  authorId        String?
-  createdById     String?
-  featuredImageId String?
-  seoTitle        String?
-  seoDescription  String?
-  canonicalUrl    String?
-  noindex         Boolean          @default(false)
+  priority         Int              @default(0)
+  readMinutes      Int              @default(3)
+  categoryId       String?
+  authorId         String?
+  createdById      String?
+  /// The AI agent that filed this article, when one did. The authoritative
+  /// agent-origin marker: `createdById IS NULL` is not (it is SetNull on user
+  /// deletion). Null must be treated as "not agent-filed".
+  createdByAgentId String?
+  featuredImageId  String?
+  seoTitle         String?
+  seoDescription   String?
+  canonicalUrl     String?
+  noindex          Boolean          @default(false)
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
-  deletedAt       DateTime?
-  deletedById     String?
-  updatedById     String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  author          Author?          @relation(fields: [authorId], references: [id])
-  category        Category?        @relation(fields: [categoryId], references: [id])
-  createdBy       User?            @relation("ArticleCreatedBy", fields: [createdById], references: [id])
-  featuredImage   Media?           @relation(fields: [featuredImageId], references: [id])
-  versions        ArticleVersion[]
-  visuals         ArticleVisual[]
-  events          Event[]          @relation("ArticleToEvent")
-  founders        Founder[]        @relation("ArticleToFounder")
-  labels          Label[]          @relation("ArticleToLabel")
-  projects        Project[]        @relation("ArticleToProject")
-  regulations     Regulation[]     @relation("ArticleToRegulation")
-  research        Research[]       @relation("ArticleToResearch")
-  tags            Tag[]            @relation("ArticleToTag")
+  deletedAt        DateTime?
+  deletedById      String?
+  updatedById      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  author           Author?          @relation(fields: [authorId], references: [id])
+  category         Category?        @relation(fields: [categoryId], references: [id])
+  createdBy        User?            @relation("ArticleCreatedBy", fields: [createdById], references: [id])
+  createdByAgent   AiAgent?         @relation("ArticleCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
+  featuredImage    Media?           @relation(fields: [featuredImageId], references: [id])
+  versions         ArticleVersion[]
+  visuals          ArticleVisual[]
+  events           Event[]          @relation("ArticleToEvent")
+  founders         Founder[]        @relation("ArticleToFounder")
+  labels           Label[]          @relation("ArticleToLabel")
+  projects         Project[]        @relation("ArticleToProject")
+  regulations      Regulation[]     @relation("ArticleToRegulation")
+  research         Research[]       @relation("ArticleToResearch")
+  tags             Tag[]            @relation("ArticleToTag")
 
   @@index([status, publishedAt])
   @@index([categoryId])
   @@index([featured])
   @@index([deletedAt])
+  @@index([createdByAgentId, status])
 }
 
 /// Immutable snapshot taken on each save, powering version history.
@@ -534,6 +540,8 @@ model Media {
   title                 String?
   folder                String             @default("/")
   uploadedById          String?
+  /// The AI agent that uploaded this file, when one did. Not backfilled.
+  uploadedByAgentId     String?
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
   deletedAt             DateTime?
@@ -567,6 +575,7 @@ model Media {
   eventBanners          Event[]
   founderPhotos         Founder[]
   uploadedBy            User?              @relation(fields: [uploadedById], references: [id])
+  uploadedByAgent       AiAgent?           @relation("MediaUploadedByAgent", fields: [uploadedByAgentId], references: [id], onDelete: SetNull)
   organizerLogos        Organizer[]
   projectCovers         Project[]          @relation("ProjectCover")
   projectLogos          Project[]          @relation("ProjectLogo")
@@ -574,6 +583,7 @@ model Media {
 
   @@index([folder])
   @@index([generatedForArticleId, createdAt(sort: Desc)])
+  @@index([uploadedByAgentId])
 }
 
 /// Key/value store for site settings. A row per setting keeps the admin
@@ -793,6 +803,8 @@ model AiAgent {
   idempotencyKeys    AgentIdempotencyKey[]
   requests           AgentRequestLog[]
   webhooks           Webhook[]
+  articles           Article[]             @relation("ArticleCreatedByAgent")
+  uploads            Media[]               @relation("MediaUploadedByAgent")
 
   @@index([isActive])
 }
@@ -1161,4 +1173,69 @@ enum NewsletterCampaignStatus {
 enum NewsletterRecipientType {
   ALL_ACTIVE
   SELECTED
+}
+
+/// One operational event from the autonomous newsroom.
+///
+/// Telemetry only. Every editorial record — NewsCluster, ResearchReport,
+/// ArticleDraft, AIJob — lives in the newsroom's own database and is referenced
+/// here by id, never copied. This table exists so an editor can see what the
+/// newsroom is doing; it is not a second copy of what the newsroom knows.
+///
+/// Written by the newsroom agent through POST /api/v1/agents/telemetry and read
+/// by the admin dashboard. Retained for 7 days by NewsroomTelemetryCleanupTask:
+/// at roughly 350 events per ten-minute cycle this table turns over about
+/// 58,000 rows a day, so it is the one table in this schema that must not keep
+/// everything.
+model NewsroomEvent {
+  /// Supplied by the newsroom, not generated here.
+  ///
+  /// This is the idempotency mechanism. The newsroom assigns the id once, when
+  /// the event enters its delivery buffer, and reuses it on every retry — so a
+  /// redelivered batch collides on the primary key and is skipped. No second
+  /// unique constraint to keep in sync.
+  id String @id @default(cuid())
+
+  /// Event name from the newsroom's own taxonomy, e.g. RESEARCH_STARTED,
+  /// ARTICLE_REJECTED, CYCLE_COMPLETE. Deliberately a string rather than an
+  /// enum: the newsroom owns the vocabulary and must be able to add an event
+  /// without a CMS migration.
+  type String
+
+  /// Correlates every event in one newsroom run.
+  workflowId String?
+  /// The story this concerns, in the newsroom's database.
+  clusterId  String?
+  /// The CMS article, once one exists.
+  articleId  String?
+
+  stage  String?
+  status String?
+  /// Publisher domain, for source-level events.
+  source String?
+  /// Model that did the work, e.g. nvidia/nemotron-3-super-120b-a12b.
+  model  String?
+
+  /// Stage duration, where the newsroom measured one.
+  durationMs Int?
+
+  /// Counts, reasons and scores. Size-capped on ingest.
+  metadata Json?
+
+  /// When the newsroom observed the event.
+  ///
+  /// Separate from `createdAt` because delivery is batched and retried, so
+  /// insert order does not preserve event order. Timelines sort on this.
+  occurredAt DateTime
+  /// When the CMS stored it. The canonical timestamp for retention.
+  createdAt  DateTime @default(now())
+
+  /// Retention sweep, and the default "latest events" read.
+  @@index([createdAt])
+  /// Activity-stream filters by event kind.
+  @@index([type, createdAt])
+  /// Every event of one cycle, in order.
+  @@index([workflowId, createdAt])
+  /// One story's journey, for the cluster inspector.
+  @@index([clusterId, createdAt])
 }
