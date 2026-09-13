@@ -10,7 +10,7 @@
  */
 
 import { memo, useEffect, useState } from 'react';
-import { ArrowUpRight, ChevronRight, Menu, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { ArrowUpRight, ChevronRight, Maximize2, Menu, Minimize2, Pause, Play, RotateCcw, X } from 'lucide-react';
 import {
   ACTIVE_STAGES,
   INTEL_WINDOWS,
@@ -85,6 +85,8 @@ export const CommandBar = memo(function CommandBar({
   onPause,
   mock,
   onMenu,
+  fullscreen,
+  onFullscreen,
 }: {
   snapshot: IntelSnapshot | null;
   connection: FeedConnection;
@@ -95,6 +97,8 @@ export const CommandBar = memo(function CommandBar({
   onPause: () => void;
   mock: boolean;
   onMenu: () => void;
+  fullscreen: boolean;
+  onFullscreen: () => void;
 }) {
   const conn = CONNECTION_COPY[connection];
   const totals = snapshot?.totals;
@@ -108,7 +112,7 @@ export const CommandBar = memo(function CommandBar({
 
   return (
     <header className="relative z-20 flex h-12 shrink-0 items-center gap-4 border-b border-white/[0.06] bg-[#08090B] px-3 sm:px-4">
-      <button type="button" onClick={onMenu} className="rounded p-1.5 text-[#8B929C] hover:text-[#E8EAED] md:hidden" aria-label="Open navigation">
+      <button type="button" onClick={onMenu} className={`rounded p-1.5 text-[#8B929C] hover:text-[#E8EAED] md:hidden ${fullscreen ? 'hidden' : ''}`} aria-label="Open navigation">
         <Menu className="h-4 w-4" />
       </button>
 
@@ -165,6 +169,16 @@ export const CommandBar = memo(function CommandBar({
         >
           {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
           {paused ? 'Resume' : 'Pause'}
+        </button>
+        <button
+          type="button"
+          onClick={onFullscreen}
+          aria-pressed={fullscreen}
+          aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
+          title={fullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
+          className="flex h-7 w-7 items-center justify-center rounded border border-white/[0.08] text-[#C9CDD3] transition-colors duration-150 hover:border-white/20 hover:text-white"
+        >
+          {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
         </button>
         <div role="radiogroup" aria-label="Time window" className="flex h-7 items-center rounded border border-white/[0.08] p-0.5">
           {INTEL_WINDOWS.map(key => (

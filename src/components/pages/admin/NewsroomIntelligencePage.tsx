@@ -99,6 +99,37 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
 
   const [paused, setPaused] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  /*
+   * Full screen.
+   *
+   * Uses the browser Fullscreen API on the page root, so the globe owns the
+   * whole display. Where the API is unavailable or refused (iOS Safari, an
+   * embedded frame), the page still expands to fill the window with the
+   * sidebar hidden — the same layout, minus the browser chrome.
+   */
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (fullscreen) {
+      setFullscreen(false);
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    setFullscreen(true);
+    setMobileOpen(false);
+    await rootRef.current?.requestFullscreen?.().catch(() => undefined);
+  }, [fullscreen]);
+
+  useEffect(() => {
+    // The browser's own exit (Esc, F11, system gesture) must restore the layout.
+    const onChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [hover, setHover] = useState<{ node: GlobeNode; x: number; y: number } | null>(null);
   const globe = useRef<GlobeHandle>(null);
@@ -235,11 +266,15 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelection(null);
+      if (event.key !== 'Escape') return;
+      // Close the panel first; a second Esc leaves the window-filling fallback.
+      // Native fullscreen handles its own Esc and reports it via fullscreenchange.
+      if (selection) setSelection(null);
+      else if (!document.fullscreenElement) setFullscreen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [selection]);
 
   // A selection that no longer exists in the data closes rather than lying.
   useEffect(() => {
@@ -280,10 +315,12 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
 
   return (
     // Scoped to .dark so the shared admin sidebar uses its own dark styling here.
-    <div className="dark flex h-dvh bg-[#07080A]">
-      <AdminSidebar currentPage={currentPage} onNavigate={onNavigate} onLogout={onLogout} isMobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+    <div ref={rootRef} className={`dark flex bg-[#07080A] ${fullscreen ? 'fixed inset-0 z-[70] h-dvh w-screen' : 'h-dvh'}`}>
+      {!fullscreen && (
+        <AdminSidebar currentPage={currentPage} onNavigate={onNavigate} onLogout={onLogout} isMobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      )}
 
-      <main ref={mainRef} className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-[#07080A] text-[#E8EAED] antialiased md:ml-64">
+      <main ref={mainRef} className={`relative flex min-w-0 flex-1 flex-col overflow-hidden bg-[#07080A] text-[#E8EAED] antialiased ${fullscreen ? '' : 'md:ml-64'}`}>
         <CommandBar
           snapshot={snapshot}
           connection={feed.connection}
@@ -294,6 +331,8 @@ export function NewsroomIntelligencePage({ currentPage, onNavigate, onLogout }: 
           onPause={() => setPaused(p => !p)}
           mock={feed.mock}
           onMenu={() => setMobileOpen(true)}
+          fullscreen={fullscreen}
+          onFullscreen={() => void toggleFullscreen()}
         />
 
         <div className="relative min-h-0 flex-1">
