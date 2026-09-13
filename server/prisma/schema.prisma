@@ -1239,3 +1239,81 @@ model NewsroomEvent {
   /// One story's journey, for the cluster inspector.
   @@index([clusterId, createdAt])
 }
+
+/// What an editor asked the newsroom to do with a story it held back.
+enum NewsroomRecoveryAction {
+  /// Run the story through research and the full pipeline again.
+  ADVANCE_TO_RESEARCH
+  /// Run the pipeline again with a fresh, bounded editorial rewrite budget.
+  REQUIRE_REWRITE
+  /// Re-arm a failed, stalled or retryable job with one more attempt.
+  RETRY
+  /// A hard rejection: the newsroom stops considering the story.
+  DISMISS
+}
+
+/// Where a recovery request is. Only the newsroom moves it past PENDING.
+enum NewsroomRecoveryStatus {
+  PENDING
+  QUEUED
+  APPLIED
+  REJECTED
+}
+
+/// An editor's decision about a story the newsroom refused, awaiting the newsroom.
+///
+/// The CMS reads the newsroom database with a read-only role and must never
+/// write to it. So a decision is recorded here, with its audit entry, and the
+/// newsroom collects it through GET /api/v1/agents/newsroom/recoveries, applies
+/// it to its own database and acknowledges.
+///
+/// No action publishes, files or approves anything. The strongest outcome is
+/// that the story runs through research, writing, the AI editor, fact check,
+/// originality and every submission gate again, exactly like any other story.
+///
+/// Snapshot fields (previousState, originalReason, ...) are copied when the
+/// request is made, so the record still says what the editor was looking at
+/// after the newsroom's own row has moved on.
+model NewsroomRecoveryRequest {
+  id        String                 @id @default(cuid())
+  /// The story, in the newsroom's database. A reference, never a foreign key.
+  clusterId String
+  action    NewsroomRecoveryAction
+  status    NewsroomRecoveryStatus @default(PENDING)
+
+  /// Why the editor overrode the newsroom. Required.
+  reason String  @db.Text
+  note   String? @db.Text
+
+  /// The story's state when the editor acted, as the newsroom recorded it.
+  previousState     String?
+  previousStateCode String?
+  decisionClass     String?
+  /// The newsroom's own reason for holding the story back.
+  originalReason    String? @db.Text
+  /// The state this request asks for: RESEARCH_QUEUED or REJECTED.
+  requestedState    String
+  pipelineVersion   String?
+  storyTitle        String?
+
+  requestedById    String?
+  /// Denormalised so the record survives account deletion, as in AuditLog.
+  requestedByEmail String?
+
+  /// Client-supplied or derived; a repeated submission returns the first request.
+  idempotencyKey String @unique
+
+  /// Filled by the newsroom's acknowledgement.
+  ackDetail      String?   @db.Text
+  jobId          String?
+  acknowledgedAt DateTime?
+  acknowledgedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The newsroom's pull: pending requests, oldest first.
+  @@index([status, createdAt])
+  /// One story's override history, for the inspector.
+  @@index([clusterId, createdAt])
+}

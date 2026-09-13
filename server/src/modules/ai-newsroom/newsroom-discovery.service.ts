@@ -64,6 +64,15 @@ export interface DiscoveryStory {
   detectionDelayMinutes: number | null;
   status: string;
   statusReasons: string[];
+  /** Stable machine code for the outcome, e.g. EDITOR_REJECTED, CMS_UNAVAILABLE. */
+  outcomeCode: string | null;
+  /** DISCOVERY | RESEARCH | WRITING | EDITORIAL | SYSTEM, where the newsroom recorded one. */
+  decisionClass: string | null;
+  /** False only for a hard rejection. Null on records older than the field. */
+  recoverable: boolean | null;
+  retryable: boolean | null;
+  /** When the outcome was recorded; null on records older than the field. */
+  outcomeAt: string | null;
   cmsArticleId: string | null;
   recordedAt: string;
 }
@@ -125,6 +134,16 @@ export class NewsroomDiscoveryService implements OnModuleDestroy {
 
     this.client ??= new PrismaClient({ datasources: { db: { url } } });
     return this.client;
+  }
+
+  /**
+   * The same read-only connection, for the pipeline inspector.
+   *
+   * Shared rather than opened twice, so the newsroom database sees one pool
+   * from the CMS. Null when AI_DATABASE_URL is not configured.
+   */
+  readOnlyClient(): PrismaClient | null {
+    return this.connection();
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -237,6 +256,29 @@ export class NewsroomDiscoveryService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * The latest discovery record for each of these clusters, parsed exactly as
+   * `list` parses them. Missing clusters are simply absent from the map.
+   */
+  async storiesForClusters(clusterIds: string[]): Promise<Map<string, DiscoveryStory>> {
+    const found = new Map<string, DiscoveryStory>();
+    const client = this.connection();
+    if (!client || clusterIds.length === 0) return found;
+
+    const rows = await client.$queryRaw<{ clusterId: string | null; result: unknown; createdAt: Date }[]>`
+      SELECT DISTINCT ON ("clusterId") "clusterId", "result", "createdAt"
+      FROM "AIJob"
+      WHERE "workflow" = ${DISCOVERY_WORKFLOW}
+        AND "clusterId" = ANY(${clusterIds.slice(0, 500)})
+      ORDER BY "clusterId", "createdAt" DESC
+    `;
+    for (const row of rows) {
+      const story = this.toStory(row);
+      if (story) found.set(story.clusterId, story);
+    }
+    return found;
+  }
+
   /** Distinct source domains and categories, for the filter dropdowns. */
   async facets(): Promise<{ sources: string[]; categories: string[] }> {
     const { items } = await this.list({ perPage: 100, withinMinutes: 7 * 24 * 60 });
@@ -302,6 +344,11 @@ export class NewsroomDiscoveryService implements OnModuleDestroy {
       detectionDelayMinutes,
       status: String(result.outcome ?? 'DISCOVERED'),
       statusReasons: Array.isArray(result.outcomeReasons) ? result.outcomeReasons.map(String) : [],
+      outcomeCode: typeof result.outcomeCode === 'string' ? result.outcomeCode : null,
+      decisionClass: typeof result.decisionClass === 'string' ? result.decisionClass : null,
+      recoverable: typeof result.recoverable === 'boolean' ? result.recoverable : null,
+      retryable: typeof result.retryable === 'boolean' ? result.retryable : null,
+      outcomeAt: typeof result.outcomeAt === 'string' ? result.outcomeAt : null,
       cmsArticleId: result.cmsArticleId ? String(result.cmsArticleId) : null,
       recordedAt: row.createdAt.toISOString(),
     };

@@ -23,7 +23,7 @@ export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 export const ACTIVE_STAGES: readonly PipelineStage[] = ['DISCOVERED', 'RESEARCH', 'VERIFICATION', 'IMAGE', 'FILING'];
 
 export type NewsRegion = 'AMERICAS' | 'EUROPE' | 'MIDDLE_EAST' | 'ASIA' | 'OTHER';
-export type RejectionPoint = 'DISCOVERY' | 'RESEARCH' | 'WRITING' | 'VERIFICATION' | 'FILING';
+export type RejectionPoint = 'DISCOVERY' | 'RESEARCH' | 'WRITING' | 'EDITORIAL' | 'VERIFICATION' | 'FILING';
 export type RejectionKind =
   | 'DUPLICATE'
   | 'OFF_TOPIC'
@@ -34,6 +34,8 @@ export type RejectionKind =
   | 'ORIGINALITY'
   | 'WRITING_ERROR'
   | 'FILING_ERROR'
+  | 'EDITORIAL'
+  | 'SYSTEM_ERROR'
   | 'OTHER';
 
 export interface PublisherBase {
@@ -51,7 +53,16 @@ export interface IntelStory {
   category: string | null;
   score: number | null;
   stage: PipelineStage;
-  rejection: { at: RejectionPoint; kind: RejectionKind; reasons: string[]; occurredAt: string } | null;
+  rejection: {
+    at: RejectionPoint;
+    kind: RejectionKind;
+    reasons: string[];
+    occurredAt: string;
+    /** The newsroom's own classification; absent from older snapshots, null on older records. */
+    code?: string | null;
+    decisionClass?: string | null;
+    recoverable?: boolean | null;
+  } | null;
   heldReasons: string[];
   leadDomain: string | null;
   sourceDomains: string[];
@@ -101,6 +112,8 @@ export interface IntelSnapshot {
     drafts: number;
     published: number;
     rejected: number;
+    rejectedByClass?: Record<string, number>;
+    recoverable?: number;
     held: number;
     unmapped: number;
     clustersFormed: number;
@@ -151,6 +164,8 @@ export const REJECTION_LABEL: Record<RejectionKind, string> = {
   ORIGINALITY: 'Too close to source wording',
   WRITING_ERROR: 'Writing step errored',
   FILING_ERROR: 'Filing to the CMS failed',
+  EDITORIAL: 'AI editor refused after rewrites',
+  SYSTEM_ERROR: 'System error — retryable, not an editorial decision',
   OTHER: 'Publication gate refused it',
 };
 
@@ -158,6 +173,7 @@ export const REJECTION_POINT_LABEL: Record<RejectionPoint, string> = {
   DISCOVERY: 'Discovery',
   RESEARCH: 'Research',
   WRITING: 'Writing',
+  EDITORIAL: 'AI editor',
   VERIFICATION: 'Fact check · Quality',
   FILING: 'Filing',
 };

@@ -56,6 +56,11 @@ function record(over: Partial<DiscoveryStory> = {}): DiscoveryStory {
     detectionDelayMinutes: null,
     status: 'DISCOVERED',
     statusReasons: [],
+    outcomeCode: null,
+    decisionClass: null,
+    recoverable: null,
+    retryable: null,
+    outcomeAt: null,
     cmsArticleId: null,
     recordedAt: new Date(NOW.getTime() - 20 * 60_000).toISOString(),
     ...over,
@@ -122,6 +127,85 @@ describe('rejections are inspectable', () => {
     expect(classifyReasons(['quality score 60 below 85'])).toBe('QUALITY');
     expect(classifyReasons(['reproduced source wording'])).toBe('ORIGINALITY');
     expect(classifyReasons(['something else'])).toBe('OTHER');
+  });
+});
+
+describe('refusals are not one undifferentiated "rejected" figure', () => {
+  it('an editorial rewrite keeps the story in progress', () => {
+    const result = snapshot([
+      event('RESEARCH_STARTED', {}, 9),
+      event('REWRITE_REQUIRED', { metadata: { reasons: ['1 unsupported claim(s)'] } }, 6),
+      event('REWRITE_STARTED', {}, 5),
+    ]);
+    expect(result.stories[0]!.stage).toBe('VERIFICATION');
+    expect(result.stories[0]!.rejection).toBeNull();
+    expect(result.totals.rejected).toBe(0);
+  });
+
+  it('labels an editor refusal as editorial, with its code and recoverability', () => {
+    const result = snapshot([
+      event(
+        'ARTICLE_REJECTED',
+        { metadata: { reasons: ['editor verdict REJECT'], code: 'REWRITES_EXHAUSTED', decisionClass: 'EDITORIAL', recoverable: true } },
+        3
+      ),
+    ]);
+    expect(result.stories[0]!.rejection).toMatchObject({
+      at: 'EDITORIAL',
+      kind: 'EDITORIAL',
+      code: 'REWRITES_EXHAUSTED',
+      decisionClass: 'EDITORIAL',
+      recoverable: true,
+    });
+    expect(result.totals.rejectedByClass).toEqual({ EDITORIAL: 1 });
+    expect(result.totals.recoverable).toBe(1);
+  });
+
+  it('an unreadable editor response is a system error, never an editorial judgement', () => {
+    const story = snapshot([event('EDITOR_RESPONSE_INVALID', { metadata: { reasons: ['verdict missing'] } }, 2)]).stories[0]!;
+    expect(story.rejection).toMatchObject({ kind: 'SYSTEM_ERROR', decisionClass: 'SYSTEM', recoverable: true });
+  });
+
+  it('a CMS outage is a filing error', () => {
+    const story = snapshot([], [record({ status: 'FAILED', outcomeCode: 'CMS_UNAVAILABLE', decisionClass: 'SYSTEM', statusReasons: ['503'] })])
+      .stories[0]!;
+    expect(story.rejection).toMatchObject({ at: 'FILING', kind: 'FILING_ERROR', code: 'CMS_UNAVAILABLE' });
+  });
+
+  it('a story skipped before research is held, not rejected', () => {
+    const story = snapshot([], [record({ status: 'SKIPPED', outcomeCode: 'DAILY_CAP', statusReasons: ['daily cap reached'] })]).stories[0]!;
+    expect(story.stage).toBe('HELD');
+    expect(story.heldReasons).toEqual(['daily cap reached']);
+  });
+
+  it('older records without a class keep their reason-wording classification', () => {
+    const story = snapshot([], [record({ status: 'REJECTED', statusReasons: ['originality 5 below 50'] })]).stories[0]!;
+    expect(story.rejection).toMatchObject({ at: 'VERIFICATION', kind: 'ORIGINALITY', decisionClass: null });
+  });
+});
+
+describe('recovered stories', () => {
+  it('an editor recovery reopens a rejected story, and the new run is what is shown', () => {
+    const result = snapshot(
+      [
+        event('ARTICLE_REJECTED', { metadata: { reasons: ['editor verdict REJECT'], decisionClass: 'EDITORIAL' } }, 30),
+        event('HUMAN_OVERRIDE', { metadata: { action: 'ADVANCE_TO_RESEARCH', reasons: ['primary source'] } }, 10),
+        event('RESEARCH_STARTED', {}, 8),
+      ],
+      [record({ status: 'EDITOR_REJECTED', decisionClass: 'EDITORIAL', outcomeAt: new Date(NOW.getTime() - 30 * 60_000).toISOString() })]
+    );
+    const story = result.stories[0]!;
+    expect(story.stage).toBe('RESEARCH');
+    expect(story.rejection).toBeNull();
+    expect(story.timeline.map(item => item.label)).toContain('Editor override');
+  });
+
+  it('a dismissal is final', () => {
+    const story = snapshot([
+      event('ARTICLE_REJECTED', { metadata: { reasons: ['x'], decisionClass: 'EDITORIAL' } }, 30),
+      event('HUMAN_OVERRIDE', { metadata: { action: 'DISMISS', reasons: ['promotional'] } }, 10),
+    ]).stories[0]!;
+    expect(story.rejection).toMatchObject({ code: 'EDITOR_DISMISSED', recoverable: false });
   });
 });
 

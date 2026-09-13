@@ -788,7 +788,28 @@ export function IntelPanel({
                   <dt className="text-[9px] uppercase tracking-[0.1em] text-[#8B929C]">Time</dt>
                   <dd className={`${MONO} text-[11px] text-[#E8EAED]`}>{clockTime(story.rejection.occurredAt)}</dd>
                 </div>
+                {story.rejection.decisionClass && (
+                  <div>
+                    <dt className="text-[9px] uppercase tracking-[0.1em] text-[#8B929C]">Decision</dt>
+                    <dd className={`${MONO} text-[11px] text-[#E8EAED]`}>
+                      {story.rejection.decisionClass}
+                      {story.rejection.code ? ` · ${story.rejection.code}` : ''}
+                    </dd>
+                  </div>
+                )}
+                {typeof story.rejection.recoverable === 'boolean' && (
+                  <div>
+                    <dt className="text-[9px] uppercase tracking-[0.1em] text-[#8B929C]">Recoverable</dt>
+                    <dd className="text-[11px] text-[#E8EAED]">{story.rejection.recoverable ? 'Yes' : 'Hard rejection'}</dd>
+                  </div>
+                )}
               </dl>
+              <a
+                href={`/admin/newsroom-recovery?story=${encodeURIComponent(story.clusterId)}`}
+                className="mt-2 inline-block text-[11px] text-[#6E9BF5] underline-offset-2 hover:underline"
+              >
+                Inspect evidence and recovery options
+              </a>
             </section>
           )}
 

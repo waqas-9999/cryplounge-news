@@ -77,6 +77,21 @@ export const PERMISSIONS: PermissionDefinition[] = [
     module: 'AI Newsroom',
     description: 'View AI newsroom automation status and run history',
   },
+  /**
+   * Review what the newsroom held back, and ask it to look again.
+   *
+   * Editorial, not operational: it can re-run a refused story through the full
+   * pipeline, retry a failed job, or drop a story. It cannot publish, approve,
+   * or touch automation — a recovered story passes every gate again and ends
+   * at most as a draft. Production gets the row from migration
+   * `20260913130100_add_newsroom_review_permission`. Never on the agent
+   * allow-list: an agent must not be able to override its own editor.
+   */
+  {
+    key: 'ai.newsroom.review',
+    module: 'AI Newsroom',
+    description: 'Review stories the AI newsroom held back and request recovery',
+  },
 ];
 
 function contentPermissions(prefix: string, module: string, noun: string): PermissionDefinition[] {
@@ -152,6 +167,7 @@ export const ROLES: RoleDefinitionSeed[] = [
       // what it published; only a super admin can switch it on.
       // `ai.automation.manage` is intentionally absent here.
       'ai.automation.read',
+      'ai.newsroom.review',
     ],
   },
   {
@@ -175,6 +191,8 @@ export const ROLES: RoleDefinitionSeed[] = [
       'contact.manage',
       'newsletter.read',
       'newsletter.manage',
+      // Deciding whether a refused story deserves another look is editorial work.
+      'ai.newsroom.review',
     ],
   },
   {

@@ -13,6 +13,8 @@ import { CurrentAgent } from './decorators/current-agent.decorator';
 import { SubmitArticleDto } from './dto/submit-article.dto';
 import { AgentAuthGuard } from './guards/agent-auth.guard';
 import { AutoPublishService, type PublishGateEvidence } from '../ai-newsroom/auto-publish.service';
+import { NewsroomRecoveryService } from '../ai-newsroom/newsroom-recovery.service';
+import { AcknowledgeRecoveryDto } from '../ai-newsroom/dto/newsroom-recovery.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 /**
@@ -32,8 +34,58 @@ export class AgentSubmissionController {
     private readonly autoPublish: AutoPublishService,
     private readonly idempotency: IdempotencyService,
     private readonly automation: AiNewsroomService,
-    private readonly telemetry: NewsroomTelemetryService
+    private readonly telemetry: NewsroomTelemetryService,
+    private readonly recoveries: NewsroomRecoveryService
   ) {}
+
+  /**
+   * Editor recovery requests waiting for the newsroom, oldest first.
+   *
+   * Why the newsroom pulls: the CMS reads the newsroom database with a
+   * read-only role and must never write to it, so an editor's decision is
+   * stored here and the newsroom applies it to its own database.
+   *
+   * Requires `news.create`, which the newsroom already holds, rather than a new
+   * permission: the strongest outcome of any recovery is that the story runs
+   * through every gate again and is filed as a draft — exactly what
+   * `news.create` already covers. The response carries no editor identity.
+   */
+  @Get('newsroom/recoveries')
+  @ResponseMessage('Pending recovery requests')
+  @ApiOperation({ summary: 'Editor recovery requests for the newsroom to apply. Read-only.' })
+  async pendingRecoveries(@CurrentAgent() agent: AgentContext) {
+    this.assertCanFile(agent);
+    return this.recoveries.pendingForNewsroom();
+  }
+
+  /**
+   * The newsroom reports what it did with a request. Idempotent: a repeat with
+   * the same outcome returns the stored request, and only a PENDING request
+   * can be settled.
+   */
+  @Post('newsroom/recoveries/:id/ack')
+  @ResponseMessage('Recovery acknowledged')
+  @ApiHeader({ name: 'Idempotency-Key', required: false, description: 'Accepted for symmetry; acknowledgement is idempotent by request id.' })
+  @ApiOperation({ summary: 'Acknowledge a recovery request as queued, applied or rejected' })
+  async acknowledgeRecovery(
+    @Param('id') id: string,
+    @Body() dto: AcknowledgeRecoveryDto,
+    @CurrentAgent() agent: AgentContext,
+    @Req() request: Request
+  ) {
+    this.assertCanFile(agent);
+    readIdempotencyKey(request);
+    return this.recoveries.acknowledge(id, dto, agent.name);
+  }
+
+  private assertCanFile(agent: AgentContext): void {
+    if (!agent.permissions.includes('news.create')) {
+      throw new ForbiddenException({
+        message: 'This agent is not permitted to handle newsroom recovery requests',
+        code: 'FORBIDDEN',
+      });
+    }
+  }
 
   /**
    * The automation state an agent must obey.

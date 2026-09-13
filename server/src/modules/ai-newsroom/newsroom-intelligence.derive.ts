@@ -45,7 +45,7 @@ export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 export const ACTIVE_STAGES: readonly PipelineStage[] = ['DISCOVERED', 'RESEARCH', 'VERIFICATION', 'IMAGE', 'FILING'];
 
 /** Where a rejected story stopped. */
-export type RejectionPoint = 'DISCOVERY' | 'RESEARCH' | 'WRITING' | 'VERIFICATION' | 'FILING';
+export type RejectionPoint = 'DISCOVERY' | 'RESEARCH' | 'WRITING' | 'EDITORIAL' | 'VERIFICATION' | 'FILING';
 
 export type RejectionKind =
   | 'DUPLICATE'
@@ -57,7 +57,28 @@ export type RejectionKind =
   | 'ORIGINALITY'
   | 'WRITING_ERROR'
   | 'FILING_ERROR'
+  /** The AI editor refused the draft after its bounded rewrites. */
+  | 'EDITORIAL'
+  /**
+   * The system failed — an unreadable editor response, a timeout, a provider
+   * error. Retryable, and never an editorial judgement about the story.
+   */
+  | 'SYSTEM_ERROR'
   | 'OTHER';
+
+/**
+ * The newsroom's own classification of a refusal, where it recorded one.
+ *
+ * Carried alongside the kind so "Rejected" is never one undifferentiated
+ * number: an editorial refusal, a research gap and a provider timeout are
+ * different problems with different owners. Null on events and records
+ * written before the newsroom classified its decisions.
+ */
+export interface DecisionDetail {
+  code: string | null;
+  decisionClass: string | null;
+  recoverable: boolean | null;
+}
 
 export interface TelemetryRow {
   id: string;
@@ -81,7 +102,7 @@ export interface IntelStory {
   category: string | null;
   score: number | null;
   stage: PipelineStage;
-  rejection: { at: RejectionPoint; kind: RejectionKind; reasons: string[]; occurredAt: string } | null;
+  rejection: ({ at: RejectionPoint; kind: RejectionKind; reasons: string[]; occurredAt: string } & DecisionDetail) | null;
   heldReasons: string[];
   leadDomain: string | null;
   sourceDomains: string[];
@@ -143,6 +164,10 @@ export interface IntelSnapshot {
     drafts: number;
     published: number;
     rejected: number;
+    /** Rejected stories by the newsroom's decision class; UNCLASSIFIED for older records. */
+    rejectedByClass: Record<string, number>;
+    /** Rejected stories the newsroom marked recoverable. */
+    recoverable: number;
     held: number;
     unmapped: number;
     clustersFormed: number;
@@ -226,8 +251,62 @@ const TERMINAL = new Set<PipelineStage>(['DRAFT', 'PUBLISHED', 'HELD', 'REJECTED
 
 interface Transition {
   stage: PipelineStage;
-  rejection?: { at: RejectionPoint; kind: RejectionKind; reasons: string[] };
+  rejection?: { at: RejectionPoint; kind: RejectionKind; reasons: string[] } & Partial<DecisionDetail>;
   held?: string[];
+}
+
+function decisionOf(m: Record<string, unknown>, fallbackClass: string | null = null): DecisionDetail {
+  return {
+    code: typeof m.code === 'string' ? m.code : null,
+    decisionClass: typeof m.decisionClass === 'string' ? m.decisionClass : fallbackClass,
+    recoverable: typeof m.recoverable === 'boolean' ? m.recoverable : null,
+  };
+}
+
+/**
+ * Where a refusal the newsroom classified belongs on the board.
+ *
+ * Only for rows that carry a decision class; everything older keeps the
+ * reason-wording classification it always had.
+ */
+function classifiedRejection(
+  decision: DecisionDetail,
+  reasons: string[]
+): { at: RejectionPoint; kind: RejectionKind; reasons: string[] } & DecisionDetail {
+  switch (decision.decisionClass) {
+    case 'EDITORIAL':
+      return { at: 'EDITORIAL', kind: 'EDITORIAL', reasons, ...decision };
+    case 'SYSTEM':
+      if (decision.code?.startsWith('CMS_')) return { at: 'FILING', kind: 'FILING_ERROR', reasons, ...decision };
+      return {
+        at: decision.code === 'EDITOR_RESPONSE_INVALID' ? 'EDITORIAL' : 'WRITING',
+        kind: 'SYSTEM_ERROR',
+        reasons,
+        ...decision,
+      };
+    case 'WRITING': {
+      const kind = classifyReasons(reasons);
+      return { at: 'WRITING', kind: kind === 'OTHER' ? 'WRITING_ERROR' : kind, reasons, ...decision };
+    }
+    case 'RESEARCH':
+      return { at: 'RESEARCH', kind: 'RESEARCH', reasons, ...decision };
+    case 'DISCOVERY':
+      return { at: 'DISCOVERY', kind: 'WEAK_EVIDENCE', reasons, ...decision };
+    default:
+      return { at: 'VERIFICATION', kind: classifyReasons(reasons), reasons, ...decision };
+  }
+}
+
+/**
+ * Events after which a story is back in the pipeline.
+ *
+ * A recovery request from an editor, or a scheduled retry, deliberately undoes
+ * a terminal state — the one case where a story may move backwards. A
+ * dismissal is not a reopening.
+ */
+export function reopens(row: TelemetryRow): boolean {
+  if (row.type === 'JOB_RETRY' || row.type === 'JOB_RECOVERED') return true;
+  return row.type === 'HUMAN_OVERRIDE' && meta(row).action !== 'DISMISS';
 }
 
 /**
@@ -270,18 +349,60 @@ export function transitionFor(row: TelemetryRow): Transition | null {
     case 'PUBLICATION_SKIPPED':
       return { stage: 'HELD', held: reasonsOf(row) };
     case 'RESEARCH_FAILED':
-      return { stage: 'REJECTED', rejection: { at: 'RESEARCH', kind: 'RESEARCH', reasons: reasonsOf(row) } };
+      return {
+        stage: 'REJECTED',
+        rejection: { at: 'RESEARCH', kind: 'RESEARCH', reasons: reasonsOf(row), ...decisionOf(m, 'RESEARCH') },
+      };
+    case 'WRITING_COMPLETED':
+    case 'EDITOR_REVIEW_STARTED':
+    case 'EDITOR_PASSED':
+    case 'REWRITE_REQUIRED':
+    case 'REWRITE_STARTED':
+    case 'REWRITE_COMPLETED':
+      // A rewrite the editor asked for is the pipeline working, not a refusal.
+      return { stage: 'VERIFICATION' };
+    case 'EDITOR_REJECTED':
+      return { stage: 'REJECTED', rejection: classifiedRejection(decisionOf(m, 'EDITORIAL'), reasonsOf(row)) };
+    case 'EDITOR_RESPONSE_INVALID':
+      return {
+        stage: 'REJECTED',
+        rejection: classifiedRejection(
+          { code: 'EDITOR_RESPONSE_INVALID', decisionClass: 'SYSTEM', recoverable: true },
+          reasonsOf(row)
+        ),
+      };
+    case 'SELECTION_BLOCKED': {
+      const reasons = reasonsOf(row);
+      return { stage: 'HELD', held: reasons.length ? reasons : [typeof m.code === 'string' ? m.code : 'Not selected'] };
+    }
+    case 'HUMAN_OVERRIDE':
+      if (m.action !== 'DISMISS') return null;
+      return {
+        stage: 'REJECTED',
+        rejection: {
+          at: 'EDITORIAL',
+          kind: 'EDITORIAL',
+          reasons: reasonsOf(row),
+          code: 'EDITOR_DISMISSED',
+          decisionClass: 'EDITORIAL',
+          recoverable: false,
+        },
+      };
     case 'WRITING_FAILED':
       return {
         stage: 'REJECTED',
         rejection: {
           at: 'WRITING',
-          kind: 'WRITING_ERROR',
+          // A crash or timeout while writing is a system failure, when the newsroom says so.
+          kind: m.decisionClass === 'SYSTEM' ? 'SYSTEM_ERROR' : 'WRITING_ERROR',
           reasons: [typeof m.error === 'string' ? m.error : 'Writing failed'],
+          ...decisionOf(m),
         },
       };
     case 'ARTICLE_REJECTED': {
       const reasons = reasonsOf(row);
+      const decision = decisionOf(m);
+      if (decision.decisionClass) return { stage: 'REJECTED', rejection: classifiedRejection(decision, reasons) };
       return { stage: 'REJECTED', rejection: { at: 'VERIFICATION', kind: classifyReasons(reasons), reasons } };
     }
     default:
@@ -292,7 +413,29 @@ export function transitionFor(row: TelemetryRow): Transition | null {
 /** What a discovery record's final outcome says, for stories telemetry did not cover. */
 export function transitionForOutcome(story: DiscoveryStory): Transition {
   const reasons = story.statusReasons;
+  const decision: DecisionDetail = {
+    code: story.outcomeCode ?? null,
+    decisionClass: story.decisionClass ?? null,
+    recoverable: story.recoverable ?? null,
+  };
   switch (story.status) {
+    case 'SKIPPED':
+      // Stopped before research by a cap, a category setting or an unreachable CMS.
+      return { stage: 'HELD', held: reasons.length ? reasons : [decision.code ?? 'Not selected'] };
+    case 'EDITOR_REJECTED':
+      return { stage: 'REJECTED', rejection: classifiedRejection({ ...decision, decisionClass: 'EDITORIAL' }, reasons) };
+    case 'EDITOR_RESPONSE_INVALID':
+      return {
+        stage: 'REJECTED',
+        rejection: classifiedRejection({ ...decision, code: 'EDITOR_RESPONSE_INVALID', decisionClass: 'SYSTEM' }, reasons),
+      };
+    case 'WRITING_REJECTED':
+      return { stage: 'REJECTED', rejection: classifiedRejection({ ...decision, decisionClass: 'WRITING' }, reasons) };
+    case 'FAILED':
+      return {
+        stage: 'REJECTED',
+        rejection: classifiedRejection({ ...decision, decisionClass: decision.decisionClass ?? 'SYSTEM' }, reasons),
+      };
     case 'DUPLICATE':
       return { stage: 'REJECTED', rejection: { at: 'DISCOVERY', kind: 'DUPLICATE', reasons } };
     case 'OFF_TOPIC':
@@ -300,8 +443,9 @@ export function transitionForOutcome(story: DiscoveryStory): Transition {
     case 'WEAK_EVIDENCE':
       return { stage: 'REJECTED', rejection: { at: 'DISCOVERY', kind: 'WEAK_EVIDENCE', reasons } };
     case 'RESEARCH_FAILED':
-      return { stage: 'REJECTED', rejection: { at: 'RESEARCH', kind: 'RESEARCH', reasons } };
+      return { stage: 'REJECTED', rejection: { at: 'RESEARCH', kind: 'RESEARCH', reasons, ...decision } };
     case 'REJECTED':
+      if (decision.decisionClass) return { stage: 'REJECTED', rejection: classifiedRejection(decision, reasons) };
       return { stage: 'REJECTED', rejection: { at: 'VERIFICATION', kind: classifyReasons(reasons), reasons } };
     case 'NOT_SELECTED':
       return { stage: 'HELD', held: reasons };
@@ -324,6 +468,19 @@ const EVENT_LABELS: Record<string, { label: string; tone: EventTone }> = {
   RESEARCH_FAILED: { label: 'Research failed', tone: 'fail' },
   WRITING_FAILED: { label: 'Writing failed', tone: 'fail' },
   ARTICLE_REJECTED: { label: 'Rejected', tone: 'fail' },
+  WRITING_COMPLETED: { label: 'Draft written', tone: 'progress' },
+  EDITOR_REVIEW_STARTED: { label: 'Editor reviewing', tone: 'progress' },
+  EDITOR_PASSED: { label: 'Editor passed', tone: 'pass' },
+  REWRITE_REQUIRED: { label: 'Rewrite requested', tone: 'progress' },
+  REWRITE_STARTED: { label: 'Rewriting', tone: 'progress' },
+  REWRITE_COMPLETED: { label: 'Rewrite complete', tone: 'progress' },
+  EDITOR_REJECTED: { label: 'Editor refused', tone: 'fail' },
+  EDITOR_RESPONSE_INVALID: { label: 'Editor response unreadable', tone: 'system' },
+  SELECTION_BLOCKED: { label: 'Not selected', tone: 'system' },
+  HUMAN_OVERRIDE: { label: 'Editor override', tone: 'system' },
+  JOB_RETRY: { label: 'Retry scheduled', tone: 'system' },
+  JOB_STALLED: { label: 'Job stalled', tone: 'fail' },
+  JOB_RECOVERED: { label: 'Job requeued', tone: 'system' },
   CLUSTER_CREATED: { label: 'Clusters formed', tone: 'system' },
   NEWSROOM_CYCLE_STARTED: { label: 'Cycle started', tone: 'system' },
   NEWSROOM_CYCLE_COMPLETED: { label: 'Cycle completed', tone: 'system' },
@@ -366,6 +523,8 @@ export function buildSnapshot(input: {
     factCheckScore: number | null;
     qualityScore: number | null;
     rejectedAt: number | null;
+    /** Latest recovery or retry that put the story back into the pipeline. */
+    reopenedAt: number | null;
     title: string | null;
     model: string | null;
     rows: TelemetryRow[];
@@ -383,6 +542,7 @@ export function buildSnapshot(input: {
         factCheckScore: null,
         qualityScore: null,
         rejectedAt: null,
+        reopenedAt: null,
         title: null,
         model: null,
         rows: [],
@@ -406,6 +566,13 @@ export function buildSnapshot(input: {
     if (typeof m.title === 'string') draft.title = m.title;
     if (row.type === 'RESEARCH_STARTED' && row.model) draft.model = row.model;
     draft.rows.push(row);
+
+    if (reopens(row)) {
+      draft.fromEvents = { stage: 'DISCOVERED' };
+      draft.rejectedAt = null;
+      draft.reopenedAt = at;
+      continue;
+    }
 
     const next = transitionFor(row);
     if (!next) continue;
@@ -434,7 +601,11 @@ export function buildSnapshot(input: {
     // discovery record wins over a non-terminal telemetry stage, because
     // some events are filtered from delivery and the record is final.
     let chosen: Transition = draft.fromEvents ?? outcome ?? { stage: 'DISCOVERED' };
-    if (outcome && TERMINAL.has(outcome.stage) && !TERMINAL.has(chosen.stage)) chosen = outcome;
+    // Except when the story was reopened after that outcome was recorded: the
+    // record then describes the previous run, not the one in progress.
+    const outcomeAt = record?.outcomeAt ? new Date(record.outcomeAt).getTime() : null;
+    const outcomeIsStale = draft.reopenedAt !== null && (outcomeAt === null || outcomeAt < draft.reopenedAt);
+    if (outcome && TERMINAL.has(outcome.stage) && !TERMINAL.has(chosen.stage) && !outcomeIsStale) chosen = outcome;
 
     const domains = record ? [...new Set(record.sources.map(source => source.domain).filter(Boolean))] : [];
     const lead =
@@ -452,6 +623,9 @@ export function buildSnapshot(input: {
       rejection: chosen.rejection
         ? {
             ...chosen.rejection,
+            code: chosen.rejection.code ?? null,
+            decisionClass: chosen.rejection.decisionClass ?? null,
+            recoverable: chosen.rejection.recoverable ?? null,
             occurredAt: new Date(draft.rejectedAt ?? draft.lastActivity).toISOString(),
           }
         : null,
@@ -498,6 +672,13 @@ export function buildSnapshot(input: {
   /* ------------------------------------------------------------- totals -- */
   const stageCounts = Object.fromEntries(PIPELINE_STAGES.map(stage => [stage, 0])) as Record<PipelineStage, number>;
   for (const story of stories) stageCounts[story.stage] += 1;
+
+  const rejectedByClass: Record<string, number> = {};
+  for (const story of stories) {
+    if (!story.rejection) continue;
+    const key = story.rejection.decisionClass ?? 'UNCLASSIFIED';
+    rejectedByClass[key] = (rejectedByClass[key] ?? 0) + 1;
+  }
 
   const clustersFormed = events
     .filter(row => row.type === 'CLUSTER_CREATED')
@@ -571,6 +752,8 @@ export function buildSnapshot(input: {
       drafts: stageCounts.DRAFT,
       published: stageCounts.PUBLISHED,
       rejected: stageCounts.REJECTED,
+      rejectedByClass,
+      recoverable: stories.filter(story => story.rejection?.recoverable === true).length,
       held: stageCounts.HELD,
       unmapped,
       clustersFormed,

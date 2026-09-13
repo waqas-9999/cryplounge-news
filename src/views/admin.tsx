@@ -31,6 +31,7 @@ import { CampaignDetailPage } from '@/components/pages/admin/CampaignDetailPage'
 import { AnalyticsPage } from '@/components/pages/admin/AnalyticsPage';
 import { AiAutomationPage } from '@/components/pages/admin/AiAutomationPage';
 import { NewsroomIntelligencePage } from '@/components/pages/admin/NewsroomIntelligencePage';
+import { EditorialRecoveryPage } from '@/components/pages/admin/EditorialRecoveryPage';
 import { ArticleAnalyticsPage } from '@/components/pages/admin/ArticleAnalyticsPage';
 import { EventsAnalyticsPage } from '@/components/pages/admin/EventsAnalyticsPage';
 import { FoundersAnalyticsPage } from '@/components/pages/admin/FoundersAnalyticsPage';
@@ -173,6 +174,11 @@ export function AdminQualifiedNewsView() {
 /** Admin → All Discovered News. Everything, whatever it scored. */
 export function AdminAllDiscoveredNewsView() {
   return <AllDiscoveredNewsPage {...useAdminChrome()} />;
+}
+
+/** Admin → Editorial Recovery. Held-back stories, their evidence, and audited recovery. */
+export function AdminEditorialRecoveryView() {
+  return <EditorialRecoveryPage {...useAdminChrome()} />;
 }
 
 /** Admin → AI Automation. Super-admin controls for the AI newsroom. */
