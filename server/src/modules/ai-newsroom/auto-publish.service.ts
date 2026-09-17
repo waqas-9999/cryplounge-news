@@ -3,6 +3,7 @@ import { AuditAction, ContentStatus } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService } from '../content-core/audit.service';
 import { AiNewsroomService } from './ai-newsroom.service';
+import { originOf, PublicationGateService, type AgentIdentity } from './publication-gate.service';
 
 /**
  * Promoting an AI draft to a published article.
@@ -60,6 +61,15 @@ export interface PublishGateEvidence {
   duplicateChecked: boolean;
 }
 
+/**
+ * Who is asking for an automatic publication.
+ *
+ * An agent is held to `news.publish` and ownership of the article. An admin
+ * (a signed-in user holding `ai.automation.manage`, checked by the controller)
+ * may ask about any agent-created draft. Neither may skip the automation gate.
+ */
+export type PublicationRequester = { kind: 'AGENT'; agent: AgentIdentity } | { kind: 'ADMIN' };
+
 export interface PublishDecision {
   published: boolean;
   status: ContentStatus;
@@ -100,7 +110,8 @@ export class AutoPublishService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly newsroom: AiNewsroomService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly gate: PublicationGateService
   ) {}
 
   /**
@@ -110,31 +121,63 @@ export class AutoPublishService {
    * qualify is the expected outcome and must leave the draft in place,
    * untouched, for a human to review as before.
    */
-  async consider(articleId: string, evidence: PublishGateEvidence): Promise<PublishDecision> {
+  async consider(
+    articleId: string,
+    evidence: PublishGateEvidence,
+    requester: PublicationRequester
+  ): Promise<PublishDecision> {
     const reasons: string[] = [];
 
+    /* ----------------------------------------------- who is asking -- */
+    // Authority before anything else: an agent without `news.publish` learns
+    // nothing about the article or the automation state.
+    if (requester.kind === 'AGENT') this.gate.assertAgentMayPublish(requester.agent);
+
+    const article = await this.prisma.article.findUnique({
+      where: { id: articleId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        content: true,
+        categoryId: true,
+        createdById: true,
+        createdByAgentId: true,
+        category: { select: { slug: true } },
+        featuredImage: { select: { id: true, mimeType: true, size: true } },
+      },
+    });
+
+    if (!article) {
+      throw new BadRequestException({ message: 'Article not found', code: 'NOT_FOUND' });
+    }
+
+    // An agent may only ask about an article it created itself: not a human's
+    // draft, not another agent's, not one whose creator was never recorded.
+    if (requester.kind === 'AGENT') this.gate.assertAgentOwns(requester.agent, article);
+
     /* ------------------------------------------------ mode and switches -- */
-    const [mode, enabled, paused, limit, minScore, strictness] = await Promise.all([
-      this.newsroom.publishMode(),
-      this.newsroom.isEnabled(),
-      this.newsroom.isEmergencyPaused(),
-      this.newsroom.autoPublishDailyLimit(),
+    const [minScore, strictness] = await Promise.all([
       this.newsroom.autoPublishMinScore(),
       this.newsroom.autoPublishStrictness(),
     ]);
 
+    // Pause, global switch, publish mode, daily limit and category switch:
+    // one definition, shared with every other automated publication path.
+    const automation = await this.gate.automationVerdict(article.category?.slug ?? null);
+    const { mode, publishedToday, dailyLimit: limit, paused } = automation;
+    const enabled = !automation.reasons.includes('AI automation is switched off');
+
     // Checked first and separately from everything else: when the operator has
     // hit the stop, no further reasoning about the article matters.
     if (paused) {
-      return { published: false, status: ContentStatus.DRAFT, reasons: ['emergency pause is active'] };
+      return { published: false, status: ContentStatus.DRAFT, reasons: automation.reasons };
     }
+    reasons.push(...automation.reasons);
 
-    if (!enabled) reasons.push('AI automation is switched off');
-    if (mode !== 'AUTO_PUBLISH') reasons.push(`publish mode is ${mode}, not AUTO_PUBLISH`);
-
-    const publishedToday = await this.publishedToday();
-    if (publishedToday >= limit) {
-      reasons.push(`daily auto-publish limit reached (${publishedToday}/${limit})`);
+    // Automatic publication is for agent-created articles only, whoever asks.
+    if (originOf(article) !== 'AGENT') {
+      reasons.push('the article was not created by an AI agent, so it cannot be published automatically');
     }
 
     /* ---------------------------------------------- the quality gates -- */
@@ -170,22 +213,6 @@ export class AutoPublishService {
     if (!evidence.duplicateChecked) reasons.push('the duplicate check did not run');
 
     /* --------------------------------------- what the database can prove -- */
-    const article = await this.prisma.article.findUnique({
-      where: { id: articleId },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        content: true,
-        categoryId: true,
-        featuredImage: { select: { id: true, mimeType: true, size: true } },
-      },
-    });
-
-    if (!article) {
-      throw new BadRequestException({ message: 'Article not found', code: 'NOT_FOUND' });
-    }
-
     // Only a draft may be promoted. Anything else means this ran twice, or on
     // something a human has already dealt with.
     if (article.status !== ContentStatus.DRAFT) {
@@ -195,8 +222,6 @@ export class AutoPublishService {
         reasons: [`article is already ${article.status}`],
       };
     }
-
-    if (!article.categoryId) reasons.push('the article has no category');
 
     /*
      * Relevance, checked here rather than assumed.
@@ -364,12 +389,18 @@ export class AutoPublishService {
    * surviving record. Under `HIGH_CONFIDENCE` that makes a sweep impossible to
    * do honestly, so it refuses rather than inventing numbers that would pass.
    */
-  async sweepPendingDrafts(max = 25): Promise<{
+  async sweepPendingDrafts(
+    requester: PublicationRequester,
+    max = 25
+  ): Promise<{
     considered: number;
     published: number;
     skipped: number;
     reason?: string;
   }> {
+    // The same authority rule as a single request, checked before any work.
+    if (requester.kind === 'AGENT') this.gate.assertAgentMayPublish(requester.agent);
+
     const strictness = await this.newsroom.autoPublishStrictness();
 
     if (strictness !== 'ALL_DRAFTS') {
@@ -386,9 +417,10 @@ export class AutoPublishService {
     const drafts = await this.prisma.article.findMany({
       where: {
         status: ContentStatus.DRAFT,
-        // Agent-filed only. A human's unfinished draft is not the newsroom's
-        // to publish, and `createdById` is null exactly for agent submissions.
-        createdById: null,
+        // Agent-created only, identified by the recorded agent — never by the
+        // absence of a user, which also matches imports and articles whose
+        // creator was deleted. An agent sweeps only its own drafts.
+        createdByAgentId: requester.kind === 'AGENT' ? requester.agent.id : { not: null },
       },
       orderBy: { createdAt: 'asc' },
       take: Math.min(max, 100),
@@ -402,21 +434,28 @@ export class AutoPublishService {
       // The evidence fields are inert under ALL_DRAFTS. `duplicateChecked` is
       // set because the real duplicate test runs inside `consider` against
       // what is actually published, which is the check that matters here.
-      const decision = await this.consider(draft.id, {
-        score: 0,
-        factScore: 0,
-        qualityScore: 0,
-        imageValidated: false,
-        duplicateChecked: true,
-      });
+      const decision = await this.consider(
+        draft.id,
+        {
+          score: 0,
+          factScore: 0,
+          qualityScore: 0,
+          imageValidated: false,
+          duplicateChecked: true,
+        },
+        requester
+      );
 
       if (decision.published) published += 1;
       else skipped += 1;
 
-      // The daily limit is enforced per article inside `consider`, so once it
-      // binds every remaining draft would be refused for the same reason.
-      // Stopping early avoids a hundred pointless queries.
-      if (!decision.published && decision.reasons.some(r => /daily auto-publish limit/.test(r))) {
+      // The pause and the daily limit are enforced per article inside
+      // `consider`, so once either binds every remaining draft would be refused
+      // for the same reason. Stopping early avoids a hundred pointless queries.
+      if (
+        !decision.published &&
+        decision.reasons.some(r => /daily auto-publish limit|emergency pause/.test(r))
+      ) {
         break;
       }
     }
@@ -438,20 +477,12 @@ export class AutoPublishService {
    * migration: automated publications are the ones this service recorded, and
    * a human publishing through the admin UI writes an entry with their email
    * on it. No new column, and the count means what its name says.
+   *
+   * The count itself now lives in `PublicationGateService`, shared with the
+   * scheduled-publish job, so both paths draw on the same quota.
    */
   async publishedToday(): Promise<number> {
-    const midnight = new Date();
-    midnight.setUTCHours(0, 0, 0, 0);
-
-    return this.prisma.auditLog.count({
-      where: {
-        entity: 'Article',
-        action: AuditAction.PUBLISH,
-        createdAt: { gte: midnight },
-        // Written only by this service. A human's publish carries their email.
-        userEmail: null,
-      },
-    });
+    return this.gate.automatedPublicationsToday();
   }
 
   /**

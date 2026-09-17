@@ -1,5 +1,14 @@
 import { ContentStatus } from '@prisma/client';
-import { AutoPublishService, FACT_SCORE_MIN, QUALITY_SCORE_MIN } from './auto-publish.service';
+import { AutoPublishService, FACT_SCORE_MIN, QUALITY_SCORE_MIN, type PublicationRequester } from './auto-publish.service';
+import { PublicationGateService } from './publication-gate.service';
+
+/** These tests exercise the gates themselves; the requester is an admin sweep. */
+const ADMIN: PublicationRequester = { kind: 'ADMIN' };
+const considerAdmin = (
+  service: AutoPublishService,
+  id: string,
+  evidence: Parameters<AutoPublishService['consider']>[1]
+): ReturnType<AutoPublishService['consider']> => service.consider(id, evidence, ADMIN);
 
 /**
  * Automatic publishing.
@@ -20,6 +29,9 @@ const DRAFT_ARTICLE = {
   status: ContentStatus.DRAFT,
   content: '<p>The client shipped, according to the release notes.</p><p>Sources: example.com</p>',
   categoryId: 'category-1',
+  category: { slug: 'market' },
+  createdById: null,
+  createdByAgentId: 'agent-1',
   featuredImage: { id: 'media-1', mimeType: 'image/webp', size: 25_600 },
 };
 
@@ -68,12 +80,18 @@ function build(settings: Settings = {}, article: unknown = DRAFT_ARTICLE) {
     autoPublishMinScore: async () => settings.minScore ?? 70,
     autoPublishStrictness: async () => settings.strictness ?? 'ALL_DRAFTS',
     recordAutoPublished: async () => undefined,
+    enabledCategorySlugs: async () => ['market'],
   };
 
   const audit = { record: async () => undefined };
 
   return {
-    service: new AutoPublishService(prisma as never, newsroom as never, audit as never),
+    service: new AutoPublishService(
+        prisma as never,
+        newsroom as never,
+        audit as never,
+        new PublicationGateService(prisma as never, newsroom as never)
+      ),
     updated,
   };
 }
@@ -83,7 +101,7 @@ function build(settings: Settings = {}, article: unknown = DRAFT_ARTICLE) {
 describe('draft mode is unchanged', () => {
   it('publishes nothing while the mode is DRAFT_ONLY', async () => {
     const { service, updated } = build({ mode: 'DRAFT_ONLY' });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.status).toBe(ContentStatus.DRAFT);
@@ -94,13 +112,13 @@ describe('draft mode is unchanged', () => {
 
   it('publishes nothing in REVIEW_REQUIRED either', async () => {
     const { service, updated } = build({ mode: 'REVIEW_REQUIRED' });
-    expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', GOOD_EVIDENCE)).published).toBe(false);
     expect(updated).toHaveLength(0);
   });
 
   it('refuses when global automation is off, whatever the mode says', async () => {
     const { service } = build({ enabled: false });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toContain('AI automation is switched off');
@@ -110,7 +128,7 @@ describe('draft mode is unchanged', () => {
     // Guards against a double promotion, and against overriding a human who
     // has already archived or published it.
     const { service, updated } = build({}, { ...DRAFT_ARTICLE, status: ContentStatus.ARCHIVED });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons[0]).toMatch(/already ARCHIVED/);
@@ -123,7 +141,7 @@ describe('draft mode is unchanged', () => {
 describe('auto mode publishes an article that clears every gate', () => {
   it('publishes and stamps a publication time', async () => {
     const { service, updated } = build();
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(true);
     expect(decision.status).toBe(ContentStatus.PUBLISHED);
@@ -141,7 +159,7 @@ describe('auto mode publishes an article that clears every gate', () => {
 describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
   it('refuses a score below the configured minimum', async () => {
     const { service, updated } = build({ minScore: 70, strictness: 'HIGH_CONFIDENCE' });
-    const decision = await service.consider('article-1', { ...GOOD_EVIDENCE, score: 69 });
+    const decision = await considerAdmin(service, 'article-1', { ...GOOD_EVIDENCE, score: 69 });
 
     expect(decision.published).toBe(false);
     expect(decision.reasons.some(r => /score 69 is below/.test(r))).toBe(true);
@@ -150,7 +168,7 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
 
   it('refuses a fact score below the fixed floor', async () => {
     const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
-    const decision = await service.consider('article-1', {
+    const decision = await considerAdmin(service, 'article-1', {
       ...GOOD_EVIDENCE,
       factScore: FACT_SCORE_MIN - 1,
     });
@@ -161,7 +179,7 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
 
   it('refuses a quality score below the fixed floor', async () => {
     const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
-    const decision = await service.consider('article-1', {
+    const decision = await considerAdmin(service, 'article-1', {
       ...GOOD_EVIDENCE,
       qualityScore: QUALITY_SCORE_MIN - 1,
     });
@@ -172,13 +190,13 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
 
   it('refuses when image validation did not pass', async () => {
     const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
-    const decision = await service.consider('article-1', { ...GOOD_EVIDENCE, imageValidated: false });
+    const decision = await considerAdmin(service, 'article-1', { ...GOOD_EVIDENCE, imageValidated: false });
     expect(decision.reasons).toContain('image validation did not pass');
   });
 
   it('refuses when the duplicate check did not run', async () => {
     const { service } = build();
-    const decision = await service.consider('article-1', { ...GOOD_EVIDENCE, duplicateChecked: false });
+    const decision = await considerAdmin(service, 'article-1', { ...GOOD_EVIDENCE, duplicateChecked: false });
     expect(decision.reasons).toContain('the duplicate check did not run');
   });
 
@@ -187,7 +205,7 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
     // publishing unattributed copy under our name is the failure that matters
     // most here.
     const { service } = build({}, { ...DRAFT_ARTICLE, content: '<p>Something happened.</p>' });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toContain('no source attribution found in the article body');
@@ -198,7 +216,7 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
     // ALL_DRAFTS it is an editorial call the operator has already made — see
     // 'a draft with no featured image' below.
     const { service } = build({ strictness: 'HIGH_CONFIDENCE' }, { ...DRAFT_ARTICLE, featuredImage: null });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
     expect(decision.reasons).toContain('the article has no featured image');
   });
 
@@ -207,20 +225,20 @@ describe('each quality gate refuses on its own, under HIGH_CONFIDENCE', () => {
       {},
       { ...DRAFT_ARTICLE, featuredImage: { id: 'm', mimeType: 'text/html', size: 9000 } }
     );
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
     expect(decision.reasons.some(r => /not an image/.test(r))).toBe(true);
   });
 
   it('refuses an article with no category', async () => {
-    const { service } = build({}, { ...DRAFT_ARTICLE, categoryId: null });
-    expect((await service.consider('article-1', GOOD_EVIDENCE)).reasons).toContain(
+    const { service } = build({}, { ...DRAFT_ARTICLE, categoryId: null, category: null });
+    expect((await considerAdmin(service, 'article-1', GOOD_EVIDENCE)).reasons).toContain(
       'the article has no category'
     );
   });
 
   it('reports every failing gate at once, not just the first', async () => {
     const { service } = build({ minScore: 90, strictness: 'HIGH_CONFIDENCE' });
-    const decision = await service.consider('article-1', {
+    const decision = await considerAdmin(service, 'article-1', {
       score: 10,
       factScore: 10,
       qualityScore: 10,
@@ -240,7 +258,7 @@ describe('the emergency stop', () => {
     // reasoning about the article matters, and a long list of reasons would
     // bury the one that counts.
     const { service, updated } = build({ paused: true });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toEqual(['emergency pause is active']);
@@ -249,7 +267,7 @@ describe('the emergency stop', () => {
 
   it('overrides a perfectly good article in auto mode', async () => {
     const { service } = build({ paused: true, mode: 'AUTO_PUBLISH', enabled: true });
-    expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', GOOD_EVIDENCE)).published).toBe(false);
   });
 });
 
@@ -258,7 +276,7 @@ describe('the emergency stop', () => {
 describe('the daily limit', () => {
   it('refuses once the ceiling is reached', async () => {
     const { service, updated } = build({ limit: 5, publishedToday: 5 });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons.some(r => /daily auto-publish limit reached \(5\/5\)/.test(r))).toBe(true);
@@ -267,12 +285,12 @@ describe('the daily limit', () => {
 
   it('allows the last one below the ceiling', async () => {
     const { service } = build({ limit: 5, publishedToday: 4 });
-    expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(true);
+    expect((await considerAdmin(service, 'article-1', GOOD_EVIDENCE)).published).toBe(true);
   });
 
   it('a limit of zero publishes nothing', async () => {
     const { service } = build({ limit: 0, publishedToday: 0 });
-    expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', GOOD_EVIDENCE)).published).toBe(false);
   });
 });
 
@@ -296,7 +314,7 @@ describe('ALL_DRAFTS publishes everything that reached the queue', () => {
 
   it('publishes a draft that would fail every quality threshold', async () => {
     const { service, updated } = build({ strictness: 'ALL_DRAFTS' });
-    const decision = await service.consider('article-1', WEAK);
+    const decision = await considerAdmin(service, 'article-1', WEAK);
 
     expect(decision.published).toBe(true);
     expect(updated).toHaveLength(1);
@@ -305,7 +323,7 @@ describe('ALL_DRAFTS publishes everything that reached the queue', () => {
   it('refuses the same draft under HIGH_CONFIDENCE', async () => {
     // The two modes differ, and only here.
     const { service } = build({ strictness: 'HIGH_CONFIDENCE' });
-    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', WEAK)).published).toBe(false);
   });
 
   it('still refuses an article with no attribution', async () => {
@@ -315,20 +333,20 @@ describe('ALL_DRAFTS publishes everything that reached the queue', () => {
       { strictness: 'ALL_DRAFTS' },
       { ...DRAFT_ARTICLE, content: '<p>Something happened.</p>' }
     );
-    const decision = await service.consider('article-1', WEAK);
+    const decision = await considerAdmin(service, 'article-1', WEAK);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toContain('no source attribution found in the article body');
   });
 
   it('still refuses an article with no category', async () => {
-    const { service } = build({ strictness: 'ALL_DRAFTS' }, { ...DRAFT_ARTICLE, categoryId: null });
-    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+    const { service } = build({ strictness: 'ALL_DRAFTS' }, { ...DRAFT_ARTICLE, categoryId: null, category: null });
+    expect((await considerAdmin(service, 'article-1', WEAK)).published).toBe(false);
   });
 
   it('still refuses when the duplicate check did not run', async () => {
     const { service } = build({ strictness: 'ALL_DRAFTS' });
-    const decision = await service.consider('article-1', { ...WEAK, duplicateChecked: false });
+    const decision = await considerAdmin(service, 'article-1', { ...WEAK, duplicateChecked: false });
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toContain('the duplicate check did not run');
@@ -336,17 +354,17 @@ describe('ALL_DRAFTS publishes everything that reached the queue', () => {
 
   it('still obeys the emergency stop', async () => {
     const { service } = build({ strictness: 'ALL_DRAFTS', paused: true });
-    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', WEAK)).published).toBe(false);
   });
 
   it('still obeys the daily limit', async () => {
     const { service } = build({ strictness: 'ALL_DRAFTS', limit: 25, publishedToday: 25 });
-    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', WEAK)).published).toBe(false);
   });
 
   it('still publishes nothing in DRAFT_ONLY', async () => {
     const { service, updated } = build({ strictness: 'ALL_DRAFTS', mode: 'DRAFT_ONLY' });
-    expect((await service.consider('article-1', WEAK)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', WEAK)).published).toBe(false);
     expect(updated).toHaveLength(0);
   });
 });
@@ -392,11 +410,17 @@ describe('sweeping drafts already in the CMS', () => {
       autoPublishMinScore: async () => settings.minScore ?? 70,
       autoPublishStrictness: async () => settings.strictness ?? 'ALL_DRAFTS',
       recordAutoPublished: async () => undefined,
+    enabledCategorySlugs: async () => ['market'],
     };
 
     const audit = { record: async () => undefined };
     return {
-      service: new AutoPublishService(prisma as never, newsroom as never, audit as never),
+      service: new AutoPublishService(
+        prisma as never,
+        newsroom as never,
+        audit as never,
+        new PublicationGateService(prisma as never, newsroom as never)
+      ),
       updated,
     };
   }
@@ -405,7 +429,7 @@ describe('sweeping drafts already in the CMS', () => {
 
   it('publishes the waiting drafts', async () => {
     const { service, updated } = sweeper({}, three);
-    const result = await service.sweepPendingDrafts();
+    const result = await service.sweepPendingDrafts(ADMIN);
 
     expect(result.considered).toBe(3);
     expect(result.published).toBe(3);
@@ -414,7 +438,7 @@ describe('sweeping drafts already in the CMS', () => {
 
   it('publishes nothing while the mode is DRAFT_ONLY', async () => {
     const { service, updated } = sweeper({ mode: 'DRAFT_ONLY' }, three);
-    const result = await service.sweepPendingDrafts();
+    const result = await service.sweepPendingDrafts(ADMIN);
 
     expect(result.published).toBe(0);
     expect(updated).toHaveLength(0);
@@ -422,7 +446,7 @@ describe('sweeping drafts already in the CMS', () => {
 
   it('publishes nothing while the emergency stop is engaged', async () => {
     const { service, updated } = sweeper({ paused: true }, three);
-    expect((await service.sweepPendingDrafts()).published).toBe(0);
+    expect((await service.sweepPendingDrafts(ADMIN)).published).toBe(0);
     expect(updated).toHaveLength(0);
   });
 
@@ -436,7 +460,7 @@ describe('sweeping drafts already in the CMS', () => {
       { id: 'd' },
     ]);
 
-    const result = await service.sweepPendingDrafts();
+    const result = await service.sweepPendingDrafts(ADMIN);
     expect(result.published).toBe(2);
   });
 
@@ -444,7 +468,7 @@ describe('sweeping drafts already in the CMS', () => {
     // The score, fact and quality numbers for an existing draft are not
     // recoverable, and inventing passing values would defeat the setting.
     const { service, updated } = sweeper({ strictness: 'HIGH_CONFIDENCE' }, three);
-    const result = await service.sweepPendingDrafts();
+    const result = await service.sweepPendingDrafts(ADMIN);
 
     expect(result.published).toBe(0);
     expect(result.considered).toBe(0);
@@ -475,7 +499,7 @@ describe('off-topic articles never publish', () => {
     ['Lucas Vazquez goal doubles Bayer Leverkusen lead', 'The striker scored in the 61st minute.'],
   ])('refuses "%s"', async (title, content) => {
     const { service, updated } = build({ strictness: 'ALL_DRAFTS' }, offTopic(title, content));
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons.some(r => /does not cover|no crypto or digital-asset subject/i.test(r))).toBe(true);
@@ -487,7 +511,7 @@ describe('off-topic articles never publish', () => {
       { strictness: 'ALL_DRAFTS' },
       offTopic('Gold price hits three-month high', 'Bond market stress continued.')
     );
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toContain('no crypto or digital-asset subject found in the article');
@@ -500,7 +524,7 @@ describe('off-topic articles never publish', () => {
       ['JPMorgan tokenized Treasury funds approach $885 million', 'Tokenized funds grew.'],
     ] as const) {
       const { service } = build({ strictness: 'ALL_DRAFTS' }, offTopic(title, body));
-      const decision = await service.consider('article-1', GOOD_EVIDENCE);
+      const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
       expect(decision.published).toBe(true);
     }
   });
@@ -511,7 +535,7 @@ describe('off-topic articles never publish', () => {
       { strictness: 'HIGH_CONFIDENCE' },
       offTopic('Macron says France will send more missiles', 'Missiles will arrive.')
     );
-    expect((await service.consider('article-1', GOOD_EVIDENCE)).published).toBe(false);
+    expect((await considerAdmin(service, 'article-1', GOOD_EVIDENCE)).published).toBe(false);
   });
 });
 
@@ -532,7 +556,7 @@ describe('a draft with no featured image', () => {
 
   it('publishes under ALL_DRAFTS, because presence is an editorial call', async () => {
     const { service, updated } = build({ strictness: 'ALL_DRAFTS' }, NO_IMAGE);
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(true);
     expect(decision.status).toBe(ContentStatus.PUBLISHED);
@@ -541,7 +565,7 @@ describe('a draft with no featured image', () => {
 
   it('is still held under HIGH_CONFIDENCE', async () => {
     const { service, updated } = build({ strictness: 'HIGH_CONFIDENCE' }, NO_IMAGE);
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.reasons).toContain('the article has no featured image');
@@ -557,7 +581,7 @@ describe('a draft with no featured image', () => {
         { ...DRAFT_ARTICLE, featuredImage: { id: 'm', mimeType: 'application/pdf', size: 90_000 } }
       );
 
-      const decision = await service.consider('article-1', GOOD_EVIDENCE);
+      const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
       expect(decision.published).toBe(false);
       expect(decision.reasons.join(' ')).toMatch(/not an image/);
       expect(updated).toHaveLength(0);
@@ -571,7 +595,7 @@ describe('a draft with no featured image', () => {
         { ...DRAFT_ARTICLE, featuredImage: { id: 'm', mimeType: 'image/webp', size: 40 } }
       );
 
-      const decision = await service.consider('article-1', GOOD_EVIDENCE);
+      const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
       expect(decision.published).toBe(false);
       expect(decision.reasons.join(' ')).toMatch(/implausibly small/);
     }
@@ -583,7 +607,7 @@ describe('a draft with no featured image', () => {
 describe('the publishing contract, end to end', () => {
   it('1. AUTO_PUBLISH publishes an approved article', async () => {
     const { service, updated } = build({ mode: 'AUTO_PUBLISH' });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(true);
     expect(decision.status).toBe(ContentStatus.PUBLISHED);
@@ -592,7 +616,7 @@ describe('the publishing contract, end to end', () => {
 
   it('2. DRAFT_ONLY keeps the article a draft', async () => {
     const { service, updated } = build({ mode: 'DRAFT_ONLY' });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.status).toBe(ContentStatus.DRAFT);
@@ -604,10 +628,10 @@ describe('the publishing contract, end to end', () => {
   it('3. failed validation keeps the article a draft', async () => {
     const { service, updated } = build(
       { mode: 'AUTO_PUBLISH', strictness: 'HIGH_CONFIDENCE' },
-      { ...DRAFT_ARTICLE, categoryId: null }
+      { ...DRAFT_ARTICLE, categoryId: null, category: null }
     );
 
-    const decision = await service.consider('article-1', {
+    const decision = await considerAdmin(service, 'article-1', {
       ...GOOD_EVIDENCE,
       factScore: FACT_SCORE_MIN - 1,
       qualityScore: QUALITY_SCORE_MIN - 1,
@@ -623,7 +647,7 @@ describe('the publishing contract, end to end', () => {
 
   it('4. the emergency stop blocks publishing, ahead of everything else', async () => {
     const { service, updated } = build({ mode: 'AUTO_PUBLISH', paused: true });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.status).toBe(ContentStatus.DRAFT);
@@ -634,7 +658,7 @@ describe('the publishing contract, end to end', () => {
 
   it('5. the daily limit blocks publishing', async () => {
     const { service, updated } = build({ mode: 'AUTO_PUBLISH', limit: 5, publishedToday: 5 });
-    const decision = await service.consider('article-1', GOOD_EVIDENCE);
+    const decision = await considerAdmin(service, 'article-1', GOOD_EVIDENCE);
 
     expect(decision.published).toBe(false);
     expect(decision.status).toBe(ContentStatus.DRAFT);

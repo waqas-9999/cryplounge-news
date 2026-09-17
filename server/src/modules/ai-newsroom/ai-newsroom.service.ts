@@ -339,8 +339,9 @@ export class AiNewsroomService {
       where: {
         status: ContentStatus.PUBLISHED,
         publishedAt: { gte: midnight },
-        // A human publishing their own work is not automation.
-        createdById: null,
+        // Agent-created articles, identified by the recorded agent rather than
+        // by the absence of a user.
+        createdByAgentId: { not: null },
       },
     });
   }

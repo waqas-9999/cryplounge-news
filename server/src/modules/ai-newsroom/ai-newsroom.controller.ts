@@ -131,7 +131,7 @@ export class AiNewsroomController {
   @ResponseMessage('Pending drafts considered')
   @ApiOperation({ summary: 'Reconsider drafts already in the CMS for automatic publication' })
   publishPending() {
-    return this.autoPublish.sweepPendingDrafts();
+    return this.autoPublish.sweepPendingDrafts({ kind: 'ADMIN' });
   }
 
   @Put('category')

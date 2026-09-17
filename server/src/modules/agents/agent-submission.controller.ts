@@ -184,14 +184,9 @@ export class AgentSubmissionController {
     @Body() evidence: PublishGateEvidence,
     @CurrentAgent() agent: AgentContext
   ) {
-    if (!agent.permissions.includes('news.create')) {
-      throw new ForbiddenException({
-        message: 'This agent is not permitted to submit articles',
-        code: 'FORBIDDEN',
-      });
-    }
-
-    return this.autoPublish.consider(id, evidence);
+    // `news.publish` and ownership of the article are enforced inside, by
+    // PublicationGateService. `news.create` alone never reaches publication.
+    return this.autoPublish.consider(id, evidence, { kind: 'AGENT', agent });
   }
 
   /**
@@ -206,14 +201,8 @@ export class AgentSubmissionController {
   @ResponseMessage('Pending drafts considered')
   @ApiOperation({ summary: 'Reconsider existing drafts for publication, subject to the CMS gates' })
   async publishPending(@CurrentAgent() agent: AgentContext) {
-    if (!agent.permissions.includes('news.create')) {
-      throw new ForbiddenException({
-        message: 'This agent is not permitted to submit articles',
-        code: 'FORBIDDEN',
-      });
-    }
-
-    return this.autoPublish.sweepPendingDrafts();
+    // Same rule as a single request: `news.publish`, and only this agent's drafts.
+    return this.autoPublish.sweepPendingDrafts({ kind: 'AGENT', agent });
   }
 
   @Post('articles')

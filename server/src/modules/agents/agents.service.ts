@@ -20,13 +20,6 @@ import type { SubmitArticleDto } from './dto/submit-article.dto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { MediaService } from '../media/media.service';
 
-const PUBLISH_MODE_TO_STATUS: Record<AgentPublishMode, ContentStatus> = {
-  DRAFT: ContentStatus.DRAFT,
-  REVIEW: ContentStatus.REVIEW,
-  SCHEDULED: ContentStatus.SCHEDULED,
-  IMMEDIATE: ContentStatus.PUBLISHED,
-};
-
 export interface AgentContext {
   id: string;
   name: string;
@@ -368,16 +361,20 @@ export class AgentsService {
       });
     }
 
-    let status = PUBLISH_MODE_TO_STATUS[agent.defaultPublishMode];
-    if (this.publishing.requiresPublishPermission(status) && !agent.permissions.includes('news.publish')) {
-      throw new ForbiddenException({
-        message: 'This agent is not permitted to publish articles',
-        code: 'FORBIDDEN',
-      });
-    }
-
-    if (status === ContentStatus.SCHEDULED && !dto.scheduledFor) {
-      throw new BadRequestException('scheduledFor is required for scheduled publish mode');
+    /*
+     * Always a draft.
+     *
+     * The status used to follow the agent's configured publish mode, so an
+     * agent set to IMMEDIATE with `news.publish` created PUBLISHED content and
+     * one set to SCHEDULED handed it to the scheduled job, which checked
+     * nothing. An agent's article now always starts as a DRAFT; publication is
+     * a separate decision taken through PublicationGateService or by an editor.
+     */
+    const status = ContentStatus.DRAFT;
+    if (agent.defaultPublishMode !== 'DRAFT') {
+      this.logger.warn(
+        `Agent "${agent.name}" has publish mode ${agent.defaultPublishMode}; its article is created as DRAFT`
+      );
     }
 
     const slug = await this.slugs.unique('article', dto.slug ?? dto.title);
@@ -390,6 +387,9 @@ export class AgentsService {
     const article = await this.prisma.article.create({
       data: {
         slug,
+        // Recorded origin: the agent that created it. Every publication gate
+        // identifies AI content by this, never by the absence of a user.
+        createdByAgentId: agent.id,
         title: dto.title,
         summary: dto.summary,
         content: dto.content,

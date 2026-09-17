@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AuditAction, ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { Paginated } from '@/common/dto/api-response.dto';
@@ -8,6 +8,7 @@ import { HtmlSanitizerService } from '../content-core/html-sanitizer.service';
 import { PublishingService } from '../content-core/publishing.service';
 import { RelationsService } from '../content-core/relations.service';
 import { SlugService } from '../content-core/slug.service';
+import { PublicationGateService } from '../ai-newsroom/publication-gate.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import type { ArticleQueryDto, CreateArticleDto, UpdateArticleDto } from './dto/article.dto';
 
@@ -90,13 +91,16 @@ const DETAIL_INCLUDE = {
  */
 @Injectable()
 export class ArticlesService extends BaseCrudService {
+  private readonly logger = new Logger(ArticlesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly slugs: SlugService,
     private readonly publishing: PublishingService,
     private readonly relations: RelationsService,
     private readonly audit: AuditService,
-    private readonly sanitizer: HtmlSanitizerService
+    private readonly sanitizer: HtmlSanitizerService,
+    private readonly gate: PublicationGateService
   ) {
     super(prisma.article, 'Article');
   }
@@ -333,8 +337,17 @@ export class ArticlesService extends BaseCrudService {
   }
 
   /**
-   * Publishes anything whose scheduled time has passed. Driven by the
-   * scheduler; safe to run repeatedly.
+   * Publishes scheduled articles whose time has arrived, through the gate.
+   *
+   * This used to publish every due SCHEDULED article unconditionally, which
+   * made scheduling a way round every other publication rule. Each article is
+   * now asked of PublicationGateService: an editor's scheduled article
+   * publishes on time as before; anything created by an agent must clear the
+   * emergency pause, the automation switch, AUTO_PUBLISH mode, the daily limit
+   * and its category switch; and an article of unrecorded origin is held.
+   *
+   * A held article stays SCHEDULED, untouched, for an editor to publish or
+   * reschedule. Safe to run repeatedly.
    */
   async publishDueScheduled(): Promise<number> {
     const due = await this.prisma.article.findMany({
@@ -343,21 +356,63 @@ export class ArticlesService extends BaseCrudService {
         scheduledFor: { lte: new Date() },
         deletedAt: null,
       },
-      select: { id: true, publishedAt: true },
+      select: {
+        id: true,
+        title: true,
+        publishedAt: true,
+        createdById: true,
+        createdByAgentId: true,
+        category: { select: { slug: true } },
+      },
     });
 
+    let published = 0;
     for (const article of due) {
-      await this.prisma.article.update({
-        where: { id: article.id },
+      const verdict = await this.gate.scheduledVerdict({
+        createdById: article.createdById,
+        createdByAgentId: article.createdByAgentId,
+        categorySlug: article.category?.slug ?? null,
+      });
+
+      if (!verdict.publish) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'scheduled_publish_held',
+            articleId: article.id,
+            origin: verdict.origin,
+            reasons: verdict.reasons,
+          })
+        );
+        continue;
+      }
+
+      // Conditional on still being SCHEDULED, so an editor's change made while
+      // this run was deciding is not overwritten.
+      const { count } = await this.prisma.article.updateMany({
+        where: { id: article.id, status: ContentStatus.SCHEDULED },
         data: {
           status: ContentStatus.PUBLISHED,
           publishedAt: article.publishedAt ?? new Date(),
           scheduledFor: null,
         },
       });
+      if (count === 0) continue;
+      published += 1;
+
+      // Automated publication of an agent's article is recorded with no user,
+      // which is what the daily automation quota counts.
+      if (verdict.origin !== 'HUMAN') {
+        await this.audit.record({
+          action: AuditAction.PUBLISH,
+          entity: 'Article',
+          entityId: article.id,
+          summary: `Published scheduled agent article "${article.title.slice(0, 80)}" through the publication gate`,
+          metadata: { automated: true, route: 'scheduled-publish', origin: verdict.origin },
+        });
+      }
     }
 
-    return due.length;
+    return published;
   }
 
   /* ------------------------------------------------------------ helpers --- */

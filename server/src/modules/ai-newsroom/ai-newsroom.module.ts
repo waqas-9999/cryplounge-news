@@ -8,6 +8,7 @@ import { AutoPublishService } from './auto-publish.service';
 import { NewsroomIntelligenceController } from './newsroom-intelligence.controller';
 import { NewsroomIntelligenceService } from './newsroom-intelligence.service';
 import { NewsroomPipelineReader } from './newsroom-pipeline.reader';
+import { PublicationGateService } from './publication-gate.service';
 import { NewsroomRecoveryController } from './newsroom-recovery.controller';
 import { NewsroomRecoveryService } from './newsroom-recovery.service';
 
@@ -33,9 +34,10 @@ import { NewsroomRecoveryService } from './newsroom-recovery.service';
     NewsroomIntelligenceService,
     NewsroomPipelineReader,
     NewsroomRecoveryService,
+    PublicationGateService,
   ],
   // The recovery service is exported for the agent API, which serves the
   // newsroom's pull of pending requests and its acknowledgements.
-  exports: [AiNewsroomService, AutoPublishService, NewsroomRecoveryService],
+  exports: [AiNewsroomService, AutoPublishService, NewsroomRecoveryService, PublicationGateService],
 })
 export class AiNewsroomModule {}
