@@ -26,7 +26,12 @@ import {
   LoadingBlock,
   useAnalyticsQuery,
 } from '@/components/admin/analytics/primitives';
-import { ModelRoutingCard, type ModelSettings } from './ModelRoutingCard';
+import {
+  ModelRoutingCard,
+  type CatalogProvider,
+  type ModelSettings,
+  type StageRouting,
+} from './ModelRoutingCard';
 
 interface AiAutomationPageProps {
   currentPage: string;
@@ -53,7 +58,10 @@ interface AutomationStatus {
   lastError: string | null;
   /** Per-stage model overrides. Unset stages read as null. */
   models: ModelSettings;
-  modelProviders: Record<string, readonly string[]>;
+  /** Stage → the providers and models selectable for it, from the server. */
+  modelCatalog: Record<string, CatalogProvider[]>;
+  /** What each stage is set to here, and what the newsroom last reported running. */
+  modelRouting: StageRouting[];
   effective: { canPublish: boolean; reason: string };
 }
 
@@ -87,12 +95,40 @@ function formatWhen(value: string | null): string {
   });
 }
 
+/**
+ * The server's per-stage validation errors, if it sent any.
+ *
+ * `setModels` refuses the whole save and names every bad stage at once, so an
+ * operator fixing four stages sees four messages rather than discovering them
+ * one save at a time. Anything else — a network failure, a 403 — has no stage
+ * attached and is left to the toast.
+ */
+function stageErrors(error: unknown): Record<string, string> {
+  const errors = (error as { errors?: Record<string, string[]> })?.errors;
+  if (!errors || typeof errors !== 'object') return {};
+
+  return Object.fromEntries(
+    Object.entries(errors)
+      .filter(([, messages]) => Array.isArray(messages) && messages.length > 0)
+      .map(([stage, messages]) => [stage, messages.join('; ')])
+  );
+}
+
 export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutomationPageProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   // Set when an admin selects auto publish; cleared by confirming or
   // cancelling. Nothing is sent while this is true.
   const [pendingAuto, setPendingAuto] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  /*
+   * Stage → why the server refused it.
+   *
+   * The dropdowns cannot produce an invalid pair, so anything here means
+   * the catalogue and the validator disagree — a stale page after a model
+   * was withdrawn, most likely. Shown against the stage rather than as a
+   * toast, because a toast does not say which of nine stages to fix.
+   */
+  const [modelErrors, setModelErrors] = useState<Record<string, string>>({});
 
   const status = useAnalyticsQuery<AutomationStatus>(
     signal => apiClient.get<AutomationStatus>('admin/ai/automation', { signal }),
@@ -477,14 +513,22 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                 {/* ---------------------------------------------------- models -- */}
                 <ModelRoutingCard
                   models={data.models ?? {}}
-                  providers={data.modelProviders ?? {}}
+                  catalog={data.modelCatalog ?? {}}
+                  routing={data.modelRouting ?? []}
                   readOnly={readOnly}
                   saving={saving === 'models'}
-                  onSave={models =>
-                    mutate('models', () =>
-                      apiClient.put<AutomationStatus>('admin/ai/automation/models', { models })
-                    )
-                  }
+                  errors={modelErrors}
+                  onSave={models => {
+                    setModelErrors({});
+                    return mutate('models', () =>
+                      apiClient
+                        .put<AutomationStatus>('admin/ai/automation/models', { models })
+                        .catch((error: unknown) => {
+                          setModelErrors(stageErrors(error));
+                          throw error;
+                        })
+                    );
+                  }}
                 />
 
                 {/* ---------------------------------------------------- status -- */}

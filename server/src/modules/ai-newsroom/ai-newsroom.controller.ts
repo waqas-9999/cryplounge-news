@@ -7,6 +7,7 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { auditContext } from '../articles/articles.controller';
 import { AiNewsroomService } from './ai-newsroom.service';
+import { catalogForStages } from './model-catalog';
 import { AutoPublishService } from './auto-publish.service';
 import {
   SetAutoPublishLimitsDto,
@@ -82,6 +83,27 @@ export class AiNewsroomController {
     @Req() request: Request
   ) {
     return this.newsroom.setPublishMode(dto.mode, auditContext(user, request));
+  }
+
+  /**
+   * The providers and models an administrator may choose, per stage.
+   *
+   * Served rather than compiled into the admin bundle so that adding a model
+   * is a server change alone, and so the screen can never offer a combination
+   * this server would reject — the same function answers both questions.
+   *
+   * Metadata only: names, ids and whether a model is free. No key, secret,
+   * endpoint or environment value appears in it, and it says nothing about
+   * which providers are actually credentialed, which is the newsroom's
+   * business and not something to publish to a browser.
+   */
+  @Get('models/catalog')
+  @ApiBearerAuth()
+  @RequirePermissions('ai.automation.read')
+  @ResponseMessage('Model catalog')
+  @ApiOperation({ summary: 'Providers and models selectable for each newsroom stage' })
+  catalog() {
+    return catalogForStages();
   }
 
   /**

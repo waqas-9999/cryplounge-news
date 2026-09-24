@@ -57,6 +57,10 @@ function build(initial: Record<string, unknown> = {}, newsCategories = ['bitcoin
       ),
     },
     article: { count: jest.fn(async () => 0) },
+    // The status payload now reports which model each stage last resolved to,
+    // read from the newsroom's telemetry. Nothing in these tests depends on
+    // it; the stub exists so status() can be called.
+    newsroomEvent: { findMany: jest.fn(async () => []) },
     // Present only to prove nothing reaches it.
     aiAgent: {
       update: jest.fn(async (args: unknown) => agentWrites.push(args)),

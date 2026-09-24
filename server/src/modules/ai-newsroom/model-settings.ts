@@ -21,6 +21,11 @@
  * calls, loudly, which the newsroom already reports.
  */
 
+// eslint-disable-next-line @typescript-eslint/no-use-before-define -- the
+// catalogue imports MODEL_STAGES from this file; the cycle is types and
+// module-level arrays only, both resolved before either is called.
+import { MODEL_CATALOG, findModel, providerIdsForStage } from './model-catalog';
+
 /** A stage that makes model calls, named for the pipeline rather than the model. */
 export const MODEL_STAGES = [
   'discovery',
@@ -37,26 +42,26 @@ export const MODEL_STAGES = [
 export type ModelStage = (typeof MODEL_STAGES)[number];
 
 /**
- * Providers the newsroom's factory can build for a text stage.
+ * Providers, derived from the catalogue rather than repeated here.
  *
- * `mock` is deliberately absent. The newsroom supports it for tests, and it
- * returns invented text — offering it on an admin screen that controls a live
- * newsroom is a way to publish fiction by misclick.
+ * These existed as hand-written lists before the catalogue did, and a list of
+ * providers that a list of models does not agree with is the bug this avoids:
+ * one file now decides both.
+ *
+ * `mock` is absent from the catalogue and so from here. The newsroom supports
+ * it for tests and it returns invented text — offering it on a screen that
+ * controls a live newsroom is a way to publish fiction by misclick.
  */
-export const TEXT_PROVIDERS = [
-  'anthropic',
-  'openai',
-  'openai-compatible',
-  'local',
-  'google-gemini',
-  'nvidia',
-] as const;
+export const TEXT_PROVIDERS: readonly string[] = [
+  ...new Set(MODEL_CATALOG.filter(provider => provider.kind === 'text').map(provider => provider.id)),
+];
 
-/** Providers that generate images. A separate list; they share no implementation. */
-export const IMAGE_PROVIDERS = ['gemini', 'openai', 'nvidia'] as const;
+export const IMAGE_PROVIDERS: readonly string[] = [
+  ...new Set(MODEL_CATALOG.filter(provider => provider.kind === 'image').map(provider => provider.id)),
+];
 
 export function providersFor(stage: ModelStage): readonly string[] {
-  return stage === 'image' ? IMAGE_PROVIDERS : TEXT_PROVIDERS;
+  return providerIdsForStage(stage);
 }
 
 export interface StageModel {
@@ -141,12 +146,39 @@ export function validateModelSettings(input: unknown): {
 
     if (model !== undefined && model !== null && String(model).trim() !== '') {
       const trimmed = String(model).trim();
+      const found = findModel(stage as ModelStage, entry.provider, trimmed);
+
       if (trimmed.length > MODEL_ID_MAX) {
         errors.push({ stage, message: `Model id is longer than ${MODEL_ID_MAX} characters` });
       } else if (!MODEL_ID.test(trimmed)) {
         errors.push({ stage, message: `"${trimmed}" is not a valid model id` });
+      } else if (!found) {
+        /*
+         * The model has to be one the chosen provider actually serves.
+         *
+         * Checked here rather than left to the dropdown, because the dropdown
+         * is a convenience and this is the boundary: a request built by hand
+         * could otherwise route the writer to a model that does not exist,
+         * and the failure would surface hours later as a stage that fails
+         * every call.
+         *
+         * Two distinct mistakes, reported differently, because the fix is
+         * different: a model nobody serves is a typo, while a model served by
+         * another provider is a mismatched pair.
+         */
+        const elsewhere = findModel(stage as ModelStage, null, trimmed);
+        errors.push({
+          stage,
+          message: elsewhere
+            ? `"${trimmed}" belongs to ${elsewhere.provider.name}, not ${entry.provider}`
+            : `"${trimmed}" is not a model this stage can use`,
+        });
       } else {
         entry.model = trimmed;
+        // A model chosen without naming a provider settles the provider too:
+        // storing the pair means the newsroom never has to guess which
+        // endpoint serves it.
+        entry.provider ??= found.provider.id;
       }
     }
 

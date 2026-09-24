@@ -5,11 +5,12 @@ import { AuditService, type AuditContext } from '../content-core/audit.service';
 import {
   MODEL_STAGES,
   describeOverrides,
-  providersFor,
   readModelSettings,
   validateModelSettings,
   type ModelSettings,
+  type ModelStage,
 } from './model-settings';
+import { catalogForStages, type CatalogProvider } from './model-catalog';
 
 /**
  * AI newsroom automation controls.
@@ -36,6 +37,13 @@ function actorOf(context: AuditContext): Prisma.InputJsonObject {
     label: context.actorLabel ?? null,
   };
 }
+
+/**
+ * The event the newsroom sends at the start of a cycle, one per stage, saying
+ * which provider and model it resolved. Read-only here: the CMS shows it, and
+ * never treats it as configuration.
+ */
+export const STAGE_ROUTING_EVENT = 'STAGE_MODEL_RESOLVED';
 
 /** Every automation key lives under this prefix, which is what makes both rules enforceable. */
 export const AI_SETTING_PREFIX = 'ai.automation.';
@@ -127,6 +135,27 @@ export const AUTO_PUBLISH_DEFAULTS = {
   strictness: 'ALL_DRAFTS' as AutoPublishStrictness,
 } as const;
 
+/**
+ * What one stage is actually running.
+ *
+ * `source` answers the question an operator opens this screen with: am I
+ * overriding the newsroom, or is it still running on its own configuration?
+ * `liveProvider` and `liveModel` are what the newsroom last reported it
+ * resolved — the only honest answer to "what is running", since the CMS does
+ * not know what is in the newsroom's environment file and must not pretend to.
+ */
+export interface StageRouting {
+  stage: ModelStage;
+  source: 'cms' | 'environment';
+  /** The override, when there is one. */
+  provider: string | null;
+  model: string | null;
+  /** What the newsroom last reported for this stage, if it has reported. */
+  liveProvider: string | null;
+  liveModel: string | null;
+  liveAt: string | null;
+}
+
 export interface AutomationStatus {
   /** Global switch. Defaults to false — automation is opt-in, never opt-out. */
   enabled: boolean;
@@ -158,8 +187,10 @@ export interface AutomationStatus {
    * newsroom's own configuration. Unset stages read as null.
    */
   models: ModelSettings;
-  /** Stage → the providers that stage may be routed to, for the screen. */
-  modelProviders: Record<string, readonly string[]>;
+  /** Stage → the providers and models that stage may be routed to. */
+  modelCatalog: Record<string, CatalogProvider[]>;
+  /** What each stage is actually running, and whether this screen chose it. */
+  modelRouting: StageRouting[];
   /**
    * Whether anything could publish right now. Reported separately from
    * `enabled` so the screen can say *why* nothing is running.
@@ -631,7 +662,8 @@ export class AiNewsroomService {
       lastPublishedTitle,
       lastError,
       models,
-      modelProviders: Object.fromEntries(MODEL_STAGES.map(stage => [stage, providersFor(stage)])),
+      modelCatalog: catalogForStages(),
+      modelRouting: await this.modelRouting(models),
       effective: {
         /*
          * Whether an article could publish itself right now.
@@ -692,6 +724,54 @@ export class AiNewsroomService {
   }
 
   /**
+   * What each stage is running, as far as anything here can know it.
+   *
+   * The override is authoritative for `source`: if this screen set a model,
+   * that model is what the newsroom uses. Everything else — what a stage falls
+   * back to when the override is blank — lives in the newsroom's environment,
+   * which the CMS cannot read and must not guess at.
+   *
+   * So the live values come from the newsroom itself. It reports the routing
+   * it resolved at the start of each cycle through the telemetry events it
+   * already sends, and the most recent report per stage is shown with its
+   * timestamp. A newsroom that has not run since this feature shipped simply
+   * reports nothing, and the screen says the stage is on the newsroom
+   * configuration without naming it — which is true, rather than confident.
+   */
+  private async modelRouting(models: ModelSettings): Promise<StageRouting[]> {
+    const events = await this.prisma.newsroomEvent.findMany({
+      where: { type: STAGE_ROUTING_EVENT, stage: { in: [...MODEL_STAGES] } },
+      orderBy: { occurredAt: 'desc' },
+      select: { stage: true, model: true, metadata: true, occurredAt: true },
+      // Enough to cover every stage several times over; the newest per stage
+      // wins. Bounded rather than grouped because one indexed read of a few
+      // rows beats nine queries for a screen that is mostly static.
+      take: 60,
+    });
+
+    const latest = new Map<string, (typeof events)[number]>();
+    for (const event of events) {
+      if (event.stage && !latest.has(event.stage)) latest.set(event.stage, event);
+    }
+
+    return MODEL_STAGES.map(stage => {
+      const override = models[stage];
+      const live = latest.get(stage);
+      const metadata = (live?.metadata ?? null) as { provider?: unknown } | null;
+
+      return {
+        stage,
+        source: override.provider || override.model ? ('cms' as const) : ('environment' as const),
+        provider: override.provider,
+        model: override.model,
+        liveProvider: typeof metadata?.provider === 'string' ? metadata.provider : null,
+        liveModel: live?.model ?? null,
+        liveAt: live?.occurredAt.toISOString() ?? null,
+      };
+    });
+  }
+
+  /**
    * The stored routing, as a complete object.
    *
    * Never throws and never returns a partial: a missing row, a row written
@@ -718,10 +798,22 @@ export class AiNewsroomService {
     const { settings, errors } = validateModelSettings(input);
 
     if (errors.length > 0) {
+      /*
+       * Keyed by stage, in the envelope's own `Record<string, string[]>`
+       * shape, so the admin screen can put each message against the stage it
+       * concerns and the generic client helper can still flatten them into a
+       * sentence. Every bad stage travels in one response: an operator fixing
+       * four should not discover them one save at a time.
+       */
+      const byStage: Record<string, string[]> = {};
+      for (const error of errors) {
+        (byStage[error.stage] ??= []).push(error.message);
+      }
+
       throw new BadRequestException({
         message: 'Model routing was rejected',
         code: 'INVALID_MODEL_SETTINGS',
-        errors,
+        errors: byStage,
       });
     }
 
