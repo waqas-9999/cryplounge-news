@@ -399,38 +399,131 @@ describe('the catalogue of what may be chosen', () => {
 
 /* ------------------------------------------------------ effective routing -- */
 
-describe('what the screen is told is running', () => {
-  const event = (stage: string, model: string, provider: string, minutesAgo = 5) => ({
+describe('configured beside what is actually running', () => {
+  const event = (stage: string, model: string, provider: string, minutesAgo = 5, error?: string) => ({
     stage,
     model,
-    metadata: { provider },
+    metadata: { provider, ...(error ? { error } : {}) },
     occurredAt: new Date(Date.now() - minutesAgo * 60_000),
   });
 
-  it('says a stage is on this screen when it has been overridden', async () => {
-    const { service } = build({ [KEY]: { writer: { provider: 'google-gemini', model: 'gemini-flash-latest' } } });
+  const stageOf = (report: { stages: Array<{ stage: string }> }, stage: string) =>
+    report.stages.find(entry => entry.stage === stage)! as never as {
+      stage: string;
+      label: string;
+      kind: string;
+      status: string;
+      error: string | null;
+      reportedAt: string | null;
+      configured: {
+        providerId: string | null;
+        providerName: string | null;
+        modelId: string | null;
+        modelName: string | null;
+        pricing: string | null;
+        unknown: boolean;
+      };
+      runtime: {
+        providerId: string | null;
+        providerName: string | null;
+        modelId: string | null;
+        modelName: string | null;
+        pricing: string | null;
+        unknown: boolean;
+      };
+    };
 
-    const routing = (await service.status()).modelRouting;
+  it('reports the configured model and the running model as separate facts', async () => {
+    const { service } = build({ [KEY]: { writer: { provider: 'google-gemini', model: 'gemini-flash-latest' } } }, [
+      event('writer', 'gemini-flash-latest', 'google-gemini'),
+    ]);
 
-    expect(routing.find(entry => entry.stage === 'writer')).toMatchObject({
-      source: 'cms',
-      provider: 'google-gemini',
-      model: 'gemini-flash-latest',
-    });
-    expect(routing.find(entry => entry.stage === 'research')).toMatchObject({ source: 'environment' });
+    const writer = stageOf(await service.modelRouting(), 'writer');
+
+    expect(writer.configured).toMatchObject({ modelId: 'gemini-flash-latest', providerId: 'google-gemini' });
+    expect(writer.runtime).toMatchObject({ modelId: 'gemini-flash-latest', providerId: 'google-gemini' });
+    expect(writer.status).toBe('ROUTED');
   });
 
-  it('reports what the newsroom last resolved, not a guess at its environment', async () => {
+  it('names providers and models the way the catalogue names them, with pricing', async () => {
+    const { service } = build({}, [event('editor', 'upstage/solar-pro4:free', 'openai-compatible')]);
+
+    const editor = stageOf(await service.modelRouting(), 'editor');
+
+    expect(editor.runtime.modelName).toBe('Solar Pro 4');
+    expect(editor.runtime.providerName).toBe('OpenAI-compatible endpoint');
+    expect(editor.runtime.pricing).toBe('free');
+    // The raw ids stay available for the technical details panel.
+    expect(editor.runtime.modelId).toBe('upstage/solar-pro4:free');
+  });
+
+  it('calls a stage with no override an environment default, and does not invent its model', async () => {
     const { service } = build({}, [event('research', 'gemini-flash-latest', 'google-gemini')]);
 
-    const research = (await service.status()).modelRouting.find(entry => entry.stage === 'research')!;
+    const research = stageOf(await service.modelRouting(), 'research');
 
-    expect(research).toMatchObject({
-      source: 'environment',
-      liveProvider: 'google-gemini',
-      liveModel: 'gemini-flash-latest',
-    });
-    expect(research.liveAt).toBeTruthy();
+    expect(research.status).toBe('ENVIRONMENT_DEFAULT');
+    expect(research.configured.modelId).toBeNull();
+    expect(research.runtime.modelName).toBe('Gemini Flash (latest)');
+  });
+
+  it('says a stage is unreported rather than claiming the configured model is running', async () => {
+    const { service } = build({ [KEY]: { writer: { provider: 'google-gemini', model: 'gemini-flash-latest' } } });
+
+    const writer = stageOf(await service.modelRouting(), 'writer');
+
+    expect(writer.status).toBe('NOT_REPORTED');
+    expect(writer.runtime.modelId).toBeNull();
+    expect(writer.reportedAt).toBeNull();
+  });
+
+  it('flags a runtime that does not match the configuration', async () => {
+    // Saved a free model; the newsroom is still on the old one because it has
+    // not cycled since. Hiding this is how an operator concludes the setting
+    // does not work.
+    const { service } = build({ [KEY]: { writer: { provider: 'openai-compatible', model: 'upstage/solar-pro4:free' } } }, [
+      event('writer', 'gemini-flash-latest', 'google-gemini'),
+    ]);
+
+    const writer = stageOf(await service.modelRouting(), 'writer');
+
+    expect(writer.status).toBe('MISMATCH');
+    expect(writer.configured.modelName).toBe('Solar Pro 4');
+    expect(writer.runtime.modelName).toBe('Gemini Flash (latest)');
+  });
+
+  it('reports a stage the newsroom could not build as unavailable', async () => {
+    const { service } = build({}, [
+      { stage: 'writer', model: null, metadata: { provider: null, error: 'GEMINI_API_KEY is not set' }, occurredAt: new Date() },
+    ]);
+
+    const writer = stageOf(await service.modelRouting(), 'writer');
+
+    expect(writer.status).toBe('UNAVAILABLE');
+    expect(writer.error).toMatch(/GEMINI_API_KEY/);
+  });
+
+  it('passes through a model the catalogue does not list rather than hiding the stage', async () => {
+    const { service } = build({}, [event('writer', 'some/model-from-env', 'openai-compatible')]);
+
+    const writer = stageOf(await service.modelRouting(), 'writer');
+
+    expect(writer.runtime.unknown).toBe(true);
+    expect(writer.runtime.modelName).toBe('some/model-from-env');
+    expect(writer.status).toBe('ENVIRONMENT_DEFAULT');
+  });
+
+  it('survives a malformed report without dropping the stage', async () => {
+    const { service } = build({}, [
+      { stage: 'writer', model: null, metadata: { provider: { nested: true } }, occurredAt: new Date() },
+      { stage: 'quality', model: 'upstage/solar-pro4:free', metadata: null, occurredAt: new Date() },
+    ]);
+
+    const report = await service.modelRouting();
+
+    expect(report.stages).toHaveLength(MODEL_STAGES.length);
+    expect(stageOf(report, 'writer').status).toBe('NOT_REPORTED');
+    expect(stageOf(report, 'quality').runtime.modelName).toBe('Solar Pro 4');
   });
 
   it('keeps the newest report per stage', async () => {
@@ -439,18 +532,101 @@ describe('what the screen is told is running', () => {
       event('writer', 'upstage/solar-pro4:free', 'openai-compatible', 90),
     ]);
 
-    expect((await service.status()).modelRouting.find(entry => entry.stage === 'writer')!.liveModel).toBe(
-      'gemini-flash-latest'
-    );
+    expect(stageOf(await service.modelRouting(), 'writer').runtime.modelId).toBe('gemini-flash-latest');
   });
 
-  it('says nothing rather than guessing when the newsroom has never reported', async () => {
-    const { service } = build();
+  it('covers all nine stages, image generation included, with its own kind', async () => {
+    const report = await build().service.modelRouting();
 
-    const routing = (await service.status()).modelRouting;
+    expect(report.stages.map(stage => stage.stage)).toEqual([...MODEL_STAGES]);
+    expect(stageOf(report, 'image').kind).toBe('image');
+    expect(stageOf(report, 'writer').kind).toBe('text');
+    // Labels travel with the payload so the screen keeps no stage list.
+    expect(stageOf(report, 'factcheck').label).toBe('Fact check');
+  });
+});
 
-    expect(routing).toHaveLength(MODEL_STAGES.length);
-    expect(routing.every(entry => entry.liveModel === null && entry.liveProvider === null)).toBe(true);
+describe('how fresh the runtime view is', () => {
+  const recent = (minutesAgo: number) => [
+    {
+      stage: 'writer',
+      model: 'gemini-flash-latest',
+      metadata: { provider: 'google-gemini' },
+      occurredAt: new Date(Date.now() - minutesAgo * 60_000),
+    },
+  ];
+
+  it('is active while reports are arriving', async () => {
+    const report = await build({}, recent(3)).service.modelRouting();
+
+    expect(report.health).toBe('ACTIVE');
+    expect(report.lastReportedAt).toBeTruthy();
+  });
+
+  it('is stale when the last report is old, which is not a claim the newsroom is down', async () => {
+    const report = await build({}, recent(45)).service.modelRouting();
+
+    expect(report.health).toBe('STALE');
+  });
+
+  it('is waiting when nothing has ever been reported', async () => {
+    const report = await build().service.modelRouting();
+
+    expect(report.health).toBe('WAITING');
+    expect(report.lastReportedAt).toBeNull();
+  });
+
+  it('allows for a cycle running long before calling the view stale', async () => {
+    // The newsroom cycles every ten minutes; a threshold at one cycle would
+    // flash stale on any slow run and train an operator to ignore it.
+    const report = await build({}, recent(12)).service.modelRouting();
+
+    expect(report.staleAfterMinutes).toBeGreaterThanOrEqual(20);
+    expect(report.health).toBe('ACTIVE');
+  });
+});
+
+describe('the runtime endpoint', () => {
+  const guard = new PermissionsGuard(new Reflector());
+
+  function context(permissions: string[]): ExecutionContext {
+    return {
+      getHandler: () => AiNewsroomController.prototype.runtime,
+      getClass: () => AiNewsroomController,
+      switchToHttp: () => ({ getRequest: () => ({ user: { permissions } }) }),
+    } as unknown as ExecutionContext;
+  }
+
+  it('needs only the read permission, since it changes nothing', () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS, AiNewsroomController.prototype.runtime)).toEqual([
+      'ai.automation.read',
+    ]);
+    expect(guard.canActivate(context(['ai.automation.read']))).toBe(true);
+  });
+
+  it('is not reachable without an automation permission, or by an agent', () => {
+    expect(() => guard.canActivate(context(['news.read']))).toThrow();
+    expect(Reflect.getMetadata(IS_PUBLIC, AiNewsroomController.prototype.runtime)).toBeFalsy();
+  });
+
+  it('records no audit entry: a screen refreshing itself is not an administrative act', async () => {
+    const { service, audits } = build({}, [
+      { stage: 'writer', model: 'gemini-flash-latest', metadata: { provider: 'google-gemini' }, occurredAt: new Date() },
+    ]);
+
+    await service.modelRouting();
+
+    expect(audits).toEqual([]);
+  });
+
+  it('returns no credentials', async () => {
+    const { service } = build({}, [
+      { stage: 'writer', model: 'gemini-flash-latest', metadata: { provider: 'google-gemini' }, occurredAt: new Date() },
+    ]);
+
+    const serialised = JSON.stringify(await service.modelRouting());
+
+    expect(serialised).not.toMatch(/sk-[A-Za-z0-9]|AIza[A-Za-z0-9]|Bearer |password|secret/i);
   });
 });
 

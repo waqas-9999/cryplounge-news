@@ -21,25 +21,16 @@
  * calls, loudly, which the newsroom already reports.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-use-before-define -- the
-// catalogue imports MODEL_STAGES from this file; the cycle is types and
-// module-level arrays only, both resolved before either is called.
 import { MODEL_CATALOG, findModel, providerIdsForStage } from './model-catalog';
+import { MODEL_STAGES, type ModelStage } from './model-stages';
 
-/** A stage that makes model calls, named for the pipeline rather than the model. */
-export const MODEL_STAGES = [
-  'discovery',
-  'scoring',
-  'research',
-  'writer',
-  'editor',
-  'factcheck',
-  'quality',
-  'imagePrompt',
-  'image',
-] as const;
-
-export type ModelStage = (typeof MODEL_STAGES)[number];
+/*
+ * The stage list lives in `model-stages.ts` and is re-exported here, where
+ * every existing caller already imports it from. Splitting it out is what
+ * breaks the import cycle with the catalogue — see that file.
+ */
+export { MODEL_STAGES };
+export type { ModelStage };
 
 /**
  * Providers, derived from the catalogue rather than repeated here.

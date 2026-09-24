@@ -1,4 +1,4 @@
-import { MODEL_STAGES, type ModelStage } from './model-settings';
+import { MODEL_STAGES, type ModelStage } from './model-stages';
 
 /**
  * Every provider and model an administrator may choose, in one place.
@@ -230,6 +230,72 @@ export const MODEL_CATALOG: CatalogProvider[] = [
     models: [{ id: 'gpt-image-1', name: 'GPT Image 1', pricing: 'paid', isProviderDefault: true }],
   },
 ];
+
+/**
+ * What each stage is, in one place.
+ *
+ * The labels and descriptions used to live in the React component, which meant
+ * the browser had a stage list of its own that could fall out of step with
+ * `MODEL_STAGES` — the exact drift this catalogue exists to prevent. They are
+ * served with the catalogue instead, so the screen renders whatever the server
+ * says the stages are.
+ *
+ * Ordered as a story passes through the newsroom, because that is the order an
+ * operator deciding where to spend thinks in.
+ */
+export const STAGE_INFO: Array<{ stage: ModelStage; label: string; description: string }> = [
+  {
+    stage: 'discovery',
+    label: 'Discovery',
+    description:
+      'Reads every incoming headline to decide what is a story. Hundreds of calls a cycle — keep it cheap.',
+  },
+  {
+    stage: 'scoring',
+    label: 'Scoring',
+    description: 'Ranks the candidate stories. Also runs on everything discovered.',
+  },
+  {
+    stage: 'research',
+    label: 'Research',
+    description:
+      'Reads the sources and builds the dossier of established facts. Everything written later comes from this.',
+  },
+  {
+    stage: 'writer',
+    label: 'Writer',
+    description: 'Writes the article from the research. The model whose voice readers actually see.',
+  },
+  {
+    stage: 'editor',
+    label: 'Editor',
+    description:
+      'Reviews the draft. Worth a different model from the writer — a second opinion from the same model is not one.',
+  },
+  {
+    stage: 'factcheck',
+    label: 'Fact check',
+    description: 'Checks each statement against the research. The gate most drafts fail.',
+  },
+  { stage: 'quality', label: 'Quality', description: 'Scores readability, structure and SEO.' },
+  {
+    stage: 'imagePrompt',
+    label: 'Image prompt',
+    description: 'Writes the description the image model draws from. A text model, not an image one.',
+  },
+  {
+    stage: 'image',
+    label: 'Image generation',
+    description:
+      'Draws the article image. Chosen separately from the text stages: image providers are a different list and do not go through the LLM router.',
+  },
+];
+
+const LABELS = new Map(STAGE_INFO.map(entry => [entry.stage, entry.label]));
+
+export function stageLabel(stage: ModelStage): string {
+  return LABELS.get(stage) ?? stage;
+}
 
 /** Which kind of provider a stage needs. Image generation is the only image stage. */
 export function kindOf(stage: ModelStage): ProviderKind {

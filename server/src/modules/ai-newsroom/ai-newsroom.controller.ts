@@ -107,6 +107,33 @@ export class AiNewsroomController {
   }
 
   /**
+   * What the newsroom is running right now, on its own.
+   *
+   * Split from the full status so the screen can poll it: the runtime section
+   * is the part that changes without anyone touching the dashboard, and
+   * re-reading categories, limits and publish state every half minute to learn
+   * one timestamp would be wasteful. Two settings reads and one indexed event
+   * query.
+   *
+   * Read permission only. Nothing here writes, and nothing here is audited: a
+   * screen refreshing itself is not an administrative action, and logging it
+   * would bury the changes that are.
+   */
+  @Get('models/runtime')
+  @ApiBearerAuth()
+  @RequirePermissions('ai.automation.read')
+  @ResponseMessage('Newsroom model routing')
+  @ApiOperation({
+    summary: 'Configured routing beside what the newsroom last reported running',
+    description:
+      'The runtime half comes from the newsroom’s own cycle reports. Stages it has not ' +
+      'reported are returned as NOT_REPORTED rather than filled in from the configuration.',
+  })
+  runtime() {
+    return this.newsroom.modelRouting();
+  }
+
+  /**
    * Which model runs each stage.
    *
    * Under `ai.automation.manage` — the same super-admin permission as the

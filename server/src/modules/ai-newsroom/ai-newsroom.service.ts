@@ -10,7 +10,8 @@ import {
   type ModelSettings,
   type ModelStage,
 } from './model-settings';
-import { catalogForStages, type CatalogProvider } from './model-catalog';
+import { STAGE_INFO, catalogForStages, type CatalogProvider } from './model-catalog';
+import { buildRoutingReport, type ModelRoutingReport, type RuntimeReport } from './model-runtime';
 
 /**
  * AI newsroom automation controls.
@@ -136,24 +137,16 @@ export const AUTO_PUBLISH_DEFAULTS = {
 } as const;
 
 /**
- * What one stage is actually running.
+ * Stage metadata for the screen: id, label, description.
  *
- * `source` answers the question an operator opens this screen with: am I
- * overriding the newsroom, or is it still running on its own configuration?
- * `liveProvider` and `liveModel` are what the newsroom last reported it
- * resolved — the only honest answer to "what is running", since the CMS does
- * not know what is in the newsroom's environment file and must not pretend to.
+ * Served rather than kept in the component so there is one stage list, here,
+ * and the browser cannot disagree with the validator about what the stages
+ * are.
  */
-export interface StageRouting {
-  stage: ModelStage;
-  source: 'cms' | 'environment';
-  /** The override, when there is one. */
-  provider: string | null;
-  model: string | null;
-  /** What the newsroom last reported for this stage, if it has reported. */
-  liveProvider: string | null;
-  liveModel: string | null;
-  liveAt: string | null;
+export interface StageInfo {
+  stage: string;
+  label: string;
+  description: string;
 }
 
 export interface AutomationStatus {
@@ -189,8 +182,13 @@ export interface AutomationStatus {
   models: ModelSettings;
   /** Stage → the providers and models that stage may be routed to. */
   modelCatalog: Record<string, CatalogProvider[]>;
-  /** What each stage is actually running, and whether this screen chose it. */
-  modelRouting: StageRouting[];
+  /** Stage names and descriptions, so the screen keeps no list of its own. */
+  modelStages: StageInfo[];
+  /**
+   * Configured routing beside what the newsroom last reported running, per
+   * stage, with the relationship between them. See `model-runtime.ts`.
+   */
+  modelRouting: ModelRoutingReport;
   /**
    * Whether anything could publish right now. Reported separately from
    * `enabled` so the screen can say *why* nothing is running.
@@ -663,6 +661,7 @@ export class AiNewsroomService {
       lastError,
       models,
       modelCatalog: catalogForStages(),
+      modelStages: STAGE_INFO.map(entry => ({ ...entry })),
       modelRouting: await this.modelRouting(models),
       effective: {
         /*
@@ -726,19 +725,19 @@ export class AiNewsroomService {
   /**
    * What each stage is running, as far as anything here can know it.
    *
-   * The override is authoritative for `source`: if this screen set a model,
-   * that model is what the newsroom uses. Everything else — what a stage falls
-   * back to when the override is blank — lives in the newsroom's environment,
-   * which the CMS cannot read and must not guess at.
+   * The configuration is read from the setting this screen writes. The runtime
+   * is read from the newsroom's own reports and from nowhere else: the CMS
+   * cannot see the newsroom's environment file, and a stage left on the
+   * environment has a model this database has never been told. Filling that in
+   * from the configuration would produce a screen that is confidently wrong
+   * for exactly the stages an operator most needs the truth about.
    *
-   * So the live values come from the newsroom itself. It reports the routing
-   * it resolved at the start of each cycle through the telemetry events it
-   * already sends, and the most recent report per stage is shown with its
-   * timestamp. A newsroom that has not run since this feature shipped simply
-   * reports nothing, and the screen says the stage is on the newsroom
-   * configuration without naming it — which is true, rather than confident.
+   * Composing the two — including the case where they disagree — is
+   * `buildRoutingReport`, which is pure and tested on its own.
    */
-  private async modelRouting(models: ModelSettings): Promise<StageRouting[]> {
+  async modelRouting(models?: ModelSettings): Promise<ModelRoutingReport> {
+    const settings = models ?? (await this.models());
+
     const events = await this.prisma.newsroomEvent.findMany({
       where: { type: STAGE_ROUTING_EVENT, stage: { in: [...MODEL_STAGES] } },
       orderBy: { occurredAt: 'desc' },
@@ -749,26 +748,24 @@ export class AiNewsroomService {
       take: 60,
     });
 
-    const latest = new Map<string, (typeof events)[number]>();
-    for (const event of events) {
-      if (event.stage && !latest.has(event.stage)) latest.set(event.stage, event);
-    }
+    const reports: RuntimeReport[] = events
+      .filter((event): event is typeof event & { stage: string } => Boolean(event.stage))
+      .map(event => {
+        // The newsroom sends the provider and any failure as metadata; `stage`
+        // and `model` are columns. Read defensively: this is data from another
+        // process, and a malformed field must not take out the screen.
+        const metadata = (event.metadata ?? null) as { provider?: unknown; error?: unknown } | null;
 
-    return MODEL_STAGES.map(stage => {
-      const override = models[stage];
-      const live = latest.get(stage);
-      const metadata = (live?.metadata ?? null) as { provider?: unknown } | null;
+        return {
+          stage: event.stage,
+          model: event.model ?? null,
+          provider: typeof metadata?.provider === 'string' ? metadata.provider : null,
+          error: typeof metadata?.error === 'string' ? metadata.error : null,
+          occurredAt: event.occurredAt,
+        };
+      });
 
-      return {
-        stage,
-        source: override.provider || override.model ? ('cms' as const) : ('environment' as const),
-        provider: override.provider,
-        model: override.model,
-        liveProvider: typeof metadata?.provider === 'string' ? metadata.provider : null,
-        liveModel: live?.model ?? null,
-        liveAt: live?.occurredAt.toISOString() ?? null,
-      };
-    });
+    return buildRoutingReport(settings, reports);
   }
 
   /**

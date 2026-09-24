@@ -29,8 +29,9 @@ import {
 import {
   ModelRoutingCard,
   type CatalogProvider,
+  type ModelRoutingReport,
   type ModelSettings,
-  type StageRouting,
+  type StageInfo,
 } from './ModelRoutingCard';
 
 interface AiAutomationPageProps {
@@ -60,8 +61,10 @@ interface AutomationStatus {
   models: ModelSettings;
   /** Stage → the providers and models selectable for it, from the server. */
   modelCatalog: Record<string, CatalogProvider[]>;
-  /** What each stage is set to here, and what the newsroom last reported running. */
-  modelRouting: StageRouting[];
+  /** Stage names and descriptions, so this screen keeps no list of its own. */
+  modelStages: StageInfo[];
+  /** Configured routing beside what the newsroom last reported running. */
+  modelRouting: ModelRoutingReport;
   effective: { canPublish: boolean; reason: string };
 }
 
@@ -103,6 +106,14 @@ function formatWhen(value: string | null): string {
  * one save at a time. Anything else — a network failure, a 403 — has no stage
  * attached and is left to the toast.
  */
+/** What the card renders before the first status response arrives. */
+const EMPTY_ROUTING: ModelRoutingReport = {
+  health: 'WAITING',
+  lastReportedAt: null,
+  staleAfterMinutes: 30,
+  stages: [],
+};
+
 function stageErrors(error: unknown): Record<string, string> {
   const errors = (error as { errors?: Record<string, string[]> })?.errors;
   if (!errors || typeof errors !== 'object') return {};
@@ -514,7 +525,23 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                 <ModelRoutingCard
                   models={data.models ?? {}}
                   catalog={data.modelCatalog ?? {}}
-                  routing={data.modelRouting ?? []}
+                  stages={data.modelStages ?? []}
+                  routing={data.modelRouting ?? EMPTY_ROUTING}
+                  onRefreshRuntime={async () => {
+                    /*
+                     * The runtime section alone, on its own endpoint.
+                     *
+                     * A failure here is silent by design: this fires on a
+                     * timer, and a toast every 45 seconds during a blip would
+                     * be worse than a section that simply keeps showing the
+                     * last report it has.
+                     */
+                    try {
+                      return await apiClient.get<ModelRoutingReport>('admin/ai/automation/models/runtime');
+                    } catch {
+                      return null;
+                    }
+                  }}
                   readOnly={readOnly}
                   saving={saving === 'models'}
                   errors={modelErrors}
