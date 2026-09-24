@@ -248,12 +248,13 @@ export const STAGE_INFO: Array<{ stage: ModelStage; label: string; description: 
     stage: 'discovery',
     label: 'Discovery',
     description:
-      'Reads every incoming headline to decide what is a story. Hundreds of calls a cycle — keep it cheap.',
+      'Decides what counts as a story. Runs no model today — discovery is feed reading and rules — so a setting here is recorded and will apply if that changes.',
   },
   {
     stage: 'scoring',
     label: 'Scoring',
-    description: 'Ranks the candidate stories. Also runs on everything discovered.',
+    description:
+      'Ranks the candidates. Like discovery, scored arithmetically today, so a model set here is not yet called.',
   },
   {
     stage: 'research',
