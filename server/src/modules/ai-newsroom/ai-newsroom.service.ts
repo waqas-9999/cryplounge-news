@@ -11,7 +11,12 @@ import {
   type ModelStage,
 } from './model-settings';
 import { STAGE_INFO, catalogForStages, type CatalogProvider } from './model-catalog';
-import { buildRoutingReport, type ModelRoutingReport, type RuntimeReport } from './model-runtime';
+import {
+  buildRoutingReport,
+  readReportedSource,
+  type ModelRoutingReport,
+  type RuntimeReport,
+} from './model-runtime';
 
 /**
  * AI newsroom automation controls.
@@ -754,13 +759,16 @@ export class AiNewsroomService {
         // The newsroom sends the provider and any failure as metadata; `stage`
         // and `model` are columns. Read defensively: this is data from another
         // process, and a malformed field must not take out the screen.
-        const metadata = (event.metadata ?? null) as { provider?: unknown; error?: unknown } | null;
+        const metadata = (event.metadata ?? null) as
+          | { provider?: unknown; error?: unknown; routingSource?: unknown }
+          | null;
 
         return {
           stage: event.stage,
           model: event.model ?? null,
           provider: typeof metadata?.provider === 'string' ? metadata.provider : null,
           error: typeof metadata?.error === 'string' ? metadata.error : null,
+          reportedSource: readReportedSource(metadata?.routingSource),
           occurredAt: event.occurredAt,
         };
       });

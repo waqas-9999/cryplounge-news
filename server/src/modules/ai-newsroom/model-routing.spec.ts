@@ -663,3 +663,58 @@ describe('the catalogue endpoint', () => {
     expect(catalog.writer!.map(provider => provider.id)).toEqual([...providersFor('writer')]);
   });
 });
+
+/* ------------------------------------------------- reported routing source -- */
+
+describe('who chose the model that ran', () => {
+  const reported = (stage: string, model: string, provider: string, routingSource?: string) => ({
+    stage,
+    model,
+    metadata: { provider, ...(routingSource ? { routingSource } : {}) },
+    occurredAt: new Date(),
+  });
+
+  const find = (report: { stages: Array<{ stage: string }> }, stage: string) =>
+    report.stages.find(entry => entry.stage === stage)! as never as { status: string };
+
+  it('trusts the newsroom when it says the dashboard chose the model', async () => {
+    const { service } = build({ [KEY]: { writer: { provider: 'openai-compatible', model: 'meituan/longcat-2.0:free' } } }, [
+      reported('writer', 'meituan/longcat-2.0:free', 'openai-compatible', 'ADMIN_OVERRIDE'),
+    ]);
+
+    expect(find(await service.modelRouting(), 'writer').status).toBe('ROUTED');
+  });
+
+  it('trusts the newsroom when it says the environment chose the model', async () => {
+    const { service } = build({}, [
+      reported('research', 'gemini-flash-latest', 'google-gemini', 'ENVIRONMENT_DEFAULT'),
+    ]);
+
+    expect(find(await service.modelRouting(), 'research').status).toBe('ENVIRONMENT_DEFAULT');
+  });
+
+  it('flags the window after an override is removed but before the newsroom refreshes', async () => {
+    // Nothing configured now; the newsroom's last run still used an override.
+    // That disagreement is real and temporary, and hiding it would make the
+    // screen claim the environment is in charge while it is not.
+    const { service } = build({}, [
+      reported('writer', 'meituan/longcat-2.0:free', 'openai-compatible', 'ADMIN_OVERRIDE'),
+    ]);
+
+    expect(find(await service.modelRouting(), 'writer').status).toBe('MISMATCH');
+  });
+
+  it('reads the spelling older newsroom builds send', async () => {
+    const { service } = build({}, [reported('research', 'gemini-flash-latest', 'google-gemini', 'environment')]);
+
+    expect(find(await service.modelRouting(), 'research').status).toBe('ENVIRONMENT_DEFAULT');
+  });
+
+  it('falls back to comparing configuration when the newsroom reported no source', async () => {
+    const { service } = build({ [KEY]: { writer: { provider: 'google-gemini', model: 'gemini-flash-latest' } } }, [
+      reported('writer', 'gemini-flash-latest', 'google-gemini'),
+    ]);
+
+    expect(find(await service.modelRouting(), 'writer').status).toBe('ROUTED');
+  });
+});

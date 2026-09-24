@@ -94,7 +94,25 @@ export interface RuntimeReport {
   model: string | null;
   provider: string | null;
   error: string | null;
+  /**
+   * Which of the two the newsroom says it used.
+   *
+   * Reported rather than inferred. Only the newsroom knows whether it read the
+   * dashboard's override or fell back to its environment at the moment it
+   * resolved, and the two can legitimately disagree with the current setting —
+   * that is the window between a save and the next refresh, which this screen
+   * exists to make visible. Older newsroom builds send `cms` / `environment`;
+   * both spellings are accepted.
+   */
+  reportedSource: 'ADMIN_OVERRIDE' | 'ENVIRONMENT_DEFAULT' | null;
   occurredAt: Date;
+}
+
+/** Normalises the source field across newsroom versions. */
+export function readReportedSource(value: unknown): RuntimeReport['reportedSource'] {
+  if (value === 'ADMIN_OVERRIDE' || value === 'cms') return 'ADMIN_OVERRIDE';
+  if (value === 'ENVIRONMENT_DEFAULT' || value === 'environment') return 'ENVIRONMENT_DEFAULT';
+  return null;
 }
 
 const EMPTY: NamedModel = {
@@ -147,12 +165,26 @@ function sameModel(configured: NamedModel, runtime: NamedModel): boolean {
  * the absence of a report, which is not evidence of anything. Only with a
  * successful report in hand is it worth comparing the two.
  */
-function statusOf(configured: NamedModel, runtime: NamedModel, error: string | null): RuntimeStatus {
+function statusOf(
+  configured: NamedModel,
+  runtime: NamedModel,
+  error: string | null,
+  reportedSource: RuntimeReport['reportedSource']
+): RuntimeStatus {
   if (error) return 'UNAVAILABLE';
   if (!runtime.modelId && !runtime.providerId) return 'NOT_REPORTED';
 
   const overridden = Boolean(configured.providerId || configured.modelId);
-  if (!overridden) return 'ENVIRONMENT_DEFAULT';
+
+  if (!overridden) {
+    /*
+     * No override is set now. If the newsroom's last run still used one, the
+     * override was removed after that run and the newsroom has not refreshed
+     * yet — a real, temporary disagreement, and exactly the thing an operator
+     * needs to see rather than have smoothed over.
+     */
+    return reportedSource === 'ADMIN_OVERRIDE' ? 'MISMATCH' : 'ENVIRONMENT_DEFAULT';
+  }
 
   return sameModel(configured, runtime) ? 'ROUTED' : 'MISMATCH';
 }
@@ -187,7 +219,7 @@ export function buildRoutingReport(
       kind: kindOf(stage),
       configured,
       runtime,
-      status: statusOf(configured, runtime, report?.error ?? null),
+      status: statusOf(configured, runtime, report?.error ?? null, report?.reportedSource ?? null),
       error: report?.error ?? null,
       reportedAt: report?.occurredAt.toISOString() ?? null,
     };
