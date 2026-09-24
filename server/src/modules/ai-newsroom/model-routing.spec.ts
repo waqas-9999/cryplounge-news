@@ -718,3 +718,95 @@ describe('who chose the model that ran', () => {
     expect(find(await service.modelRouting(), 'writer').status).toBe('ROUTED');
   });
 });
+
+/* --------------------------------- the mismatch this feature was built for -- */
+
+describe('the Writer case from the field', () => {
+  /*
+   * Reported symptom: the dashboard showed Writer running Gemini Flash while
+   * the newsroom log showed LongCat. The dashboard was right about what it had
+   * been told — the newsroom had published one observation, from a start where
+   * its settings fetch had failed, and nothing republished afterwards. These
+   * hold the CMS side to reading the latest observation and to never inventing
+   * one.
+   */
+  const observation = (stage: string, model: string, provider: string, routingSource: string, minutesAgo = 1) => ({
+    stage,
+    model,
+    metadata: { provider, routingSource },
+    occurredAt: new Date(Date.now() - minutesAgo * 60_000),
+  });
+
+  const writer = async (service: { modelRouting: () => Promise<{ stages: Array<{ stage: string }> }> }) =>
+    (await service.modelRouting()).stages.find(entry => entry.stage === 'writer')! as never as {
+      status: string;
+      configured: { modelName: string | null };
+      runtime: { modelName: string | null; providerName: string | null; pricing: string | null };
+    };
+
+  const LONGCAT = { [KEY]: { writer: { provider: 'openai-compatible', model: 'meituan/longcat-2.0:free' } } };
+
+  it('1: configured LongCat and running LongCat is a match', async () => {
+    const { service } = build(LONGCAT, [
+      observation('writer', 'meituan/longcat-2.0:free', 'openai-compatible', 'ADMIN_OVERRIDE'),
+    ]);
+
+    const stage = await writer(service);
+    expect(stage.status).toBe('ROUTED');
+    expect(stage.runtime.modelName).toBe('LongCat 2.0');
+    expect(stage.runtime.pricing).toBe('free');
+  });
+
+  it('2: configured LongCat and running Gemini is reported as a mismatch, not smoothed over', async () => {
+    const { service } = build(LONGCAT, [
+      observation('writer', 'gemini-flash-latest', 'google-gemini', 'ENVIRONMENT_DEFAULT'),
+    ]);
+
+    const stage = await writer(service);
+    expect(stage.status).toBe('MISMATCH');
+    expect(stage.configured.modelName).toBe('LongCat 2.0');
+    expect(stage.runtime.modelName).toBe('Gemini Flash (latest)');
+  });
+
+  it('3: the newest observation wins, so a corrected run replaces a bad one', async () => {
+    const { service } = build(LONGCAT, [
+      observation('writer', 'gemini-flash-latest', 'google-gemini', 'ENVIRONMENT_DEFAULT', 30),
+      observation('writer', 'meituan/longcat-2.0:free', 'openai-compatible', 'ADMIN_OVERRIDE', 1),
+    ]);
+
+    expect((await writer(service)).status).toBe('ROUTED');
+  });
+
+  it('4: an old observation is still shown, with the report marked stale', async () => {
+    const { service } = build(LONGCAT, [
+      observation('writer', 'meituan/longcat-2.0:free', 'openai-compatible', 'ADMIN_OVERRIDE', 120),
+    ]);
+
+    const report = await service.modelRouting();
+    expect(report.health).toBe('STALE');
+    expect((await writer(service)).runtime.modelName).toBe('LongCat 2.0');
+  });
+
+  it('9: with no observation the runtime is empty, never the configured model', async () => {
+    const { service } = build(LONGCAT);
+
+    const stage = await writer(service);
+    expect(stage.status).toBe('NOT_REPORTED');
+    expect(stage.configured.modelName).toBe('LongCat 2.0');
+    expect(stage.runtime.modelName).toBeNull();
+  });
+
+  it('7, 8: Writer and Research are read independently', async () => {
+    const { service } = build(LONGCAT, [
+      observation('writer', 'meituan/longcat-2.0:free', 'openai-compatible', 'ADMIN_OVERRIDE'),
+      observation('research', 'gemini-flash-latest', 'google-gemini', 'ENVIRONMENT_DEFAULT'),
+    ]);
+
+    const report = await service.modelRouting();
+    const research = report.stages.find(entry => entry.stage === 'research')!;
+
+    expect((await writer(service)).runtime.modelName).toBe('LongCat 2.0');
+    expect(research.runtime.modelName).toBe('Gemini Flash (latest)');
+    expect(research.status).toBe('ENVIRONMENT_DEFAULT');
+  });
+});
