@@ -26,6 +26,7 @@ import {
   LoadingBlock,
   useAnalyticsQuery,
 } from '@/components/admin/analytics/primitives';
+import { ModelRoutingCard, type ModelSettings } from './ModelRoutingCard';
 
 interface AiAutomationPageProps {
   currentPage: string;
@@ -50,6 +51,9 @@ interface AutomationStatus {
   lastPublishedAt: string | null;
   lastPublishedTitle: string | null;
   lastError: string | null;
+  /** Per-stage model overrides. Unset stages read as null. */
+  models: ModelSettings;
+  modelProviders: Record<string, readonly string[]>;
   effective: { canPublish: boolean; reason: string };
 }
 
@@ -469,6 +473,19 @@ export function AiAutomationPage({ currentPage, onNavigate, onLogout }: AiAutoma
                     </p>
                   </div>
                 </Card>
+
+                {/* ---------------------------------------------------- models -- */}
+                <ModelRoutingCard
+                  models={data.models ?? {}}
+                  providers={data.modelProviders ?? {}}
+                  readOnly={readOnly}
+                  saving={saving === 'models'}
+                  onSave={models =>
+                    mutate('models', () =>
+                      apiClient.put<AutomationStatus>('admin/ai/automation/models', { models })
+                    )
+                  }
+                />
 
                 {/* ---------------------------------------------------- status -- */}
                 <Card className="p-5">

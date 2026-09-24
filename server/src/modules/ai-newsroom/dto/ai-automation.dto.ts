@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { MODEL_STAGES, TEXT_PROVIDERS, IMAGE_PROVIDERS } from '../model-settings';
 import {
   AI_PUBLISH_MODES,
   AUTO_PUBLISH_STRICTNESS,
@@ -71,4 +72,32 @@ export class SetAutoPublishLimitsDto {
   @IsOptional()
   @IsIn(AUTO_PUBLISH_STRICTNESS)
   strictness?: AutoPublishStrictness;
+}
+
+/**
+ * Model routing for every stage, in one object.
+ *
+ * Validated in the service rather than by decorators: the rules are
+ * per-stage — an image stage takes image providers, a text stage takes text
+ * providers — and expressing that with class-validator would mean nine
+ * near-identical nested classes that still could not report every bad stage in
+ * one response. `validateModelSettings` does both.
+ */
+export class SetModelsDto {
+  @ApiProperty({
+    description:
+      'Stage → { provider, model }. Stages: ' +
+      MODEL_STAGES.join(', ') +
+      '. Text providers: ' +
+      TEXT_PROVIDERS.join(', ') +
+      '. Image providers: ' +
+      IMAGE_PROVIDERS.join(', ') +
+      '. Omit a field, or send null or "", to leave that stage on the newsroom configuration.',
+    example: {
+      writer: { provider: 'google-gemini', model: 'gemini-flash-latest' },
+      image: { provider: 'gemini', model: 'gemini-2.5-flash-image' },
+    },
+  })
+  @IsObject()
+  models!: Record<string, { provider?: string | null; model?: string | null }>;
 }

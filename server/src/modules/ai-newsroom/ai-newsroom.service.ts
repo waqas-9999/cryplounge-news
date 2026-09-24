@@ -2,6 +2,14 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger }
 import { AuditAction, CategoryKind, ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AuditService, type AuditContext } from '../content-core/audit.service';
+import {
+  MODEL_STAGES,
+  describeOverrides,
+  providersFor,
+  readModelSettings,
+  validateModelSettings,
+  type ModelSettings,
+} from './model-settings';
 
 /**
  * AI newsroom automation controls.
@@ -76,6 +84,14 @@ const KEYS = {
    * safety checks are not part of this choice and apply either way.
    */
   autoPublishStrictness: `${AI_SETTING_PREFIX}autoPublishStrictness`,
+  /**
+   * Per-stage model routing for the newsroom.
+   *
+   * One row holding every stage rather than a key each: the newsroom reads
+   * them together, the screen edits them together, and a partial write that
+   * left two stages on an old model would be the confusing failure.
+   */
+  models: `${AI_SETTING_PREFIX}models`,
 } as const;
 
 /**
@@ -137,6 +153,13 @@ export interface AutomationStatus {
   lastPublishedAt: string | null;
   lastPublishedTitle: string | null;
   lastError: string | null;
+  /**
+   * Which model runs each stage, where an operator has overridden the
+   * newsroom's own configuration. Unset stages read as null.
+   */
+  models: ModelSettings;
+  /** Stage → the providers that stage may be routed to, for the screen. */
+  modelProviders: Record<string, readonly string[]>;
   /**
    * Whether anything could publish right now. Reported separately from
    * `enabled` so the screen can say *why* nothing is running.
@@ -200,6 +223,7 @@ export class AiNewsroomService {
     publishMode: AiPublishMode;
     categories: Record<string, boolean>;
     allowedCategories: string[];
+    models: ModelSettings;
   }> {
     const enabled = await this.isEnabled();
     const categories = await this.raw<Record<string, boolean>>(KEYS.categories, {});
@@ -209,6 +233,16 @@ export class AiNewsroomService {
       enabled,
       publishMode,
       categories,
+      /*
+       * Routing travels with the automation settings rather than on an
+       * endpoint of its own: the newsroom already polls this every cycle, so
+       * a model change lands on the same schedule as switching automation
+       * off, and there is no second fetch to fail independently.
+       *
+       * Unset stages are sent as null, which the newsroom reads as "keep your
+       * own configuration" — the CMS never has to know what that is.
+       */
+      models: await this.models(),
       allowedCategories: Object.entries(categories)
         .filter(([, on]) => on === true)
         .map(([slug]) => slug),
@@ -557,6 +591,8 @@ export class AiNewsroomService {
         this.raw<string | null>(KEYS.lastError, null),
       ]);
 
+    const models = await this.models();
+
     const [
       emergencyPaused,
       autoPublishDailyLimit,
@@ -594,6 +630,8 @@ export class AiNewsroomService {
       lastPublishedAt,
       lastPublishedTitle,
       lastError,
+      models,
+      modelProviders: Object.fromEntries(MODEL_STAGES.map(stage => [stage, providersFor(stage)])),
       effective: {
         /*
          * Whether an article could publish itself right now.
@@ -651,6 +689,60 @@ export class AiNewsroomService {
       context,
       metadata: { before: previous?.value ?? null, after: value, ...extra } as Prisma.InputJsonValue,
     });
+  }
+
+  /**
+   * The stored routing, as a complete object.
+   *
+   * Never throws and never returns a partial: a missing row, a row written
+   * before a stage existed, or a row someone edited by hand all read as
+   * "everything inherits from the newsroom".
+   */
+  async models(): Promise<ModelSettings> {
+    return readModelSettings(await this.raw<unknown>(KEYS.models, null));
+  }
+
+  /**
+   * Replaces the routing wholesale.
+   *
+   * A whole-object write rather than a per-stage patch, because the screen
+   * edits every stage at once and a patch API would make "clear the writer
+   * override" ambiguous — an absent key would mean both "leave it" and
+   * "remove it". Here, absent always means unset, and unset always means the
+   * newsroom's own configuration decides.
+   *
+   * Every invalid stage is reported together; nothing is written unless all
+   * of them are valid, so a save can never half-apply.
+   */
+  async setModels(input: unknown, context: AuditContext): Promise<AutomationStatus> {
+    const { settings, errors } = validateModelSettings(input);
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Model routing was rejected',
+        code: 'INVALID_MODEL_SETTINGS',
+        errors,
+      });
+    }
+
+    const overrides = describeOverrides(settings);
+
+    await this.write(
+      KEYS.models,
+      settings as unknown as Prisma.InputJsonObject,
+      context,
+      overrides.length > 0
+        ? `Set AI newsroom model routing (${overrides.join('; ')})`
+        : 'Cleared AI newsroom model routing; every stage inherits the newsroom configuration',
+      { stages: overrides, actor: actorOf(context) }
+    );
+
+    this.logger.warn(
+      { overrides, actor: context.user?.email ?? context.actorLabel },
+      'AI newsroom model routing changed'
+    );
+
+    return this.status();
   }
 
   async setEnabled(enabled: boolean, context: AuditContext): Promise<AutomationStatus> {

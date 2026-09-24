@@ -13,6 +13,7 @@ import {
   SetAutomationDto,
   SetCategoryAutomationDto,
   SetEmergencyPauseDto,
+  SetModelsDto,
   SetPublishModeDto,
 } from './dto/ai-automation.dto';
 
@@ -81,6 +82,36 @@ export class AiNewsroomController {
     @Req() request: Request
   ) {
     return this.newsroom.setPublishMode(dto.mode, auditContext(user, request));
+  }
+
+  /**
+   * Which model runs each stage.
+   *
+   * Under `ai.automation.manage` — the same super-admin permission as the
+   * publish mode — because model choice decides what the site publishes and
+   * what it costs. It is nonetheless a weaker control than the ones around
+   * it: nothing here can publish an article or grant an agent anything, and
+   * the newsroom's gates run identically whichever model wrote the copy.
+   *
+   * The current routing is returned by `GET /admin/ai/automation` with the
+   * rest of the state, so there is no separate read endpoint to keep in sync.
+   */
+  @Put('models')
+  @ApiBearerAuth()
+  @RequirePermissions('ai.automation.manage')
+  @ResponseMessage('Model routing updated')
+  @ApiOperation({
+    summary: 'Set the provider and model for each newsroom stage',
+    description:
+      'Super admin only. An unset stage inherits the configuration on the newsroom itself. ' +
+      'The newsroom picks changes up on its next cycle; no deploy or restart is needed.',
+  })
+  setModels(
+    @Body() dto: SetModelsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request
+  ) {
+    return this.newsroom.setModels(dto.models, auditContext(user, request));
   }
 
   /**
