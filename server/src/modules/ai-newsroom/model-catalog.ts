@@ -142,13 +142,21 @@ export const MODEL_CATALOG: CatalogProvider[] = [
     id: 'nvidia',
     name: 'NVIDIA',
     kind: 'text',
-    description: 'Nemotron, through the NVIDIA endpoint. No per-token charge on this account.',
+    description: 'Free NVIDIA-hosted models, through the NVIDIA endpoint. No per-token charge on this account.',
     models: [
       {
         id: 'nvidia/nemotron-3-super-120b-a12b',
         name: 'Nemotron 3 Super',
         pricing: 'free',
-        description: 'A large model that costs nothing here. Fact checking runs on it.',
+        description:
+          'A large model that costs nothing here. Kept selectable, but the newsroom text stages run on GLM 5.3 Flash.',
+      },
+      {
+        id: 'z-ai/glm-5.3-flash',
+        name: 'GLM 5.3 Flash',
+        pricing: 'free',
+        description:
+          'Free NVIDIA endpoint, and what the newsroom text stages run on today. Tested with this pipeline: clean structured output, no reasoning overhead — but noticeably slower per call than the Gemini models.',
         isProviderDefault: true,
       },
     ],

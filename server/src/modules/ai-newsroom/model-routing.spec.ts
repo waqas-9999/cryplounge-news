@@ -810,3 +810,223 @@ describe('the Writer case from the field', () => {
     expect(research.status).toBe('ENVIRONMENT_DEFAULT');
   });
 });
+
+/* ------------------------------------------ NVIDIA GLM 5.3 Flash on the CMS -- */
+
+/*
+ * The newsroom's text stages moved to `nvidia / z-ai/glm-5.3-flash`. Until the
+ * catalogue listed it, an operator could not choose it: the validator rejects a
+ * model no provider serves, and the dropdown only offers what the validator
+ * will accept. The catalogue entry below is the whole fix, and these hold it to
+ * that — including the part that matters most, that adding a text model did
+ * not put a text model anywhere near image generation.
+ */
+const GLM = { provider: 'nvidia', model: 'z-ai/glm-5.3-flash' };
+const NEMOTRON = { provider: 'nvidia', model: 'nvidia/nemotron-3-super-120b-a12b' };
+
+/** Every stage that routes to a text model. Image generation is the only other kind. */
+const TEXT_STAGES = MODEL_STAGES.filter(stage => stage !== 'image');
+
+describe('NVIDIA GLM 5.3 Flash in the catalogue', () => {
+  it('A: lists nvidia / z-ai/glm-5.3-flash as a free NVIDIA text model', () => {
+    const nvidia = MODEL_CATALOG.find(provider => provider.id === 'nvidia' && provider.kind === 'text')!;
+    const model = nvidia.models.find(entry => entry.id === GLM.model);
+
+    expect(model).toBeDefined();
+    // Free on this NVIDIA account, and the screen shows pricing as a badge, so
+    // a wrong value here would misstate the cost of the whole text pipeline.
+    expect(model!.pricing).toBe('free');
+    // No `stages` restriction: a text model that can write can also score.
+    expect(model!.stages).toBeUndefined();
+  });
+
+  it('A: is findable by provider, and across providers when none is named', () => {
+    expect(findModel('writer', 'nvidia', GLM.model)?.provider.id).toBe('nvidia');
+    expect(findModel('writer', null, GLM.model)?.provider.id).toBe('nvidia');
+    // Still belongs to NVIDIA: pairing it with another provider is a mismatch.
+    expect(findModel('writer', 'google-gemini', GLM.model)).toBeUndefined();
+  });
+
+  it('A: reaches the admin screen through the catalogue it is built from', () => {
+    const catalog = catalogForStages();
+
+    for (const stage of TEXT_STAGES) {
+      const nvidia = catalog[stage]!.find(provider => provider.id === 'nvidia');
+      expect(nvidia).toBeDefined();
+      expect(nvidia!.models.map(model => model.id)).toContain(GLM.model);
+    }
+  });
+
+  it('B: the validator accepts it', () => {
+    const { settings, errors } = validateModelSettings({ writer: GLM });
+
+    expect(errors).toEqual([]);
+    expect(settings.writer).toEqual(GLM);
+  });
+
+  it('B: accepts the model alone and settles the provider, as it does for any other', () => {
+    const { settings, errors } = validateModelSettings({ writer: { model: GLM.model } });
+
+    expect(errors).toEqual([]);
+    expect(settings.writer).toEqual(GLM);
+  });
+
+  it('C: every text stage can store it, image generation excepted', () => {
+    for (const stage of TEXT_STAGES) {
+      const { settings, errors } = validateModelSettings({ [stage]: GLM });
+
+      expect(errors).toEqual([]);
+      expect(settings[stage]).toEqual(GLM);
+    }
+  });
+
+  it('C: the seven stages the newsroom runs on it all take the same pair', () => {
+    const stages = ['scoring', 'research', 'writer', 'editor', 'factcheck', 'quality', 'imagePrompt'];
+
+    const { settings, errors } = validateModelSettings(
+      Object.fromEntries(stages.map(stage => [stage, GLM]))
+    );
+
+    expect(errors).toEqual([]);
+    for (const stage of stages) expect(settings[stage as never]).toEqual(GLM);
+  });
+
+  it('D: imagePrompt takes it, because imagePrompt is a text stage', () => {
+    // The image prompt is written by a text model and only then handed to an
+    // image model, so it belongs to the text catalogue.
+    const { settings, errors } = validateModelSettings({ imagePrompt: GLM });
+
+    expect(errors).toEqual([]);
+    expect(settings.imagePrompt).toEqual(GLM);
+    expect(catalogForStages().imagePrompt!.every(provider => provider.kind === 'text')).toBe(true);
+  });
+
+  it('D: image generation still cannot be given it, so image drawing is untouched', () => {
+    // The other half of the same fact: the text model must not become an
+    // option for the stage that actually draws.
+    expect(validateModelSettings({ image: GLM }).errors).toHaveLength(1);
+    expect(validateModelSettings({ image: GLM }).errors[0]!.message).toMatch(/not a model this stage can use/);
+
+    const imageIds = catalogForStages().image!.flatMap(provider => provider.models.map(model => model.id));
+    expect(imageIds).not.toContain(GLM.model);
+    // Gemini still draws article images.
+    expect(imageIds).toContain('gemini-2.5-flash-image');
+  });
+
+  it('E: still refuses a model no provider serves', () => {
+    for (const model of ['gpt-9-ultra', 'z-ai/glm-4.0-turbo', 'nvidia/glm-5.3-flash']) {
+      const { errors } = validateModelSettings({ writer: { provider: 'nvidia', model } });
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]!.message).toMatch(/not a model this stage can use/);
+    }
+  });
+
+  it('E: still refuses an image model on a text stage, and a text model as a mismatched pair', () => {
+    expect(validateModelSettings({ writer: { model: 'gemini-2.5-flash-image' } }).errors).toHaveLength(1);
+    expect(
+      validateModelSettings({ writer: { provider: 'google-gemini', model: GLM.model } }).errors[0]!.message
+    ).toMatch(/belongs to NVIDIA, not google-gemini/);
+  });
+
+  it('E: still refuses a provider outside the catalogue, and mock', () => {
+    for (const provider of ['mock', 'nope', 'gemini']) {
+      expect(validateModelSettings({ writer: { provider } }).errors).toHaveLength(1);
+    }
+  });
+
+  it('F: the NVIDIA model that was already listed keeps working', () => {
+    const { settings, errors } = validateModelSettings({ writer: NEMOTRON });
+
+    expect(errors).toEqual([]);
+    expect(settings.writer).toEqual(NEMOTRON);
+
+    // Adding a second NVIDIA model must not have displaced the first.
+    const nvidia = MODEL_CATALOG.find(provider => provider.id === 'nvidia' && provider.kind === 'text')!;
+    expect(nvidia.models.map(model => model.id)).toEqual(
+      expect.arrayContaining([NEMOTRON.model, GLM.model])
+    );
+  });
+
+  it('marks exactly one model as each provider default, and names the one that runs', () => {
+    /*
+     * The flag is a display hint on the dropdown, and it goes stale silently:
+     * when NVIDIA gained a second model, the newsroom's text stages moved to
+     * GLM while Nemotron still carried the marker and the line "Fact checking
+     * runs on it". Nothing failed, so nothing would have drawn attention to it.
+     *
+     * One per provider is the convention every provider in the file already
+     * follows, and it is expressed by presence — no entry sets it to `false`.
+     * Asserting the count keeps the next model addition honest.
+     */
+    for (const provider of MODEL_CATALOG) {
+      const defaults = provider.models.filter(model => model.isProviderDefault);
+
+      expect({ provider: provider.id, defaults: defaults.map(model => model.id) }).toEqual({
+        provider: provider.id,
+        defaults: [expect.any(String)],
+      });
+    }
+
+    const nvidia = MODEL_CATALOG.find(provider => provider.id === 'nvidia' && provider.kind === 'text')!;
+    expect(nvidia.models.find(model => model.isProviderDefault)!.id).toBe(GLM.model);
+  });
+
+  it('G: saves and reads back the same pair for every text stage', async () => {
+    const stages = ['scoring', 'research', 'writer', 'editor', 'factcheck', 'quality', 'imagePrompt'];
+    const { service, settings } = build();
+
+    await service.setModels(Object.fromEntries(stages.map(stage => [stage, GLM])), ADMIN);
+
+    // What was written is what an operator chose, stage for stage.
+    const stored = settings.get(KEY) as Record<string, unknown>;
+    for (const stage of stages) expect(stored[stage]).toEqual(GLM);
+    // Saving routing writes exactly one key and touches no other setting.
+    expect([...settings.keys()]).toEqual([KEY]);
+  });
+
+  it('G: a reload returns the same provider and model', async () => {
+    const { service, settings } = build();
+
+    await service.setModels({ writer: GLM, imagePrompt: GLM }, ADMIN);
+    // A second read of the same row, as a page reload would do.
+    const reloaded = await service.models();
+
+    expect(reloaded.writer).toEqual(GLM);
+    expect(reloaded.imagePrompt).toEqual(GLM);
+    // Untouched stages still inherit rather than being filled in from the
+    // catalogue, so the CMS keeps saying only what it overrides.
+    expect(reloaded.editor).toEqual({ provider: null, model: null });
+    expect(settings.get('ai.automation.publishMode')).toBeUndefined();
+  });
+
+  it('G: the newsroom is served the same pair on the endpoint it already polls', async () => {
+    const { service } = build();
+
+    await service.setModels({ writer: GLM }, ADMIN);
+    const projection = await service.forAgent();
+
+    expect(projection.models.writer).toEqual(GLM);
+    // Still routing only: no key, endpoint or environment value rides along.
+    expect(JSON.stringify(projection.models)).not.toMatch(/key|secret|token|password|https?:\/\//i);
+  });
+
+  it('G: the configured model is named in the routing report beside the runtime', async () => {
+    const { service } = build();
+
+    await service.setModels({ writer: GLM }, ADMIN);
+    const report = await service.modelRouting();
+    const writer = report.stages.find(stage => stage.stage === 'writer')!;
+
+    // Shown by the same name the dropdown used, so the operator recognises it.
+    expect(writer.configured).toMatchObject({
+      providerId: 'nvidia',
+      modelId: GLM.model,
+      modelName: 'GLM 5.3 Flash',
+      pricing: 'free',
+      unknown: false,
+    });
+    // Saved but not yet observed: the report must not claim it is running.
+    expect(writer.status).toBe('NOT_REPORTED');
+  });
+});
