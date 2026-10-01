@@ -4,6 +4,8 @@ import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { ArticleBody } from '@/components/article/ArticleBody';
 import { ArticleKeyPoints } from '@/components/article/ArticleKeyPoints';
+import { ArticleFaqs } from '@/components/article/ArticleFaqs';
+import type { ArticleFaq } from '@/types/article';
 
 /**
  * Unsaved preview of the article.
@@ -28,6 +30,7 @@ export function ArticlePreviewDialog({
   readMinutes,
   image,
   keyPoints,
+  faqs,
 }: {
   open: boolean;
   onClose: () => void;
@@ -39,6 +42,7 @@ export function ArticlePreviewDialog({
   readMinutes: number;
   image: { url: string; altText: string | null } | null;
   keyPoints: string[];
+  faqs: ArticleFaq[];
 }) {
   return (
     <Dialog open={open} onOpenChange={next => !next && onClose()}>
@@ -91,6 +95,7 @@ export function ArticlePreviewDialog({
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">The article body is empty.</p>
               )}
+              <ArticleFaqs faqs={faqs} />
             </div>
           </article>
         </div>

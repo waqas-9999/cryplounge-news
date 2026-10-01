@@ -38,6 +38,7 @@ interface BackendArticleDetail {
   noindex: boolean;
   sources?: unknown;
   keyPoints?: unknown;
+  faqs?: unknown;
   category: { id: string } | null;
   author: { id: string } | null;
   featuredImage: { id: string; path: string; altText: string | null } | null;
@@ -48,6 +49,7 @@ interface BackendArticleDetail {
 function toDraft(a: BackendArticleDetail): ArticleDraft {
   const sources = Array.isArray(a.sources) ? a.sources : [];
   const keyPoints = Array.isArray(a.keyPoints) ? a.keyPoints : [];
+  const faqs = Array.isArray(a.faqs) ? a.faqs : [];
   return {
     ...EMPTY_DRAFT,
     title: a.title,
@@ -68,6 +70,11 @@ function toDraft(a: BackendArticleDetail): ArticleDraft {
     keyPoints: keyPoints
       .filter((p): p is string => typeof p === 'string' && p.trim() !== '')
       .map(text => ({ key: newKey(), text: text.trim() })),
+    faqs: faqs
+      .filter((f): f is { question: string; answer: string } =>
+        Boolean(f && typeof f === 'object' && typeof (f as { question?: unknown }).question === 'string' && typeof (f as { answer?: unknown }).answer === 'string')
+      )
+      .map(f => ({ key: newKey(), question: f.question, answer: f.answer })),
     seoTitle: a.seoTitle ?? '',
     seoDescription: a.seoDescription ?? '',
     canonicalUrl: a.canonicalUrl ?? '',

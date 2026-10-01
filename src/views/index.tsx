@@ -174,6 +174,7 @@ export function ArticleView({ category, article }: { category: string; article: 
       images={images}
       visuals={article.visuals}
       keyPoints={article.keyPoints}
+      faqs={article.faqs}
       onNavigate={useAppNavigate()}
     />
   );

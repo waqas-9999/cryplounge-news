@@ -2,6 +2,7 @@ import { apiClient, mediaUrl } from '@/lib/api-client';
 import {
   articleSlug,
   type Article,
+  type ArticleFaq,
   type ArticleStatus,
   type ArticleVisual,
   type ArticleVisualType,
@@ -58,6 +59,8 @@ interface BackendArticle {
   noindex?: boolean;
   /** Plain-text key points. Older articles return an empty list. */
   keyPoints?: unknown;
+  /** Structured FAQs. Older articles return an empty list. */
+  faqs?: unknown;
 }
 
 interface BackendArticleVisual {
@@ -136,9 +139,26 @@ function toArticle(a: BackendArticle): Article {
     canonicalUrl: a.canonicalUrl ?? undefined,
     noindex: a.noindex,
     keyPoints: toKeyPoints(a.keyPoints),
+    faqs: toFaqs(a.faqs),
     // `sources` deliberately not mapped: editorial-only in CrypLounge. Public
     // endpoints omit the field and the public page never shows it.
   };
+}
+
+/**
+ * Defensive: FAQs are plain-text question/answer pairs. Anything else is
+ * dropped, and the list is capped at the 10 the backend enforces.
+ */
+function toFaqs(value: unknown): ArticleFaq[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap(item => {
+      if (!item || typeof item !== 'object') return [];
+      const { question, answer } = item as Record<string, unknown>;
+      if (typeof question !== 'string' || typeof answer !== 'string' || !question.trim() || !answer.trim()) return [];
+      return [{ question: question.trim(), answer: answer.trim() }];
+    })
+    .slice(0, 10);
 }
 
 /**

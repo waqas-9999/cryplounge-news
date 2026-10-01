@@ -4,7 +4,7 @@ import { buildValidationPipe } from '@/common/pipes/validation.pipe';
 import { HtmlSanitizerService } from '../content-core/html-sanitizer.service';
 import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { CreateArticleDto, UpdateArticleDto } from './dto/article.dto';
-import { ArticlesService, cleanKeyPoints, cleanSources, withoutEditorialFields } from './articles.service';
+import { ArticlesService, cleanFaqs, cleanKeyPoints, cleanSources, withoutEditorialFields } from './articles.service';
 
 /**
  * Key points, sources, tables and FAQs, end to end through the API layer.
@@ -319,5 +319,56 @@ describe('tables and FAQs survive; hostile markup does not', () => {
     const content = created.content as string;
     expect(content).not.toMatch(/style=|border=|colspan="999"/);
     expect(content).toContain('<td>x</td>');
+  });
+});
+
+/* ----------------------------------------------------------------- FAQs --- */
+
+describe('FAQs: a structured field, not body markup', () => {
+  const FAQ = { question: 'When does the rule take effect?', answer: 'At the start of the next quarter.' };
+
+  it('accepts question/answer pairs', async () => {
+    const dto = await validate(CreateArticleDto, payload({ faqs: [FAQ] }));
+    expect(dto.faqs).toEqual([FAQ]);
+  });
+
+  it('rejects an empty question or answer, an unknown field, too many and malformed payloads', async () => {
+    await rejects(CreateArticleDto, payload({ faqs: [{ question: '', answer: 'a' }] }));
+    await rejects(CreateArticleDto, payload({ faqs: [{ question: 'q', answer: '' }] }));
+    await rejects(CreateArticleDto, payload({ faqs: [{ ...FAQ, html: '<script>' }] }));
+    await rejects(CreateArticleDto, payload({ faqs: Array.from({ length: 11 }, () => FAQ) }));
+    await rejects(CreateArticleDto, payload({ faqs: 'not an array' }));
+    await rejects(CreateArticleDto, payload({ faqs: [{ question: 'x'.repeat(301), answer: 'a' }] }));
+    await rejects(CreateArticleDto, payload({ faqs: [{ question: 'q', answer: 'x'.repeat(2001) }] }));
+  });
+
+  it('stores plain text: markup and control characters out, paragraph breaks kept', () => {
+    expect(
+      cleanFaqs([
+        { question: '  <b>When?</b>  ', answer: 'First\u0000 part.\n\n<script>x</script> Second part.' },
+        { question: '   ', answer: 'orphaned answer' },
+      ])
+    ).toEqual([{ question: 'bWhen?/b', answer: 'First part.\n\nscriptx/script Second part.' }]);
+  });
+
+  it('round-trips create → read → update → read, and an unmentioned update leaves them alone', async () => {
+    const { service } = harness();
+    const created = (await service.create(await validate(CreateArticleDto, payload({ faqs: [FAQ] })), EDITOR, CONTEXT)) as Record<string, unknown>;
+    expect(((await service.findById(created.id as string)) as Record<string, unknown>).faqs).toEqual([FAQ]);
+
+    await service.update(created.id as string, await validate(UpdateArticleDto, { title: 'New headline' }), EDITOR, CONTEXT);
+    expect(((await service.findById(created.id as string)) as Record<string, unknown>).faqs).toEqual([FAQ]);
+
+    const revised = { question: 'Who is covered?', answer: 'Firms that hold client assets.' };
+    await service.update(created.id as string, await validate(UpdateArticleDto, { faqs: [revised] }), EDITOR, CONTEXT);
+    expect(((await service.findById(created.id as string)) as Record<string, unknown>).faqs).toEqual([revised]);
+  });
+
+  it('is public content: the slug read returns FAQs (only sources are editorial)', async () => {
+    const { service, rows } = harness();
+    rows.set('a1', { id: 'a1', slug: 'story', status: ContentStatus.PUBLISHED, deletedAt: null, faqs: [FAQ], sources: [{ name: 'S', url: 'https://x.example' }] });
+    const pub = (await service.findBySlug('story', false)) as Record<string, unknown>;
+    expect(pub.faqs).toEqual([FAQ]);
+    expect(pub).not.toHaveProperty('sources');
   });
 });

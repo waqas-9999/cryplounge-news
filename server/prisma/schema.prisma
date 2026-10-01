@@ -152,6 +152,11 @@ model Article {
   /// plain-text lines, `["...", "..."]`, capped at 8 by CreateArticleDto.
   /// Plain text by design — no HTML, so it cannot carry markup into the page.
   keyPoints        Json             @default("[]")
+  /// Frequently asked questions shown after the body: an ordered list of
+  /// `{ question, answer }`, plain text, capped by CreateArticleDto. A field of
+  /// its own rather than markup in `content`, so the FAQ is edited as a list
+  /// and never duplicated inside the article narrative.
+  faqs             Json             @default("[]")
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
   deletedAt        DateTime?

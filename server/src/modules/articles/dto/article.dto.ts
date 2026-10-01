@@ -46,6 +46,21 @@ export class ArticleSourceDto {
   note?: string;
 }
 
+/** One question and its answer. Plain text — rendered as text, never as HTML. */
+export class ArticleFaqDto {
+  @ApiProperty({ example: 'When does the rule take effect?' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  question!: string;
+
+  @ApiProperty({ example: 'At the start of the next quarter.' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  answer!: string;
+}
+
 export class CreateArticleDto {
   @ApiPropertyOptional({
     description: 'Derived from the title when omitted. Must be unique.',
@@ -212,6 +227,18 @@ export class CreateArticleDto {
   @IsString({ each: true })
   @MaxLength(200, { each: true })
   keyPoints?: string[];
+
+  @ApiPropertyOptional({
+    type: [ArticleFaqDto],
+    maxItems: 10,
+    description: 'Frequently asked questions shown after the article body, in display order',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => ArticleFaqDto)
+  faqs?: ArticleFaqDto[];
 }
 
 export class UpdateArticleDto extends PartialType(CreateArticleDto) {}

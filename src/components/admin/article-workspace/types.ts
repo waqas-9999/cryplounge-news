@@ -40,6 +40,16 @@ export interface KeyPointRow {
 /** The public page shows at most this many; the API refuses more. */
 export const MAX_KEY_POINTS = 8;
 
+/** One FAQ row, with a local key so editing never remounts the inputs. */
+export interface FaqRow {
+  key: string;
+  question: string;
+  answer: string;
+}
+
+/** The API refuses more than this many FAQs. */
+export const MAX_FAQS = 10;
+
 export interface SourceRow extends ArticleSource {
   /** Local key for stable list rendering; never sent to the API. */
   key: string;
@@ -60,6 +70,7 @@ export interface ArticleDraft {
   featuredImage: FeaturedImage | null;
   sources: SourceRow[];
   keyPoints: KeyPointRow[];
+  faqs: FaqRow[];
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;
@@ -79,6 +90,7 @@ export const EMPTY_DRAFT: ArticleDraft = {
   featuredImage: null,
   sources: [],
   keyPoints: [],
+  faqs: [],
   seoTitle: '',
   seoDescription: '',
   canonicalUrl: '',

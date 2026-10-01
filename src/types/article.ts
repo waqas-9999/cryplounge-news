@@ -39,6 +39,12 @@ export interface ArticleVisual {
  * Editorial metadata in CrypLounge: edited in the admin, returned only by
  * admin endpoints, never rendered on the public article.
  */
+/** One question and its answer, shown after the body. Plain text. */
+export interface ArticleFaq {
+  question: string;
+  answer: string;
+}
+
 export interface ArticleSource {
   name: string;
   url: string;
@@ -99,6 +105,12 @@ export interface Article {
    * order. Empty for older articles, which simply render without the block.
    */
   keyPoints?: string[];
+
+  /**
+   * Frequently asked questions, shown after the body. Plain text, in display
+   * order. Empty for older articles, which simply render without the section.
+   */
+  faqs?: ArticleFaq[];
 
   /** AI-assigned editorial quality score (0-100), set by the review pipeline. */
   qualityScore?: number;

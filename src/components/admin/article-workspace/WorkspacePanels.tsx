@@ -30,6 +30,8 @@ import {
   type SourceRow,
   type KeyPointRow,
   MAX_KEY_POINTS,
+  type FaqRow,
+  MAX_FAQS,
 } from './types';
 
 export const card = 'bg-white dark:bg-[#1A1A1C] rounded-xl border border-gray-200 dark:border-gray-800';
@@ -488,6 +490,97 @@ export function KeyPointsPanel({ points, onChange }: { points: KeyPointRow[]; on
       {points.length >= MAX_KEY_POINTS && (
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{MAX_KEY_POINTS} is the maximum.</p>
       )}
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------- FAQs --- */
+
+/**
+ * Frequently asked questions, edited as a list and shown after the body.
+ *
+ * A field of its own rather than a block in the body, so the FAQ is never
+ * duplicated inside the article narrative and an AI-written article can fill
+ * it directly. Plain text, like Key points: an answer's blank lines become
+ * paragraphs on the page; no links or formatting.
+ */
+export function FaqsPanel({ faqs, onChange }: { faqs: FaqRow[]; onChange: (next: FaqRow[]) => void }) {
+  const update = (key: string, patch: Partial<FaqRow>) => onChange(faqs.map(f => (f.key === key ? { ...f, ...patch } : f)));
+  const move = (index: number, by: -1 | 1) => {
+    const target = index + by;
+    if (target < 0 || target >= faqs.length) return;
+    const next = [...faqs];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  return (
+    <section className={`${card} p-5 md:p-6`} aria-labelledby="ws-faqs">
+      <PanelHeading hint="Questions a reader would ask, answered from the reporting. Shown after the article body. Plain text — no links or formatting.">
+        <span id="ws-faqs">FAQs</span>
+      </PanelHeading>
+
+      {faqs.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          No FAQs yet. Optional — add them only where they genuinely help a reader.
+        </p>
+      )}
+
+      <ol className="space-y-3">
+        {faqs.map((faq, index) => {
+          const incomplete = (faq.question.trim() === '') !== (faq.answer.trim() === '');
+          return (
+            <li key={faq.key} className="flex gap-3 rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+              <span className="mt-2 text-xs font-semibold tabular-nums text-gray-400 w-4 shrink-0">{index + 1}</span>
+              <div className="flex-1 min-w-0 grid gap-2">
+                <label className="sr-only" htmlFor={`faq-q-${faq.key}`}>Question {index + 1}</label>
+                <input
+                  id={`faq-q-${faq.key}`}
+                  className={field}
+                  value={faq.question}
+                  maxLength={300}
+                  placeholder="Question, e.g. “When does the rule take effect?”"
+                  onChange={e => update(faq.key, { question: e.target.value })}
+                />
+                <label className="sr-only" htmlFor={`faq-a-${faq.key}`}>Answer {index + 1}</label>
+                <textarea
+                  id={`faq-a-${faq.key}`}
+                  className={`${field} min-h-[4.5rem] resize-y`}
+                  rows={3}
+                  value={faq.answer}
+                  maxLength={2000}
+                  placeholder="Answer, from the reporting"
+                  onChange={e => update(faq.key, { answer: e.target.value })}
+                />
+                {incomplete && (
+                  <p className="text-xs text-red-600 dark:text-red-400">An FAQ needs both a question and an answer.</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <button type="button" className="ae-icon-btn" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Move FAQ ${index + 1} up`}>
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button type="button" className="ae-icon-btn" onClick={() => move(index, 1)} disabled={index === faqs.length - 1} aria-label={`Move FAQ ${index + 1} down`}>
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+                <button type="button" className="ae-icon-btn ae-danger" onClick={() => onChange(faqs.filter(f => f.key !== faq.key))} aria-label={`Remove FAQ ${index + 1}`}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+      <button
+        type="button"
+        className="ae-icon-btn mt-3"
+        disabled={faqs.length >= MAX_FAQS}
+        onClick={() => onChange([...faqs, { key: newKey(), question: '', answer: '' }])}
+      >
+        <Plus className="w-4 h-4" aria-hidden="true" /> Add FAQ
+      </button>
+      {faqs.length >= MAX_FAQS && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{MAX_FAQS} is the maximum.</p>}
     </section>
   );
 }

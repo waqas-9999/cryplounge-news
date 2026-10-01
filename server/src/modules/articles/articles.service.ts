@@ -463,6 +463,7 @@ export class ArticlesService extends BaseCrudService {
       ...(dto.noindex !== undefined ? { noindex: dto.noindex } : {}),
       ...(dto.sources !== undefined ? { sources: cleanSources(dto.sources) } : {}),
       ...(dto.keyPoints !== undefined ? { keyPoints: cleanKeyPoints(dto.keyPoints) } : {}),
+      ...(dto.faqs !== undefined ? { faqs: cleanFaqs(dto.faqs) } : {}),
     };
   }
 
@@ -491,6 +492,28 @@ export function cleanKeyPoints(points: string[]) {
     .map(point => point.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').trim())
     .filter(Boolean)
     .slice(0, 8);
+}
+
+/**
+ * FAQs are plain text: control characters and markup angle brackets removed,
+ * whitespace collapsed, and a pair dropped if either half ends up empty. Only
+ * `question` and `answer` are kept, so nothing else rides along in the JSON,
+ * and the renderer never has to treat them as HTML. Paragraph breaks in an
+ * answer are kept — the public page shows them as separate paragraphs.
+ */
+export function cleanFaqs(faqs: { question: string; answer: string }[]) {
+  // eslint-disable-next-line no-control-regex
+  const line = (value: string) => value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+  const block = (value: string) =>
+    value
+      .split(/\n{2,}/)
+      .map(line)
+      .filter(Boolean)
+      .join('\n\n');
+  return faqs
+    .map(faq => ({ question: line(faq.question), answer: block(faq.answer) }))
+    .filter(faq => faq.question && faq.answer)
+    .slice(0, 10);
 }
 
 /**

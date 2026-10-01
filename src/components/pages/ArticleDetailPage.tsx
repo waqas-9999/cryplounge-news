@@ -9,6 +9,8 @@ import { trackEvent, recordContentView, trackReadingDepth, trackShare, trackBook
 import DOMPurify from 'dompurify';
 import { ArticleBody } from '@/components/article/ArticleBody';
 import { ArticleKeyPoints } from '@/components/article/ArticleKeyPoints';
+import { ArticleFaqs } from '@/components/article/ArticleFaqs';
+import type { ArticleFaq } from '@/types/article';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
 import { listArticles } from '@/services/news';
@@ -56,6 +58,8 @@ interface ArticleDetailPageProps {
   visuals?: ArticleVisual[];
   /** Editorial key points, shown above the body. Empty for older articles. */
   keyPoints?: string[];
+  /** FAQs, shown after the body. Empty for older articles. */
+  faqs?: ArticleFaq[];
 }
 
 export function ArticleDetailPage({
@@ -65,6 +69,7 @@ export function ArticleDetailPage({
   articleTitle = "Latest Crypto News Article",
   articleContent = "",
   keyPoints = [],
+  faqs = [],
   articleImage,
   publishedTime,
   updatedTime,
@@ -448,6 +453,8 @@ export function ArticleDetailPage({
                 'Stay informed with the latest developments in the cryptocurrency and blockchain space. Our comprehensive coverage brings you in-depth analysis, expert insights, and breaking news from across the digital asset ecosystem.'
               }
             />
+
+            <ArticleFaqs faqs={faqs} />
 
             {/*
               Inline editorial visuals — charts, timelines, secondary images.

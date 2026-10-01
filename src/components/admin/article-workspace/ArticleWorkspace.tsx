@@ -16,6 +16,7 @@ import {
   SeoPanel,
   SettingsPanel,
   KeyPointsPanel,
+  FaqsPanel,
   SourcesPanel,
   card,
   isHttpUrl,
@@ -143,12 +144,16 @@ export function ArticleWorkspace({
   const filledSources = draft.sources.filter(s => s.name.trim() || s.url.trim() || (s.note ?? '').trim());
   // Blank rows are an editor mid-thought, not content: dropped rather than flagged.
   const filledKeyPoints = draft.keyPoints.map(p => p.text.trim()).filter(Boolean);
+  // Same rule for FAQs: an untouched row is dropped, a half-filled one is flagged.
+  const touchedFaqs = draft.faqs.filter(f => f.question.trim() || f.answer.trim());
+  const filledFaqs = touchedFaqs.map(f => ({ question: f.question.trim(), answer: f.answer.trim() }));
   const problems: string[] = [];
   if (!draft.title.trim()) problems.push('Add a headline.');
   if (!draft.summary.trim()) problems.push('Add a standfirst.');
   if (isBodyEmpty(draft.content)) problems.push('Write the article body.');
   if (filledSources.some(s => !s.name.trim() || !isHttpUrl(s.url))) problems.push('Every source needs a name and a full https:// URL.');
   if (draft.canonicalUrl.trim() && !isHttpUrl(draft.canonicalUrl)) problems.push('The canonical URL must be a full https:// address.');
+  if (touchedFaqs.some(f => !f.question.trim() || !f.answer.trim())) problems.push('Every FAQ needs both a question and an answer.');
   if (draft.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.slug)) problems.push('Fix the URL slug.');
   if (draft.status === 'SCHEDULED') {
     const at = draft.scheduledLocal ? new Date(draft.scheduledLocal).getTime() : NaN;
@@ -205,6 +210,7 @@ export function ArticleWorkspace({
         ...(note?.trim() ? { note: note.trim() } : {}),
       })),
       keyPoints: filledKeyPoints,
+      faqs: filledFaqs,
     };
     try {
       const result = await onSave(payload);
@@ -346,6 +352,8 @@ export function ArticleWorkspace({
 
           <KeyPointsPanel points={draft.keyPoints} onChange={keyPoints => set({ keyPoints })} />
 
+          <FaqsPanel faqs={draft.faqs} onChange={faqs => set({ faqs })} />
+
           <SourcesPanel sources={draft.sources} onChange={sources => set({ sources })} />
 
           <SeoPanel
@@ -415,6 +423,7 @@ export function ArticleWorkspace({
         readMinutes={minutes}
         image={draft.featuredImage}
         keyPoints={filledKeyPoints}
+        faqs={filledFaqs}
       />
     </div>
   );
