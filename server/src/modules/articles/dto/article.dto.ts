@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { ContentStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDate,
@@ -15,8 +16,35 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '@/common/dto/pagination.dto';
+
+/**
+ * One source the article relies on. Plain text and a web URL only.
+ *
+ * Editorial metadata: stored for traceability and review, never rendered on
+ * the public article (see the `sources` column in schema.prisma).
+ */
+export class ArticleSourceDto {
+  @ApiProperty({ example: 'SEC filing' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  name!: string;
+
+  @ApiProperty({ example: 'https://www.sec.gov/…' })
+  @IsString()
+  @MaxLength(2048)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true }, { message: 'Source URL must be a full http(s) address' })
+  url!: string;
+
+  @ApiPropertyOptional({ example: 'Form 8-K, filed 19 September' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
+}
 
 export class CreateArticleDto {
   @ApiPropertyOptional({
@@ -161,6 +189,29 @@ export class CreateArticleDto {
   @IsOptional()
   @IsBoolean()
   noindex?: boolean;
+
+  @ApiPropertyOptional({
+    type: [ArticleSourceDto],
+    description: 'Sources the article relies on, in order. Editorial only — not shown publicly.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => ArticleSourceDto)
+  sources?: ArticleSourceDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: 8,
+    description: 'Key points shown above the article body, in display order',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsString({ each: true })
+  @MaxLength(200, { each: true })
+  keyPoints?: string[];
 }
 
 export class UpdateArticleDto extends PartialType(CreateArticleDto) {}

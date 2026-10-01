@@ -142,6 +142,16 @@ model Article {
   seoDescription   String?
   canonicalUrl     String?
   noindex          Boolean          @default(false)
+  /// Sources the article relies on, kept separate from the body:
+  /// `[{ name, url, note? }]`, validated by ArticleSourceDto.
+  /// Editorial metadata for traceability and review — NOT rendered on the
+  /// public article and NOT returned by public endpoints, per CrypLounge's
+  /// policy that source publications stay internal. Defaults to an empty list.
+  sources          Json             @default("[]")
+  /// Editorial "Key points" shown above the body: an ordered list of short
+  /// plain-text lines, `["...", "..."]`, capped at 8 by CreateArticleDto.
+  /// Plain text by design — no HTML, so it cannot carry markup into the page.
+  keyPoints        Json             @default("[]")
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
   deletedAt        DateTime?

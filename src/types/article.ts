@@ -33,6 +33,18 @@ export interface ArticleVisual {
   };
 }
 
+/**
+ * A source the article relies on. Plain text + web URL.
+ *
+ * Editorial metadata in CrypLounge: edited in the admin, returned only by
+ * admin endpoints, never rendered on the public article.
+ */
+export interface ArticleSource {
+  name: string;
+  url: string;
+  note?: string;
+}
+
 export interface Article {
   id: string;
   title: string;
@@ -75,6 +87,18 @@ export interface Article {
   seoDescription?: string;
   canonicalUrl?: string;
   noindex?: boolean;
+
+  /**
+   * Sources, in order. Admin responses only — public endpoints omit the field,
+   * and the public page never renders it. Empty for older articles.
+   */
+  sources?: ArticleSource[];
+
+  /**
+   * Editorial "Key points", shown above the body. Plain text, in display
+   * order. Empty for older articles, which simply render without the block.
+   */
+  keyPoints?: string[];
 
   /** AI-assigned editorial quality score (0-100), set by the review pipeline. */
   qualityScore?: number;

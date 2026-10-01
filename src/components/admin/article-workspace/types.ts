@@ -1,3 +1,5 @@
+import type { ArticleSource } from '@/types/article';
+
 export type ArticleStatus = 'DRAFT' | 'REVIEW' | 'SCHEDULED' | 'PUBLISHED' | 'ARCHIVED';
 
 export const STATUS_LABELS: Record<ArticleStatus, string> = {
@@ -29,14 +31,21 @@ export interface FeaturedImage {
   altText: string | null;
 }
 
-/**
- * Everything the workspace edits. One object, so dirty-tracking is a comparison.
- *
- * TechiArena's workspace also edits `sources` and `keyPoints`. CrypLounge's
- * Article model and CreateArticleDto have neither, so they are not here: a
- * panel that collected them would either be refused by the API or silently
- * discarded on save.
- */
+/** One key-point line, with a local key so editing never remounts the input. */
+export interface KeyPointRow {
+  key: string;
+  text: string;
+}
+
+/** The public page shows at most this many; the API refuses more. */
+export const MAX_KEY_POINTS = 8;
+
+export interface SourceRow extends ArticleSource {
+  /** Local key for stable list rendering; never sent to the API. */
+  key: string;
+}
+
+/** Everything the workspace edits. One object, so dirty-tracking is a comparison. */
 export interface ArticleDraft {
   title: string;
   summary: string;
@@ -49,6 +58,8 @@ export interface ArticleDraft {
   authorId: string;
   tagIds: string[];
   featuredImage: FeaturedImage | null;
+  sources: SourceRow[];
+  keyPoints: KeyPointRow[];
   seoTitle: string;
   seoDescription: string;
   canonicalUrl: string;
@@ -66,6 +77,8 @@ export const EMPTY_DRAFT: ArticleDraft = {
   authorId: '',
   tagIds: [],
   featuredImage: null,
+  sources: [],
+  keyPoints: [],
   seoTitle: '',
   seoDescription: '',
   canonicalUrl: '',
@@ -78,7 +91,7 @@ export interface Option {
   slug: string;
 }
 
-/** Body text for word count / reading time. */
+/** Body text for word count / reading time, including FAQ and captions. */
 export function bodyText(html: string): string {
   return html
     .replace(/<[^>]*>/g, ' ')
@@ -98,8 +111,13 @@ export function readingMinutes(words: number): number {
   return Math.min(120, Math.max(1, Math.round(words / 225)));
 }
 
-/** True when the body has no readable text and no image. */
-export function isBodyEmpty(html: string): boolean {
-  if (/<(img|figure)\b/i.test(html)) return false;
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;|\s/g, '') === '';
+export function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+let keySeq = 0;
+export const newKey = () => `src-${Date.now().toString(36)}-${(keySeq++).toString(36)}`;

@@ -5,14 +5,7 @@ import { Check, ImageIcon, Loader2, Search, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient, errorMessage } from '@/lib/api-client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-/** An image chosen from the media library. */
-export interface PickedImage {
-  id: string;
-  url: string;
-  altText: string | null;
-  width: number | null;
-  height: number | null;
-}
+import type { PickedImage } from './FigureImage';
 
 interface MediaItem {
   id: string;
@@ -27,14 +20,26 @@ interface MediaItem {
 const PER_PAGE = 24;
 
 /**
- * Picks an image from the existing media library (`GET /media`), or uploads
- * one through the existing upload endpoint (`POST /media`, folder
- * "articles"). No new storage or endpoints.
+ * Article artwork is WebP only.
  *
- * Ported from TechiArena, where it also inserts images into the body editor.
- * Here it serves the featured image only: CrypLounge's body is the HTML
- * editor with its own toolbar, and its sanitizer has no `<figure data-*>`
- * shape for an inline picker to emit.
+ * `accept` filters the picker, but it is a hint — a file can still arrive by
+ * drag-and-drop or by switching the dialog's filter to "all files" — so the
+ * same rule is applied again here, and a third time by the API. This check
+ * exists to give immediate feedback, not to be the boundary.
+ */
+export const ARTICLE_IMAGE_ACCEPT = 'image/webp,.webp';
+
+export function rejectNonWebp(file: File): string | null {
+  const byType = file.type === 'image/webp';
+  const byExtension = /\.webp$/i.test(file.name);
+  if (byType && byExtension) return null;
+  return 'Only WebP images are supported. Convert the image to .webp and try again.';
+}
+
+/**
+ * Picks an image for the article body from the existing media library
+ * (`GET /media`), or uploads one through the existing upload endpoint
+ * (`POST /media`, folder "articles"). No new storage or endpoints.
  */
 export function MediaPickerDialog({
   open,
@@ -77,6 +82,14 @@ export function MediaPickerDialog({
   }, [open, query, load]);
 
   async function upload(file: File) {
+    const rejection = rejectNonWebp(file);
+    if (rejection) {
+      // No request, so no media record is created for a rejected file.
+      toast.error(rejection);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
+
     setUploading(true);
     try {
       const form = new FormData();
@@ -109,7 +122,7 @@ export function MediaPickerDialog({
       <DialogContent className="sm:max-w-3xl max-h-[90dvh] flex flex-col gap-4 p-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5">
           <DialogTitle>Insert image</DialogTitle>
-          <DialogDescription>Choose from the media library or upload a new image.</DialogDescription>
+          <DialogDescription>Choose from the media library or upload a new image. Supported format: WebP.</DialogDescription>
         </DialogHeader>
 
         <div className="px-5 flex flex-col sm:flex-row gap-2">
@@ -127,7 +140,7 @@ export function MediaPickerDialog({
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+            accept={ARTICLE_IMAGE_ACCEPT}
             className="hidden"
             onChange={e => e.target.files?.[0] && upload(e.target.files[0])}
           />

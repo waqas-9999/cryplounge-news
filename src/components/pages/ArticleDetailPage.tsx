@@ -7,6 +7,8 @@ import type { ArticleVisual } from '@/types/article';
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent, recordContentView, trackReadingDepth, trackShare, trackBookmark } from '@/utils/analytics';
 import DOMPurify from 'dompurify';
+import { ArticleBody } from '@/components/article/ArticleBody';
+import { ArticleKeyPoints } from '@/components/article/ArticleKeyPoints';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
 import { listArticles } from '@/services/news';
@@ -52,6 +54,8 @@ interface ArticleDetailPageProps {
    * existing caller and every article without visuals is unaffected.
    */
   visuals?: ArticleVisual[];
+  /** Editorial key points, shown above the body. Empty for older articles. */
+  keyPoints?: string[];
 }
 
 export function ArticleDetailPage({
@@ -60,6 +64,7 @@ export function ArticleDetailPage({
   articleSlug,
   articleTitle = "Latest Crypto News Article",
   articleContent = "",
+  keyPoints = [],
   articleImage,
   publishedTime,
   updatedTime,
@@ -429,10 +434,19 @@ export function ArticleDetailPage({
               <figcaption className="sr-only">{articleTitle}</figcaption>
             </figure>
 
-            {/* Article Content */}
-            <div 
-              className="prose dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+            <ArticleKeyPoints points={keyPoints} />
+
+            {/*
+              Article Content. Rendered by the shared ArticleBody, which the
+              admin preview also uses, so tables, FAQs and editor figures look
+              the same in both. Its sanitizer allows only the editor's shapes —
+              stricter than the DOMPurify defaults this used before.
+            */}
+            <ArticleBody
+              html={
+                articleContent ||
+                'Stay informed with the latest developments in the cryptocurrency and blockchain space. Our comprehensive coverage brings you in-depth analysis, expert insights, and breaking news from across the digital asset ecosystem.'
+              }
             />
 
             {/*

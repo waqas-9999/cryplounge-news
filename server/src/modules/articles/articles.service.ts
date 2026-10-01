@@ -156,10 +156,11 @@ export class ArticlesService extends BaseCrudService {
   }
 
   async findBySlug(slug: string, includeUnpublished = false) {
-    return this.findBySlugOrFail(slug, {
+    const article = await this.findBySlugOrFail(slug, {
       include: DETAIL_INCLUDE as Record<string, unknown>,
       where: includeUnpublished ? {} : { status: ContentStatus.PUBLISHED },
     });
+    return includeUnpublished ? article : withoutEditorialFields(article);
   }
 
   async findById(id: string) {
@@ -460,6 +461,8 @@ export class ArticlesService extends BaseCrudService {
       ...(dto.seoDescription !== undefined ? { seoDescription: dto.seoDescription } : {}),
       ...(dto.canonicalUrl !== undefined ? { canonicalUrl: dto.canonicalUrl } : {}),
       ...(dto.noindex !== undefined ? { noindex: dto.noindex } : {}),
+      ...(dto.sources !== undefined ? { sources: cleanSources(dto.sources) } : {}),
+      ...(dto.keyPoints !== undefined ? { keyPoints: cleanKeyPoints(dto.keyPoints) } : {}),
     };
   }
 
@@ -475,4 +478,46 @@ export class ArticlesService extends BaseCrudService {
       ...(dto.labelIds !== undefined ? { labels: relate(dto.labelIds) } : {}),
     };
   }
+}
+
+/**
+ * Key points are plain text: trimmed, control characters and any stray markup
+ * angle brackets removed, blank lines dropped. Stored as a flat string array,
+ * so the renderer never has to sanitise them as HTML.
+ */
+export function cleanKeyPoints(points: string[]) {
+  return points
+    // eslint-disable-next-line no-control-regex
+    .map(point => point.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+/**
+ * Sources are stored as plain text: trimmed, control characters removed, and
+ * only the three known fields kept, so nothing else can ride along in the JSON.
+ * The URL's scheme was already checked by ArticleSourceDto (http/https only).
+ */
+export function cleanSources(sources: { name: string; url: string; note?: string }[]) {
+  // eslint-disable-next-line no-control-regex
+  const text = (value: string) => value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  return sources.map(source => ({
+    name: text(source.name),
+    url: source.url.trim(),
+    ...(source.note && text(source.note) ? { note: text(source.note) } : {}),
+  }));
+}
+
+/**
+ * The article as public endpoints return it: without `sources`.
+ *
+ * Sources are editorial metadata — what the story relies on, kept for
+ * traceability and review. CrypLounge does not credit source publications on
+ * the public article, so they must not reach the public API either: a field the
+ * page never shows is still published if the JSON carries it.
+ */
+export function withoutEditorialFields<T>(article: T): T {
+  if (!article || typeof article !== 'object') return article;
+  const { sources: _sources, ...rest } = article as Record<string, unknown>;
+  return rest as T;
 }

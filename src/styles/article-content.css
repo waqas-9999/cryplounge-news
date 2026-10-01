@@ -1,0 +1,178 @@
+/*
+ * Structured article content on the public page and in the admin preview:
+ * Key points, tables, FAQs and editor figures.
+ *
+ * Every rule is scoped to `.cl-prose` / `.cl-keypoints`, which only
+ * `ArticleBody` and `ArticleKeyPoints` set, so nothing here reaches any other
+ * page. Shapes mirror TechiArena's editorial styles; colours are CrypLounge's
+ * (gray surfaces, #EFB81A accent) with `.dark` variants.
+ *
+ * `:where()` keeps specificity at zero so the typography plugin's `prose`
+ * defaults and these refinements never fight over the same element.
+ */
+
+/* ---------------------------------------------------------- key points --- */
+
+.cl-keypoints {
+  margin: 2rem 0;
+  padding: 1.25rem 1.25rem 1.375rem;
+  background: rgb(249 250 251);
+  border: 1px solid rgb(229 231 235);
+  border-left: 3px solid #efb81a;
+  border-radius: 0.75rem;
+}
+.dark .cl-keypoints {
+  background: #1a1a1c;
+  border-color: rgb(31 41 55);
+  border-left-color: #efb81a;
+}
+@media (min-width: 768px) {
+  .cl-keypoints { padding: 1.5rem 1.75rem 1.625rem; }
+}
+.cl-keypoints-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a6100;
+}
+.dark .cl-keypoints-title { color: #efb81a; }
+/* A small gold square, so the list never inherits prose bullets. */
+.cl-keypoint {
+  position: relative;
+  padding-left: 1.125rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: rgb(55 65 81);
+  overflow-wrap: anywhere;
+}
+.dark .cl-keypoint { color: rgb(209 213 219); }
+@media (min-width: 768px) {
+  .cl-keypoint { font-size: 1rem; }
+}
+.cl-keypoint::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  background: #efb81a;
+}
+
+/* ------------------------------------------------------------- figures --- */
+
+.cl-prose :where(figure) { margin: 2em 0; }
+.cl-prose :where(figure img, p > img) {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  border-radius: 0.75rem;
+}
+.cl-prose :where(figure[data-align='center']) { max-width: 80%; margin-inline: auto; }
+@media (min-width: 768px) {
+  .cl-prose :where(figure[data-align='inline']) {
+    float: right;
+    width: 45%;
+    margin: 0.35em 0 1em 1.75em;
+  }
+}
+.cl-prose :where(figcaption) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25em 0.75em;
+  margin-top: 0.7em;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.cl-prose :where(figcaption [data-role='credit']) {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  opacity: 0.75;
+}
+.cl-prose :where(h2, h3, h4) { clear: both; }
+
+/* -------------------------------------------------------------- tables --- */
+
+/*
+ * The scroll lives on a wrapper `ArticleBody` adds at render time, not on the
+ * table. TechiArena puts `display: block` on the <table> itself; WebKit then
+ * drops the table's semantics for VoiceOver, so headers stop being announced
+ * against their cells. The wrapper keeps the table a real table and still lets
+ * a wide one scroll inside the column on a phone.
+ */
+.cl-prose :where(.cl-table-scroll) {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 2em 0;
+}
+.cl-prose :where(.cl-table-scroll):focus-visible {
+  outline: 2px solid #efb81a;
+  outline-offset: 2px;
+}
+.cl-prose :where(table) {
+  width: auto;
+  min-width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.cl-prose :where(th, td) {
+  border: 1px solid rgb(209 213 219);
+  padding: 0.55em 0.75em;
+  text-align: left;
+  vertical-align: top;
+}
+.dark .cl-prose :where(th, td) { border-color: rgb(55 65 81); }
+.cl-prose :where(th) {
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgb(249 250 251);
+}
+.dark .cl-prose :where(th) { background: #1a1a1c; }
+.cl-prose :where(th p, td p) { margin: 0; }
+
+/* ---------------------------------------------------------------- FAQs --- */
+
+.cl-prose :where(section[data-type='faq']) {
+  clear: both;
+  margin: 3em 0 1em;
+  border-top: 1px solid rgb(209 213 219);
+}
+.dark .cl-prose :where(section[data-type='faq']) { border-top-color: rgb(55 65 81); }
+.cl-prose :where(section[data-type='faq'] > h2) { margin: 1.1em 0 0.4em; }
+.cl-prose :where(details[data-type='faq-item']) { border-bottom: 1px solid rgb(229 231 235); }
+.dark .cl-prose :where(details[data-type='faq-item']) { border-bottom-color: rgb(31 41 55); }
+.cl-prose :where(details[data-type='faq-item'] > summary) {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1em;
+  padding: 0.9em 0;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+.cl-prose :where(details[data-type='faq-item'] > summary)::-webkit-details-marker { display: none; }
+.cl-prose :where(details[data-type='faq-item'] > summary)::after {
+  content: '+';
+  flex-shrink: 0;
+  font-weight: 400;
+  color: #b8860b;
+  transition: transform 150ms ease-out;
+}
+.dark .cl-prose :where(details[data-type='faq-item'] > summary)::after { color: #efb81a; }
+.cl-prose :where(details[data-type='faq-item'][open] > summary)::after { transform: rotate(45deg); }
+.cl-prose :where(details[data-type='faq-item'] > summary):focus-visible {
+  outline: 2px solid #efb81a;
+  outline-offset: 2px;
+}
+.cl-prose :where([data-role='faq-answer']) { padding-bottom: 1em; }
+.cl-prose :where([data-role='faq-answer'] p) { margin: 0 0 0.75em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-prose :where(details[data-type='faq-item'] > summary)::after { transition: none; }
+}

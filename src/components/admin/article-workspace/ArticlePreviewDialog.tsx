@@ -1,17 +1,21 @@
 'use client';
 
-import DOMPurify from 'dompurify';
 import { X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ArticleBody } from '@/components/article/ArticleBody';
+import { ArticleKeyPoints } from '@/components/article/ArticleKeyPoints';
 
 /**
  * Unsaved preview of the article.
  *
- * The body is sanitized and styled exactly as `ArticleDetailPage` renders it —
- * DOMPurify, then `prose dark:prose-invert` — so what the editor sees is what
- * readers get. TechiArena's version draws with its own public-site tokens
- * (`ta-site`, `ta-display`); CrypLounge's public site does not use them, and a
- * preview in another site's typography would be a preview of nothing.
+ * Key points and the body go through `ArticleKeyPoints` and `ArticleBody` —
+ * the same components the public article page uses — so tables, FAQs and
+ * figures look here exactly as readers will see them. TechiArena's version
+ * draws with its own site's tokens (`ta-site`), which CrypLounge doesn't use.
+ *
+ * No Sources list: TechiArena shows one under the body, but in CrypLounge
+ * sources are editorial metadata that the published article never shows, and
+ * a preview that showed them would preview a page that does not exist.
  */
 export function ArticlePreviewDialog({
   open,
@@ -23,6 +27,7 @@ export function ArticlePreviewDialog({
   author,
   readMinutes,
   image,
+  keyPoints,
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,6 +38,7 @@ export function ArticlePreviewDialog({
   author?: string;
   readMinutes: number;
   image: { url: string; altText: string | null } | null;
+  keyPoints: string[];
 }) {
   return (
     <Dialog open={open} onOpenChange={next => !next && onClose()}>
@@ -79,11 +85,9 @@ export function ArticlePreviewDialog({
             )}
 
             <div className="mt-8">
+              <ArticleKeyPoints points={keyPoints} />
               {content ? (
-                <div
-                  className="prose dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content) }}
-                />
+                <ArticleBody html={content} />
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400">The article body is empty.</p>
               )}

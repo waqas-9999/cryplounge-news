@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   CalendarClock,
   ImagePlus,
   Loader2,
@@ -21,23 +23,19 @@ import {
   NEEDS_PUBLISH_RIGHTS,
   STATUS_LABELS,
   STATUS_TRANSITIONS,
+  newKey,
   type ArticleStatus,
   type FeaturedImage,
   type Option,
+  type SourceRow,
+  type KeyPointRow,
+  MAX_KEY_POINTS,
 } from './types';
 
 export const card = 'bg-white dark:bg-[#1A1A1C] rounded-xl border border-gray-200 dark:border-gray-800';
 export const field =
   'w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400 disabled:opacity-60';
 export const label = 'block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5';
-/**
- * TechiArena's `.ae-icon-btn` / `.ae-danger` from its article-editor stylesheet,
- * expressed in Tailwind: CrypLounge has no such stylesheet, and adding a global
- * one for two buttons would reach every admin page.
- */
-export const iconBtn =
-  'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-30';
-export const dangerBtn = `${iconBtn} !text-red-700 dark:!text-red-400`;
 
 export function PanelHeading({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
@@ -377,10 +375,10 @@ export function FeaturedImagePanel({
             <img src={image.url} alt={image.altText ?? ''} className="w-full h-full object-cover" />
           </div>
           <div className="mt-2 flex gap-2">
-            <button type="button" onClick={() => setPicking(true)} className={iconBtn}>
+            <button type="button" onClick={() => setPicking(true)} className="ae-icon-btn">
               <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" /> Replace
             </button>
-            <button type="button" onClick={() => onChange(null)} className={dangerBtn}>
+            <button type="button" onClick={() => onChange(null)} className="ae-icon-btn ae-danger">
               <Trash2 className="w-3.5 h-3.5" aria-hidden="true" /> Remove
             </button>
           </div>
@@ -420,6 +418,80 @@ export function FeaturedImagePanel({
   );
 }
 
+/* ---------------------------------------------------------- key points --- */
+
+/**
+ * The scannable summary shown above the body. Deliberately plain text and
+ * capped: past five or six lines it stops being a summary.
+ */
+export function KeyPointsPanel({ points, onChange }: { points: KeyPointRow[]; onChange: (next: KeyPointRow[]) => void }) {
+  const move = (index: number, by: -1 | 1) => {
+    const target = index + by;
+    if (target < 0 || target >= points.length) return;
+    const next = [...points];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  return (
+    <section className={`${card} p-5 md:p-6`} aria-labelledby="ws-key-points">
+      <PanelHeading hint="Two to five short lines a reader can scan before the body. Shown under the lead image. Plain text — no links or formatting.">
+        <span id="ws-key-points">Key points</span>
+      </PanelHeading>
+
+      {points.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+          No key points yet. Optional, but they lift time on page for longer stories.
+        </p>
+      )}
+
+      <ol className="space-y-2">
+        {points.map((point, index) => (
+          <li key={point.key} className="flex gap-3 items-start">
+            <span className="mt-2.5 text-xs font-semibold tabular-nums text-gray-400 w-4 shrink-0">{index + 1}</span>
+            <div className="flex-1 min-w-0">
+              <label className="sr-only" htmlFor={`kp-${point.key}`}>Key point {index + 1}</label>
+              <textarea
+                id={`kp-${point.key}`}
+                className={`${field} min-h-[2.5rem] resize-y`}
+                rows={2}
+                value={point.text}
+                maxLength={200}
+                placeholder="One sentence, e.g. “Flows through the strait hit a six-month high.”"
+                onChange={e => onChange(points.map(p => (p.key === point.key ? { ...p, text: e.target.value } : p)))}
+              />
+              <p className="mt-1 text-xs text-gray-400 tabular-nums">{point.text.trim().length}/200</p>
+            </div>
+            <div className="flex flex-col gap-1 shrink-0">
+              <button type="button" className="ae-icon-btn" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Move key point ${index + 1} up`}>
+                <ArrowUp className="w-4 h-4" />
+              </button>
+              <button type="button" className="ae-icon-btn" onClick={() => move(index, 1)} disabled={index === points.length - 1} aria-label={`Move key point ${index + 1} down`}>
+                <ArrowDown className="w-4 h-4" />
+              </button>
+              <button type="button" className="ae-icon-btn ae-danger" onClick={() => onChange(points.filter(p => p.key !== point.key))} aria-label={`Remove key point ${index + 1}`}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <button
+        type="button"
+        className="ae-icon-btn mt-3"
+        disabled={points.length >= MAX_KEY_POINTS}
+        onClick={() => onChange([...points, { key: newKey(), text: '' }])}
+      >
+        <Plus className="w-4 h-4" aria-hidden="true" /> Add key point
+      </button>
+      {points.length >= MAX_KEY_POINTS && (
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{MAX_KEY_POINTS} is the maximum.</p>
+      )}
+    </section>
+  );
+}
+
 /* -------------------------------------------------------------- sources --- */
 
 export function isHttpUrl(value: string): boolean {
@@ -429,6 +501,104 @@ export function isHttpUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function SourcesPanel({ sources, onChange }: { sources: SourceRow[]; onChange: (next: SourceRow[]) => void }) {
+  const update = (key: string, patch: Partial<SourceRow>) =>
+    onChange(sources.map(s => (s.key === key ? { ...s, ...patch } : s)));
+  const move = (index: number, by: -1 | 1) => {
+    const target = index + by;
+    if (target < 0 || target >= sources.length) return;
+    const next = [...sources];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  return (
+    <section className={`${card} p-5 md:p-6`} aria-labelledby="ws-sources">
+      <PanelHeading hint="Documents, filings, reports and interviews this story relies on. Kept for editorial review and fact-checking — not shown on the published article.">
+        <span id="ws-sources">Sources</span>
+      </PanelHeading>
+
+      {sources.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No sources yet.</p>
+      )}
+
+      <ol className="space-y-3">
+        {sources.map((source, index) => {
+          const urlError = source.url.trim() !== '' && !isHttpUrl(source.url);
+          const incomplete = (source.name.trim() === '') !== (source.url.trim() === '');
+          return (
+            <li key={source.key} className="flex gap-3 rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+              <span className="mt-2 text-xs font-semibold tabular-nums text-gray-400 w-4 shrink-0">{index + 1}</span>
+              <div className="flex-1 min-w-0 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="sr-only" htmlFor={`src-name-${source.key}`}>Source {index + 1} name</label>
+                  <input
+                    id={`src-name-${source.key}`}
+                    className={field}
+                    value={source.name}
+                    maxLength={200}
+                    placeholder="Name, e.g. SEC filing"
+                    onChange={e => update(source.key, { name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="sr-only" htmlFor={`src-url-${source.key}`}>Source {index + 1} URL</label>
+                  <input
+                    id={`src-url-${source.key}`}
+                    className={field}
+                    value={source.url}
+                    maxLength={2048}
+                    inputMode="url"
+                    placeholder="https://…"
+                    aria-invalid={urlError}
+                    onChange={e => update(source.key, { url: e.target.value })}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="sr-only" htmlFor={`src-note-${source.key}`}>Source {index + 1} note</label>
+                  <input
+                    id={`src-note-${source.key}`}
+                    className={field}
+                    value={source.note ?? ''}
+                    maxLength={300}
+                    placeholder="Optional note, e.g. “Form 8-K, filed 19 Sept”"
+                    onChange={e => update(source.key, { note: e.target.value })}
+                  />
+                </div>
+                {(urlError || incomplete) && (
+                  <p className="sm:col-span-2 text-xs text-red-600 dark:text-red-400">
+                    {urlError ? 'Use a full web address starting with https://' : 'A source needs both a name and a URL.'}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1 shrink-0">
+                <button type="button" className="ae-icon-btn" onClick={() => move(index, -1)} disabled={index === 0} aria-label={`Move source ${index + 1} up`}>
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button type="button" className="ae-icon-btn" onClick={() => move(index, 1)} disabled={index === sources.length - 1} aria-label={`Move source ${index + 1} down`}>
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+                <button type="button" className="ae-icon-btn ae-danger" onClick={() => onChange(sources.filter(s => s.key !== source.key))} aria-label={`Remove source ${index + 1}`}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+      <button
+        type="button"
+        className="ae-icon-btn mt-3"
+        disabled={sources.length >= 30}
+        onClick={() => onChange([...sources, { key: newKey(), name: '', url: '', note: '' }])}
+      >
+        <Plus className="w-4 h-4" aria-hidden="true" /> Add source
+      </button>
+    </section>
+  );
 }
 
 /* ------------------------------------------------------------------ SEO --- */
@@ -449,7 +619,12 @@ export function SeoPanel({
   seoDescription: string;
   canonicalUrl: string;
   noindex: boolean;
-  onChange: (patch: { seoTitle?: string; seoDescription?: string; canonicalUrl?: string; noindex?: boolean }) => void;
+  onChange: (patch: {
+    seoTitle?: string;
+    seoDescription?: string;
+    canonicalUrl?: string;
+    noindex?: boolean;
+  }) => void;
   children?: React.ReactNode;
 }) {
   const shownTitle = seoTitle.trim() || title.trim();

@@ -10,3 +10,5 @@
 
 @import '../styles/default_theme.css';
 @import '../styles/globals.css';
+@import '../styles/article-editor.css';
+@import '../styles/article-content.css';

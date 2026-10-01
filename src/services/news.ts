@@ -56,6 +56,8 @@ interface BackendArticle {
   seoDescription?: string | null;
   canonicalUrl?: string | null;
   noindex?: boolean;
+  /** Plain-text key points. Older articles return an empty list. */
+  keyPoints?: unknown;
 }
 
 interface BackendArticleVisual {
@@ -133,7 +135,23 @@ function toArticle(a: BackendArticle): Article {
     seoDescription: a.seoDescription ?? undefined,
     canonicalUrl: a.canonicalUrl ?? undefined,
     noindex: a.noindex,
+    keyPoints: toKeyPoints(a.keyPoints),
+    // `sources` deliberately not mapped: editorial-only in CrypLounge. Public
+    // endpoints omit the field and the public page never shows it.
   };
+}
+
+/**
+ * Defensive: key points are plain text lines. Anything that is not a
+ * non-empty string is dropped, and the list is capped at the same 8 the
+ * backend enforces, so a malformed payload cannot flood the page.
+ */
+function toKeyPoints(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+    .map(item => item.trim())
+    .slice(0, 8);
 }
 
 /** Canonical URL for an article. */

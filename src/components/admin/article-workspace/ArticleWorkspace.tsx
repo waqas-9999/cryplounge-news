@@ -5,8 +5,9 @@ import { ArrowLeft, Eye, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient, errorMessage } from '@/lib/api-client';
 import { slugify } from '@/lib/slug';
+import { isBodyEmpty } from '@/lib/article-body';
 import { AdminAuthService } from '@/utils/adminAuth';
-import { ContentToolbar } from '@/components/admin/ContentToolbar';
+import { ArticleBodyEditor } from '@/components/admin/article-editor/ArticleBodyEditor';
 import { SeoChecklist } from '@/components/admin/SeoChecklist';
 import { ArticlePreviewDialog } from './ArticlePreviewDialog';
 import {
@@ -14,12 +15,13 @@ import {
   PublishingPanel,
   SeoPanel,
   SettingsPanel,
+  KeyPointsPanel,
+  SourcesPanel,
   card,
   isHttpUrl,
 } from './WorkspacePanels';
 import {
   STATUS_LABELS,
-  isBodyEmpty,
   readingMinutes,
   wordCount,
   type ArticleDraft,
@@ -51,20 +53,16 @@ const TITLE_SOFT_MAX = 110;
 
 /**
  * The newsroom writing workspace for creating and editing an article: the
- * writing column (headline, standfirst, body, SEO) beside the settings column
- * (publishing, taxonomy, featured image), with the primary action and the
- * article's vital signs pinned to the top.
+ * writing column (headline, standfirst, body, key points, sources, SEO)
+ * beside the settings column (publishing, taxonomy, featured image), with the
+ * primary action and the article's vital signs pinned to the top.
  *
- * Ported from TechiArena's workspace so the two admins share one layout and
- * one workflow. Three things differ, each because CrypLounge's data differs:
- *
- *  - The body uses CrypLounge's HTML editor (textarea + ContentToolbar), not
- *    TechiArena's Tiptap editor. CrypLounge's server sanitizer drops the
- *    `table`, `section`, `details` and `data-*` markup that editor emits, so
- *    its tables, FAQ blocks and captioned figures would vanish on save.
- *  - No Sources or Key points panels: CrypLounge's Article has neither field.
+ * Ported from TechiArena so the two admins share one layout and workflow.
+ * Two CrypLounge differences:
  *  - Authors come from the `authors` list, as before; CrypLounge has no
  *    `authors/byline-options` route.
+ *  - Sources are editorial-only: saved and reloaded here, but not shown in the
+ *    preview, because the public article does not show them.
  */
 export function ArticleWorkspace({
   mode,
@@ -86,7 +84,6 @@ export function ArticleWorkspace({
   const [authors, setAuthors] = useState<Option[]>([]);
   const [authorsState, setAuthorsState] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [tags, setTags] = useState<Option[]>([]);
-  const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const canPublish = AdminAuthService.hasPermission('news.publish');
   const canCreateTags = AdminAuthService.hasPermission('taxonomy.manage');
@@ -99,9 +96,8 @@ export function ArticleWorkspace({
       .get<Option[]>('taxonomy/categories', { query: { kind: 'NEWS' }, auth: false })
       .then(setCategories)
       .catch(() => setCategories([]));
-    // CrypLounge's existing author source: the public Author list. There is
-    // no `authors/byline-options` route here, so the editor sees the same
-    // authors the old Create page offered.
+    // CrypLounge's author source: the Author list, as the previous Create
+    // page used. There is no `authors/byline-options` route here.
     apiClient
       .getPaginated<Option>('authors', { query: { perPage: 100 }, auth: false })
       .then(({ items }) => {
@@ -144,10 +140,14 @@ export function ArticleWorkspace({
 
   /* ------------------------------------------------------ validation --- */
 
+  const filledSources = draft.sources.filter(s => s.name.trim() || s.url.trim() || (s.note ?? '').trim());
+  // Blank rows are an editor mid-thought, not content: dropped rather than flagged.
+  const filledKeyPoints = draft.keyPoints.map(p => p.text.trim()).filter(Boolean);
   const problems: string[] = [];
   if (!draft.title.trim()) problems.push('Add a headline.');
   if (!draft.summary.trim()) problems.push('Add a standfirst.');
   if (isBodyEmpty(draft.content)) problems.push('Write the article body.');
+  if (filledSources.some(s => !s.name.trim() || !isHttpUrl(s.url))) problems.push('Every source needs a name and a full https:// URL.');
   if (draft.canonicalUrl.trim() && !isHttpUrl(draft.canonicalUrl)) problems.push('The canonical URL must be a full https:// address.');
   if (draft.slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.slug)) problems.push('Fix the URL slug.');
   if (draft.status === 'SCHEDULED') {
@@ -199,6 +199,12 @@ export function ArticleWorkspace({
       canonicalUrl: draft.canonicalUrl.trim() || clear,
       noindex: draft.noindex,
       readMinutes: minutes,
+      sources: filledSources.map(({ name, url, note }) => ({
+        name: name.trim(),
+        url: url.trim(),
+        ...(note?.trim() ? { note: note.trim() } : {}),
+      })),
+      keyPoints: filledKeyPoints,
     };
     try {
       const result = await onSave(payload);
@@ -224,7 +230,7 @@ export function ArticleWorkspace({
     } finally {
       setSaving(false);
     }
-  }, [draft, saved, saving, problems, mode, minutes, onSave, onSaved]);
+  }, [draft, saved, saving, problems, mode, minutes, filledSources, onSave, onSaved]);
 
   // Ctrl/Cmd+S saves with the chosen status.
   const saveRef = useRef(save);
@@ -330,25 +336,17 @@ export function ArticleWorkspace({
             </div>
 
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
-              <label htmlFor="ws-body" className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
-                Article body
-              </label>
-              <ContentToolbar textareaRef={contentRef} value={draft.content} onChange={content => set({ content })} />
-              <textarea
-                id="ws-body"
-                ref={contentRef}
-                rows={18}
-                value={draft.content}
-                onChange={e => set({ content: e.target.value })}
-                placeholder="Write the article. Use the toolbar for headings, emphasis, lists and links."
-                aria-invalid={showErrors && isBodyEmpty(draft.content)}
-                className="w-full resize-y bg-gray-50 dark:bg-[#202225] border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-3 font-mono text-sm leading-relaxed text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              />
+              <p className="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Article body</p>
+              <ArticleBodyEditor value={draft.content} onChange={content => set({ content })} />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 Aim for clear paragraphs, useful subheadings and properly attributed sources.
               </p>
             </div>
           </section>
+
+          <KeyPointsPanel points={draft.keyPoints} onChange={keyPoints => set({ keyPoints })} />
+
+          <SourcesPanel sources={draft.sources} onChange={sources => set({ sources })} />
 
           <SeoPanel
             title={draft.title}
@@ -416,6 +414,7 @@ export function ArticleWorkspace({
         author={authorName}
         readMinutes={minutes}
         image={draft.featuredImage}
+        keyPoints={filledKeyPoints}
       />
     </div>
   );

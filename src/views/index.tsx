@@ -173,6 +173,7 @@ export function ArticleView({ category, article }: { category: string; article: 
       tags={article.tags}
       images={images}
       visuals={article.visuals}
+      keyPoints={article.keyPoints}
       onNavigate={useAppNavigate()}
     />
   );
