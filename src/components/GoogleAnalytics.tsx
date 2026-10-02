@@ -1,15 +1,17 @@
-import Script from 'next/script';
 import { analyticsConfig } from '@/config/analytics';
 
 /**
  * The Google tag (gtag.js) for GA4.
  *
- * Google's install instructions say to paste this immediately after `<head>`.
- * In the App Router the equivalent is `next/script` with `afterInteractive`:
- * Next injects it into the document itself, and it runs on every page view
- * without blocking first paint. Putting raw `<script>` tags in `<head>` would
- * load gtag.js twice on client-side navigation, which is exactly the "don't
- * add more than one Google tag to each page" case Google warns about.
+ * Rendered inside the root layout's `<head>` as plain `<script>` tags, matching
+ * the snippet Google's install instructions give. That puts the tag in the
+ * server-rendered HTML, which is where Search Console's "Google Analytics"
+ * ownership check looks for it — `next/script` with `afterInteractive` only
+ * emits a preload hint there and injects the real tag after hydration.
+ *
+ * The root layout is never re-rendered on client-side navigation, so the tag
+ * is loaded once per visit rather than once per route. Do not render this
+ * anywhere else: Google warns against more than one Google tag per page.
  *
  * `send_page_view` is left on. This is a multi-page App Router site where each
  * route is a real navigation, and GA4's enhanced measurement picks up
@@ -22,19 +24,23 @@ export function GoogleAnalytics() {
 
   return (
     <>
-      <Script
-        id="gtag-js"
-        strategy="afterInteractive"
+      <script
+        async
         src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
       />
-      <Script id="gtag-init" strategy="afterInteractive">
-        {`
+      <script
+        id="gtag-init"
+        // The ID comes from deploy config, not user input; JSON.stringify
+        // still quotes and escapes it as a JS string literal.
+        dangerouslySetInnerHTML={{
+          __html: `
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
-          gtag('config', '${measurementId}');
-        `}
-      </Script>
+          gtag('config', ${JSON.stringify(measurementId)});
+        `,
+        }}
+      />
     </>
   );
 }

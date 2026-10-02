@@ -114,6 +114,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <GoogleAnalytics />
         <script
           type="application/ld+json"
           // Generated from static config, so there is no user input to escape.
@@ -125,7 +126,6 @@ export default function RootLayout({
           <SiteShell>{children}</SiteShell>
           <Toaster position="bottom-right" />
         </Providers>
-        <GoogleAnalytics />
         <AdSenseScripts />
       </body>
     </html>
