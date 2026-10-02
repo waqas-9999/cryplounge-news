@@ -54,6 +54,10 @@ export const metadata: Metadata = {
       'max-video-preview': -1,
     },
   },
+  // Google Search Console ownership verification.
+  verification: {
+    google: 'kOfdZ82FxIrFLbUv1vJEbSTTAD4m9cf9agZ9j_iufV0',
+  },
   // AdSense reads this during site verification.
   ...(adsenseConfig.publisherId
     ? { other: { 'google-adsense-account': adsenseConfig.publisherId } }
