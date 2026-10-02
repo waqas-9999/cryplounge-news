@@ -691,12 +691,40 @@ export function buildSnapshot(input: {
   const nextCycleRaw = lifecycle?.type === 'NEWSROOM_SLEEPING' ? meta(lifecycle).nextCycleAt : null;
   const nextCycleAt = typeof nextCycleRaw === 'string' ? nextCycleRaw : null;
 
+  /*
+   * State, from the newest evidence rather than the newest lifecycle event.
+   *
+   * The loop announces when it goes to sleep (`NEWSROOM_SLEEPING`), but not
+   * when it wakes: the next cycle simply starts emitting discovery, research
+   * and writing events. So the sleep event stays the latest lifecycle event
+   * for the whole of the following cycle, and this used to read it first —
+   * once a long cycle ran ten minutes past the `nextCycleAt` it had promised,
+   * the dashboard said "No signal" while those very events were arriving.
+   *
+   * Precedence:
+   *   1. Activity newer than the sleep event, and recent → CYCLING. The sleep
+   *      event itself never counts as activity, so going to sleep cannot make
+   *      the newsroom look busy.
+   *   2. Otherwise a sleep event with a wake time → SLEEPING until ten minutes
+   *      past it, then SILENT. Unchanged.
+   *   3. Otherwise any recent event → CYCLING. Unchanged.
+   */
+  const sleeping = lifecycle?.type === 'NEWSROOM_SLEEPING' ? lifecycle : null;
+  const isRecent = (row: { occurredAt: Date }) => now.getTime() - row.occurredAt.getTime() < 15 * 60_000;
+  const activityAfterSleep = sleeping
+    ? ([...events]
+        .reverse()
+        .find(row => row.type !== 'NEWSROOM_SLEEPING' && row.occurredAt.getTime() > sleeping.occurredAt.getTime()) ?? null)
+    : null;
+
   let state: NewsroomState = 'SILENT';
-  if (lifecycle?.type === 'NEWSROOM_SLEEPING' && nextCycleAt) {
+  if (activityAfterSleep && isRecent(activityAfterSleep)) {
+    state = 'CYCLING';
+  } else if (sleeping && nextCycleAt) {
     // Sleeping is only believable until a while after it said it would wake.
     const overdue = now.getTime() - new Date(nextCycleAt).getTime();
     state = overdue < 10 * 60_000 ? 'SLEEPING' : 'SILENT';
-  } else if (lastEvent && now.getTime() - lastEvent.occurredAt.getTime() < 15 * 60_000) {
+  } else if (lastEvent && isRecent(lastEvent)) {
     state = 'CYCLING';
   }
 

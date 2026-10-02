@@ -310,3 +310,83 @@ describe('activity', () => {
     expect(done.cycle.lastCompletedAt).not.toBeNull();
   });
 });
+
+/* ------------------------------------------------ state precedence -- */
+
+/**
+ * Which evidence decides the newsroom state.
+ *
+ * The production mismatch: the loop says when it goes to sleep, never when it
+ * wakes — the next cycle just starts emitting discovery and research events.
+ * So `NEWSROOM_SLEEPING` stayed the latest lifecycle event through the whole
+ * next cycle, and once that cycle ran ten minutes past the `nextCycleAt` it had
+ * promised, the dashboard read "No signal" beside "Telemetry: Receiving".
+ *
+ * NOW is 12:00. `at(n)` is n minutes before it.
+ */
+describe('newsroom state precedence', () => {
+  const at = (minutesAgo: number) => new Date(NOW.getTime() - minutesAgo * 60_000).toISOString();
+  const sleep = (minutesAgo: number, nextCycleMinutesAgo: number) =>
+    event('NEWSROOM_SLEEPING', { clusterId: null, metadata: { nextCycleAt: at(nextCycleMinutesAgo) } }, minutesAgo);
+
+  it('reproduces the production case: an overdue sleep followed by a running cycle is CYCLING, not SILENT', () => {
+    // Slept at 11:35 promising 11:45; woke and has been working since.
+    const result = snapshot([
+      event('CYCLE_COMPLETE', { clusterId: null }, 26),
+      sleep(25, 15),
+      event('DISCOVERY_STARTED', { clusterId: null }, 15),
+      event('SOURCE_FETCHED', {}, 14),
+      event('RESEARCH_STARTED', {}, 3),
+    ]);
+    expect(result.system.state).toBe('CYCLING');
+    // Telemetry recency is reported from the same newest event.
+    expect(result.system.lastEventAt).toBe(at(3));
+  });
+
+  it('keeps a genuine sleep: no activity after it, inside the grace period', () => {
+    const result = snapshot([event('RESEARCH_STARTED', {}, 8), sleep(5, -5)]);
+    expect(result.system).toMatchObject({ state: 'SLEEPING', nextCycleAt: at(-5) });
+  });
+
+  it('still reports SLEEPING a few minutes past the promised wake time', () => {
+    expect(snapshot([sleep(12, 4)]).system.state).toBe('SLEEPING');
+  });
+
+  it('reports SILENT once a sleep is overdue and nothing has happened since', () => {
+    expect(snapshot([sleep(30, 20)]).system.state).toBe('SILENT');
+  });
+
+  it('reports SILENT when the only activity after the sleep is itself stale', () => {
+    // Woke at 11:40, emitted once, then went quiet for twenty minutes.
+    expect(snapshot([sleep(40, 30), event('DISCOVERY_STARTED', { clusterId: null }, 20)]).system.state).toBe('SILENT');
+  });
+
+  it('never counts the sleep event itself as activity', () => {
+    // Recent, but it is a sleep event and its wake time is long past.
+    expect(snapshot([sleep(2, 12)]).system.state).toBe('SILENT');
+  });
+
+  it('lets a newer sleep supersede older activity', () => {
+    // Worked, then went back to sleep: the state is the sleep, not the work.
+    expect(snapshot([event('RESEARCH_STARTED', {}, 6), sleep(1, -9)]).system.state).toBe('SLEEPING');
+  });
+
+  it('a later sleep event is the reference point, not an earlier one', () => {
+    const result = snapshot([sleep(40, 30), event('RESEARCH_STARTED', {}, 20), sleep(2, -8)]);
+    expect(result.system).toMatchObject({ state: 'SLEEPING', nextCycleAt: at(-8) });
+  });
+
+  it('keeps recent activity without any sleep event as CYCLING', () => {
+    expect(snapshot([event('RESEARCH_STARTED', {}, 4)]).system.state).toBe('CYCLING');
+  });
+
+  it('keeps the WhatsApp-run lifecycle events working as before', () => {
+    expect(snapshot([event('NEWSROOM_CYCLE_STARTED', { clusterId: null }, 2)]).system.state).toBe('CYCLING');
+    expect(snapshot([event('NEWSROOM_CYCLE_COMPLETED', { clusterId: null }, 30)]).system.state).toBe('SILENT');
+  });
+
+  it('offers a next-cycle time only while actually sleeping', () => {
+    const cycling = snapshot([sleep(25, 15), event('RESEARCH_STARTED', {}, 3)]);
+    expect(cycling.system.nextCycleAt).toBeNull();
+  });
+});
