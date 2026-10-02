@@ -19,6 +19,7 @@ import type { CreateAgentDto, UpdateAgentDto } from './dto/agent.dto';
 import type { SubmitArticleDto } from './dto/submit-article.dto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { MediaService } from '../media/media.service';
+import { cleanFaqs, cleanKeyPoints, cleanSources } from '../articles/articles.service';
 
 export interface AgentContext {
   id: string;
@@ -402,6 +403,18 @@ export class AgentsService {
         seoTitle: dto.seoTitle,
         seoDescription: dto.seoDescription,
         canonicalUrl: dto.canonicalUrl,
+        /*
+         * The structured fields, through the same cleaning as the admin save.
+         *
+         * They were missing here while CreateArticleDto accepted them, so an
+         * agent's key points, FAQs and sources passed validation and were then
+         * silently never written: every AI article reached the CMS with all
+         * three empty. This create lists its columns one by one, so a field the
+         * DTO gains has to be added here too — see agent-structured-fields.spec.
+         */
+        ...(dto.keyPoints !== undefined ? { keyPoints: cleanKeyPoints(dto.keyPoints) } : {}),
+        ...(dto.faqs !== undefined ? { faqs: cleanFaqs(dto.faqs) } : {}),
+        ...(dto.sources !== undefined ? { sources: cleanSources(dto.sources) } : {}),
         ...(dto.categoryId ? { categoryId: dto.categoryId } : {}),
         ...(dto.authorId ? { authorId: dto.authorId } : {}),
         ...(dto.featuredImageId ? { featuredImageId: dto.featuredImageId } : {}),
