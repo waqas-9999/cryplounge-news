@@ -140,6 +140,46 @@ export class HtmlSanitizerService {
     return cleaned.replace(/<p>(?:\s|&nbsp;)*<\/p>/gi, '');
   }
 
+  /**
+   * Sanitizes a standfirst: inline links and emphasis only.
+   *
+   * Far narrower than `sanitize`. A standfirst is one short run of text, so no
+   * block, media or structured-block tag is accepted, and a link may only be
+   * `https:` or site-relative. Disallowed tags are unwrapped, leaving their text.
+   */
+  static sanitizeInline(html: string): string {
+    return sanitizeHtml(html, {
+      allowedTags: ['a', 'strong', 'em'],
+      allowedAttributes: { a: ['href', 'target', 'rel'] },
+      allowedSchemes: ['https'],
+      allowProtocolRelative: false,
+      allowedSchemesAppliedToAttributes: ['href'],
+      transformTags: {
+        a: (tagName, attribs) => {
+          const next: Record<string, string> = { href: attribs.href };
+          if (attribs.target === '_blank') {
+            next.target = '_blank';
+            next.rel = /\bnofollow\b/i.test(attribs.rel ?? '') ? 'nofollow noopener noreferrer' : 'noopener noreferrer';
+          }
+          return { tagName, attribs: next };
+        },
+      },
+      exclusiveFilter: frame => frame.tag === 'a' && !frame.attribs.href,
+    }).trim();
+  }
+
+  /** The words of an HTML fragment: tags removed, entities decoded, whitespace collapsed. */
+  static plainText(html: string): string {
+    return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} })
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#(?:39|x27);/g, "'")
+      .replace(/&amp;/g, '&')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   /** Drops a colspan/rowspan that is not a small positive integer. */
   private static cellSpans(tagName: string, attribs: Record<string, string>) {
     const next: Record<string, string> = { ...attribs };

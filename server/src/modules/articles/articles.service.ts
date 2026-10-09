@@ -265,7 +265,7 @@ export class ArticlesService extends BaseCrudService {
     const article = await this.prisma.article.update({
       where: { id },
       data: {
-        ...this.scalars(dto),
+        ...this.scalars(dto, existing),
         ...(slug ? { slug } : {}),
         status,
         publishedAt,
@@ -448,7 +448,7 @@ export class ArticlesService extends BaseCrudService {
   }
 
   /** Scalar columns only — relations are handled separately. */
-  private scalars(dto: CreateArticleDto | UpdateArticleDto) {
+  private scalars(dto: CreateArticleDto | UpdateArticleDto, current?: { summary: string }) {
     return {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.summary !== undefined ? { summary: dto.summary } : {}),
@@ -464,6 +464,7 @@ export class ArticlesService extends BaseCrudService {
       ...(dto.sources !== undefined ? { sources: cleanSources(dto.sources) } : {}),
       ...(dto.keyPoints !== undefined ? { keyPoints: cleanKeyPoints(dto.keyPoints) } : {}),
       ...(dto.faqs !== undefined ? { faqs: cleanFaqs(dto.faqs) } : {}),
+      ...summaryHtmlColumn(dto, current),
     };
   }
 
@@ -492,6 +493,35 @@ export function cleanKeyPoints(points: string[]) {
     .map(point => point.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[<>]/g, '').trim())
     .filter(Boolean)
     .slice(0, 8);
+}
+
+/**
+ * The standfirst's linked form, kept only while it is the same words as the
+ * plain-text `summary`.
+ *
+ * `summary` is what cards, RSS and metadata show, so the HTML is a rendering of
+ * it, never a second text. It is sanitized to inline links and emphasis, and
+ * dropped (stored as null) when it has no link left or its words differ from the
+ * summary it would be shown beside. Changing `summary` without sending a matching
+ * `summaryHtml` therefore clears a stale one rather than showing outdated words.
+ * Returns nothing when neither field is part of the write.
+ */
+export function cleanSummaryHtml(html: string, summary: string): string | null {
+  const clean = HtmlSanitizerService.sanitizeInline(html);
+  if (!/<a\s/i.test(clean)) return null;
+  return HtmlSanitizerService.plainText(clean) === summary.replace(/\s+/g, ' ').trim() ? clean : null;
+}
+
+export function summaryHtmlColumn(
+  dto: { summary?: string; summaryHtml?: string },
+  current?: { summary: string }
+): { summaryHtml?: string | null } {
+  const summary = dto.summary ?? current?.summary;
+  if (dto.summaryHtml !== undefined) {
+    return { summaryHtml: summary === undefined ? null : cleanSummaryHtml(dto.summaryHtml, summary) };
+  }
+  if (dto.summary !== undefined && current && dto.summary !== current.summary) return { summaryHtml: null };
+  return {};
 }
 
 /**

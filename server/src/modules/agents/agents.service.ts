@@ -19,7 +19,7 @@ import type { CreateAgentDto, UpdateAgentDto } from './dto/agent.dto';
 import type { SubmitArticleDto } from './dto/submit-article.dto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { MediaService } from '../media/media.service';
-import { cleanFaqs, cleanKeyPoints, cleanSources } from '../articles/articles.service';
+import { cleanFaqs, cleanKeyPoints, cleanSources, summaryHtmlColumn } from '../articles/articles.service';
 
 export interface AgentContext {
   id: string;
@@ -415,6 +415,7 @@ export class AgentsService {
         ...(dto.keyPoints !== undefined ? { keyPoints: cleanKeyPoints(dto.keyPoints) } : {}),
         ...(dto.faqs !== undefined ? { faqs: cleanFaqs(dto.faqs) } : {}),
         ...(dto.sources !== undefined ? { sources: cleanSources(dto.sources) } : {}),
+        ...summaryHtmlColumn(dto),
         ...(dto.categoryId ? { categoryId: dto.categoryId } : {}),
         ...(dto.authorId ? { authorId: dto.authorId } : {}),
         ...(dto.featuredImageId ? { featuredImageId: dto.featuredImageId } : {}),

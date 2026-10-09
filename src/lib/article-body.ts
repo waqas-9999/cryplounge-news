@@ -165,3 +165,33 @@ export function renderArticleBody(html: string): string {
   container.appendChild(fragment);
   return container.innerHTML;
 }
+
+/* ------------------------------------------------------------ standfirst --- */
+
+const SUMMARY_CONFIG = {
+  ALLOWED_TAGS: ['a', 'strong', 'em'],
+  ALLOWED_ATTR: ['href', 'target', 'rel'],
+  // https and site-relative only; no mailto/tel/http in a standfirst.
+  ALLOWED_URI_REGEXP: /^(?:https:|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  ALLOW_DATA_ATTR: false,
+};
+
+/**
+ * The linked standfirst as the public page shows it.
+ *
+ * `summaryHtml` is a rendering of the plain-text `summary`, so this accepts far
+ * less than the article body: links and emphasis, nothing else. The backend
+ * already sanitized it on save; this is the second pass for anything written
+ * directly to the database. External (`_blank`) links are the researched source
+ * links, so they are marked `nofollow` as well as `noopener noreferrer`.
+ */
+export function renderSummaryHtml(html: string): string {
+  installHooks();
+  const fragment = DOMPurify.sanitize(html, { ...SUMMARY_CONFIG, RETURN_DOM_FRAGMENT: true });
+  for (const link of Array.from(fragment.querySelectorAll('a'))) {
+    if (link.getAttribute('target') === '_blank') link.setAttribute('rel', 'nofollow noopener noreferrer');
+  }
+  const container = fragment.ownerDocument.createElement('div');
+  container.appendChild(fragment);
+  return container.innerHTML;
+}

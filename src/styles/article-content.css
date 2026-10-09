@@ -176,3 +176,24 @@
 @media (prefers-reduced-motion: reduce) {
   .cl-prose :where(details[data-type='faq-item'] > summary)::after { transition: none; }
 }
+
+/* ---------------------------------------------------------- standfirst --- */
+
+.cl-standfirst {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: rgb(75 85 99);
+}
+.dark .cl-standfirst { color: #c5c5ca; }
+@media (min-width: 768px) {
+  .cl-standfirst { font-size: 1.25rem; }
+}
+.cl-standfirst a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: #efb81a;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.cl-standfirst a:hover { color: #8a6100; }
+.dark .cl-standfirst a:hover { color: #efb81a; }

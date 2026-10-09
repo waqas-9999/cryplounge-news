@@ -10,6 +10,7 @@ import DOMPurify from 'dompurify';
 import { ArticleBody } from '@/components/article/ArticleBody';
 import { ArticleKeyPoints } from '@/components/article/ArticleKeyPoints';
 import { ArticleFaqs } from '@/components/article/ArticleFaqs';
+import { ArticleStandfirst } from '@/components/article/ArticleStandfirst';
 import type { ArticleFaq } from '@/types/article';
 import { siteConfig } from '@/config/site';
 import { excerpt } from '@/lib/text';
@@ -60,6 +61,8 @@ interface ArticleDetailPageProps {
   keyPoints?: string[];
   /** FAQs, shown after the body. Empty for older articles. */
   faqs?: ArticleFaq[];
+  /** Standfirst with contextual links. Absent for older articles. */
+  summaryHtml?: string;
 }
 
 export function ArticleDetailPage({
@@ -70,6 +73,7 @@ export function ArticleDetailPage({
   articleContent = "",
   keyPoints = [],
   faqs = [],
+  summaryHtml,
   articleImage,
   publishedTime,
   updatedTime,
@@ -372,6 +376,8 @@ export function ArticleDetailPage({
               <h1 className="text-gray-800 dark:text-[#F3F3F5] text-2xl md:text-4xl lg:text-5xl leading-tight">
                 {articleTitle}
               </h1>
+
+              <ArticleStandfirst html={summaryHtml} />
 
               <div className="flex flex-wrap gap-2" role="list" aria-label="Article tags">
                 {tags.map((tag, idx) => (

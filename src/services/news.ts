@@ -61,6 +61,8 @@ interface BackendArticle {
   keyPoints?: unknown;
   /** Structured FAQs. Older articles return an empty list. */
   faqs?: unknown;
+  /** Linked standfirst (sanitized inline HTML). Null or absent for older articles. */
+  summaryHtml?: string | null;
 }
 
 interface BackendArticleVisual {
@@ -140,6 +142,7 @@ function toArticle(a: BackendArticle): Article {
     noindex: a.noindex,
     keyPoints: toKeyPoints(a.keyPoints),
     faqs: toFaqs(a.faqs),
+    summaryHtml: typeof a.summaryHtml === 'string' && a.summaryHtml.trim() ? a.summaryHtml : undefined,
     // `sources` deliberately not mapped: editorial-only in CrypLounge. Public
     // endpoints omit the field and the public page never shows it.
   };

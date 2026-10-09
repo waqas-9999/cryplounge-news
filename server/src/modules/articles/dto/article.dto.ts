@@ -239,6 +239,17 @@ export class CreateArticleDto {
   @ValidateNested({ each: true })
   @Type(() => ArticleFaqDto)
   faqs?: ArticleFaqDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'The summary with contextual links: inline <a>, <strong>, <em> only, https or site-relative hrefs. ' +
+      'Sanitized on save and kept only while its text equals `summary`; `summary` stays plain text.',
+    maxLength: 4000,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  summaryHtml?: string;
 }
 
 export class UpdateArticleDto extends PartialType(CreateArticleDto) {}

@@ -112,6 +112,13 @@ export interface Article {
    */
   faqs?: ArticleFaq[];
 
+  /**
+   * The standfirst with contextual links: sanitized inline HTML with the same
+   * words as `summary`, which stays plain text for cards, RSS and metadata.
+   * Absent for older articles, which render without it.
+   */
+  summaryHtml?: string;
+
   /** AI-assigned editorial quality score (0-100), set by the review pipeline. */
   qualityScore?: number;
 }

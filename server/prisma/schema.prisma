@@ -157,6 +157,12 @@ model Article {
   /// its own rather than markup in `content`, so the FAQ is edited as a list
   /// and never duplicated inside the article narrative.
   faqs             Json             @default("[]")
+  /// The standfirst with contextual links: inline `<a>`, `<strong>`, `<em>` only,
+  /// sanitized on save and again on render. Always the same words as `summary`,
+  /// which stays the plain-text standfirst used by cards, RSS, metadata and
+  /// JSON-LD. Null for articles written before this existed, and whenever the
+  /// text no longer matches `summary`.
+  summaryHtml      String?          @db.Text
   /// Soft delete. Rows are hidden from every query rather than removed,
   /// so an accidental delete is recoverable and inbound links do not break.
   deletedAt        DateTime?
