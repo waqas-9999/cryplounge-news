@@ -35,7 +35,7 @@ export async function GET(): Promise<Response> {
     const timestamp = Date.parse(article.publishedAt);
     if (!Number.isFinite(timestamp) || timestamp < cutoff || timestamp > now) return [];
 
-    const loc = article.canonicalUrl?.trim() || `${origin}${articleHref(article)}`;
+    const loc = `${origin}${articleHref(article)}`;
     try {
       const parsed = new URL(loc);
       const site = new URL(origin);
