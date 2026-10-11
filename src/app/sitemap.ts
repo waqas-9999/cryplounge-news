@@ -14,10 +14,9 @@ import { listPages } from '@/services/pages';
  * appear without a deploy. Every URL is absolute against `siteConfig.url`, so
  * the sitemap can never advertise the Vercel preview host.
  *
- * Revalidated hourly — frequent enough for a news site, cheap enough that a
- * crawler cannot make it hammer the API.
+ * Generated on demand so newly published content can appear on the next request.
  */
-export const revalidate = 3600;
+export const revalidate = 0;
 
 /**
  * The API caps `perPage` at 100 (`PaginationQueryDto`), so every content type

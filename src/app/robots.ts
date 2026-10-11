@@ -25,7 +25,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'Mediapartners-Google', allow: '/' },
       { userAgent: 'AdsBot-Google', allow: '/' },
     ],
-    sitemap: `${siteConfig.url}/sitemap.xml`,
+    sitemap: [`${siteConfig.url}/sitemap.xml`, `${siteConfig.url}/news-sitemap.xml`],
     host: siteConfig.url,
   };
 }
