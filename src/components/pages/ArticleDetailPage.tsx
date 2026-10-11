@@ -6,7 +6,7 @@ import { ArticleVisuals } from '@/components/ArticleVisualRenderer';
 import type { ArticleVisual } from '@/types/article';
 import { useState, useEffect, useRef } from 'react';
 import { trackEvent, recordContentView, trackReadingDepth, trackShare, trackBookmark } from '@/utils/analytics';
-import DOMPurify from 'dompurify';
+import DOMPurify from 'isomorphic-dompurify';
 import { ArticleBody } from '@/components/article/ArticleBody';
 import { ArticleKeyPoints } from '@/components/article/ArticleKeyPoints';
 import { ArticleFaqs } from '@/components/article/ArticleFaqs';
