@@ -19,7 +19,7 @@ type Params = { params: Promise<{ category: string; slug: string }> };
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { category, slug } = await params;
   const article = await getArticleBySlug(slug);
-  if (!article || article.categorySlug !== category) return {};
+  if (!article || article.categorySlug !== category) notFound();
 
   const title = article.seoTitle || article.title;
   const description =
